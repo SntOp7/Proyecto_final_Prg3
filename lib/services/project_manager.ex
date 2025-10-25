@@ -6,7 +6,7 @@ defmodule ProyectoFinalPrg3.Services.ProjectService do
 
   Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
   Fecha de creación: 2025-10-26
-  Fecha de última modificación:
+  Fecha de última modificación: 2025-10-25
   Licencia: GNU GPLv3
   """
 
@@ -140,6 +140,22 @@ defmodule ProyectoFinalPrg3.Services.ProjectService do
     end
   end
 
+  @doc """
+  Lista los proyectos asociados a un mentor específico.
+  """
+  def listar_por_mentor(mentor_id) do
+    ProjectStore.listar_proyectos()
+    |> Enum.filter(&(&1.mentor_id == mentor_id))
+  end
+
+  @doc """
+  Lista los proyectos vinculados a un equipo específico.
+  """
+  def listar_por_equipo(equipo_id) do
+    ProjectStore.listar_proyectos()
+    |> Enum.filter(&(&1.equipo_id == equipo_id))
+  end
+
   # ============================================================
   # FUNCIONES DE AVANCES Y RETROALIMENTACIÓN
   # ============================================================
@@ -215,14 +231,61 @@ defmodule ProyectoFinalPrg3.Services.ProjectService do
   end
 
   @doc """
-  Actualiza el estado general del proyecto (en_desarrollo, pausado, completado).
+  Actualiza el estado general del proyecto (`:en_desarrollo`, `:pausado`, `:completado`).
   """
   def actualizar_estado(nombre, nuevo_estado) do
     with {:ok, proyecto} <- obtener_proyecto(nombre) do
-      proyecto_actualizado = %{proyecto | estado: nuevo_estado, fecha_actualizacion: DateTime.utc_now()}
+      proyecto_actualizado = %{
+        proyecto
+        | estado: nuevo_estado,
+          fecha_actualizacion: DateTime.utc_now()
+      }
+
       ProjectStore.guardar_proyecto(proyecto_actualizado)
       BroadcastService.notificar(:estado_proyecto_actualizado, proyecto_actualizado)
       {:ok, proyecto_actualizado}
+    else
+      {:error, razon} -> {:error, razon}
+    end
+  end
+
+  @doc """
+  Actualiza la URL del repositorio asociado al proyecto.
+  """
+  def actualizar_repositorio_url(nombre, url) do
+    with {:ok, proyecto} <- obtener_proyecto(nombre) do
+      actualizado = %{proyecto | repositorio_url: url, fecha_actualizacion: DateTime.utc_now()}
+      ProjectStore.guardar_proyecto(actualizado)
+      BroadcastService.notificar(:repositorio_actualizado, actualizado)
+      {:ok, actualizado}
+    else
+      {:error, razon} -> {:error, razon}
+    end
+  end
+
+  @doc """
+  Asigna o actualiza el mentor responsable de un proyecto.
+  """
+  def asignar_mentor(nombre, nuevo_mentor_id) do
+    with {:ok, proyecto} <- obtener_proyecto(nombre) do
+      actualizado = %{proyecto | mentor_id: nuevo_mentor_id, fecha_actualizacion: DateTime.utc_now()}
+      ProjectStore.guardar_proyecto(actualizado)
+      BroadcastService.notificar(:mentor_asignado, actualizado)
+      {:ok, actualizado}
+    else
+      {:error, razon} -> {:error, razon}
+    end
+  end
+
+  @doc """
+  Asigna o actualiza el puntaje obtenido por el proyecto (por jurados o mentores).
+  """
+  def actualizar_puntaje(nombre, nuevo_puntaje) do
+    with {:ok, proyecto} <- obtener_proyecto(nombre) do
+      actualizado = %{proyecto | puntaje: nuevo_puntaje, fecha_actualizacion: DateTime.utc_now()}
+      ProjectStore.guardar_proyecto(actualizado)
+      BroadcastService.notificar(:puntaje_actualizado, actualizado)
+      {:ok, actualizado}
     else
       {:error, razon} -> {:error, razon}
     end
