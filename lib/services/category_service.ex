@@ -11,7 +11,7 @@ defmodule ProyectoFinalPrg3.Services.CategoryService do
   """
 
   alias ProyectoFinalPrg3.Domain.Category
-  alias ProyectoFinalPrg3.Adapters.Persistence.CategoryStore
+  alias ProyectoFinalPrg3.Adapters.Persistence.Repository.CategoryStore
   alias ProyectoFinalPrg3.Services.BroadcastService
 
   # ============================================================
