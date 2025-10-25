@@ -1,4 +1,4 @@
-defmodule ProyectoFinalPrg3.Services.ProjectService do
+defmodule ProyectoFinalPrg3.Services.ProjectManager do
   @moduledoc """
   Define la lógica de negocio relacionada con la gestión de proyectos dentro del sistema de hackathon.
   Permite crear, actualizar, listar y eliminar proyectos, así como administrar sus avances,
@@ -6,13 +6,13 @@ defmodule ProyectoFinalPrg3.Services.ProjectService do
 
   Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
   Fecha de creación: 2025-10-26
-  Fecha de última modificación: 2025-10-25
+  Fecha de última modificación: 2025-10-26
   Licencia: GNU GPLv3
   """
 
   alias ProyectoFinalPrg3.Domain.{Project, Team, Progress, Category}
-  alias ProyectoFinalPrg3.Adapters.Persistence.ProjectStore
-  alias ProyectoFinalPrg3.Services.{TeamService, BroadcastService, CategoryService}
+  alias ProyectoFinalPrg3.Adapters.Persistence.{ProjectStore, ProgressStore, FeedbackStore}
+  alias ProyectoFinalPrg3.Services.{TeamManager, BroadcastService, CategoryService}
 
   # ============================================================
   # FUNCIONES PRINCIPALES DE GESTIÓN DE PROYECTOS
@@ -46,11 +46,17 @@ defmodule ProyectoFinalPrg3.Services.ProjectService do
         ProjectStore.guardar_proyecto(proyecto)
         BroadcastService.notificar(:proyecto_creado, proyecto)
 
-        # Asociar al equipo si existe
-        if equipo_id, do: TeamService.vincular_proyecto(obtener_nombre_equipo(equipo_id), proyecto.id)
+        # Asociar al equipo
+        if equipo_id do
+          with {:ok, equipo} <- TeamManager.obtener_equipo_por_id(equipo_id) do
+            TeamManager.vincular_proyecto(equipo.nombre, proyecto.id)
+          end
+        end
 
         # Asociar a la categoría
-        if categoria, do: CategoryService.actualizar_categoria(categoria, %{proyectos: [proyecto.id]})
+        if categoria do
+          CategoryService.agregar_proyecto_a_categoria(categoria, proyecto.id)
+        end
 
         {:ok, proyecto}
 
@@ -64,14 +70,14 @@ defmodule ProyectoFinalPrg3.Services.ProjectService do
   """
   def actualizar_proyecto(nombre, nuevos_datos) do
     with {:ok, proyecto} <- obtener_proyecto(nombre) do
-      proyecto_actualizado =
+      actualizado =
         proyecto
         |> Map.merge(nuevos_datos)
         |> Map.put(:fecha_actualizacion, DateTime.utc_now())
 
-      ProjectStore.guardar_proyecto(proyecto_actualizado)
-      BroadcastService.notificar(:proyecto_actualizado, proyecto_actualizado)
-      {:ok, proyecto_actualizado}
+      ProjectStore.guardar_proyecto(actualizado)
+      BroadcastService.notificar(:proyecto_actualizado, actualizado)
+      {:ok, actualizado}
     else
       {:error, razon} -> {:error, razon}
     end
@@ -84,22 +90,20 @@ defmodule ProyectoFinalPrg3.Services.ProjectService do
     with {:ok, proyecto} <- obtener_proyecto(nombre) do
       ProjectStore.eliminar_proyecto(nombre)
 
-      # Eliminar referencia del equipo
+      # Desvincular del equipo
       if proyecto.equipo_id do
-        {:ok, equipo} = TeamService.obtener_equipo(obtener_nombre_equipo(proyecto.equipo_id))
-        equipo_actualizado = %{equipo | id_proyecto: nil}
-        TeamService.actualizar_equipo(equipo_actualizado)
+        with {:ok, equipo} <- TeamManager.obtener_equipo_por_id(proyecto.equipo_id) do
+          TeamManager.vincular_proyecto(equipo.nombre, nil)
+        end
       end
 
-      # Eliminar referencia de la categoría
+      # Eliminar referencia en la categoría
       if proyecto.categoria do
-        {:ok, categoria} = CategoryService.obtener_categoria(proyecto.categoria)
-        nueva_lista = Enum.reject(categoria.proyectos, &(&1 == proyecto.id))
-        CategoryService.actualizar_categoria(proyecto.categoria, %{proyectos: nueva_lista})
+        CategoryService.eliminar_proyecto_de_categoria(proyecto.categoria, proyecto.id)
       end
 
       BroadcastService.notificar(:proyecto_eliminado, proyecto)
-      :ok
+      {:ok, :proyecto_eliminado}
     else
       {:error, razon} -> {:error, razon}
     end
@@ -127,7 +131,17 @@ defmodule ProyectoFinalPrg3.Services.ProjectService do
   end
 
   @doc """
-  Filtra los proyectos registrados según su categoría, estado o visibilidad.
+  Obtiene un proyecto a partir de su ID.
+  """
+  def obtener_proyecto_por_id(id) do
+    case ProjectStore.obtener_por_id(id) do
+      nil -> {:error, :no_encontrado}
+      proyecto -> {:ok, proyecto}
+    end
+  end
+
+  @doc """
+  Filtra los proyectos según su categoría, estado o visibilidad.
   """
   def filtrar_proyectos(filtro, valor) do
     proyectos = ProjectStore.listar_proyectos()
@@ -161,7 +175,7 @@ defmodule ProyectoFinalPrg3.Services.ProjectService do
   # ============================================================
 
   @doc """
-  Registra un nuevo avance para un proyecto, asociado a su equipo o autor correspondiente.
+  Registra un nuevo avance para un proyecto y lo persiste tanto en ProjectStore como en ProgressStore.
   """
   def registrar_avance(nombre_proyecto, avance = %Progress{}) do
     with {:ok, proyecto} <- obtener_proyecto(nombre_proyecto) do
@@ -171,6 +185,7 @@ defmodule ProyectoFinalPrg3.Services.ProjectService do
           fecha_actualizacion: DateTime.utc_now()
       }
 
+      ProgressStore.guardar_avance(avance)
       ProjectStore.guardar_proyecto(proyecto_actualizado)
       BroadcastService.notificar(:avance_registrado, proyecto_actualizado)
       {:ok, proyecto_actualizado}
@@ -180,7 +195,7 @@ defmodule ProyectoFinalPrg3.Services.ProjectService do
   end
 
   @doc """
-  Registra una nueva retroalimentación (comentario o evaluación) dentro de un proyecto.
+  Registra una nueva retroalimentación dentro de un proyecto y la guarda en FeedbackStore.
   """
   def registrar_retroalimentacion(nombre_proyecto, feedback) do
     with {:ok, proyecto} <- obtener_proyecto(nombre_proyecto) do
@@ -190,6 +205,7 @@ defmodule ProyectoFinalPrg3.Services.ProjectService do
           fecha_actualizacion: DateTime.utc_now()
       }
 
+      FeedbackStore.guardar_feedback(feedback)
       ProjectStore.guardar_proyecto(proyecto_actualizado)
       BroadcastService.notificar(:retroalimentacion_registrada, proyecto_actualizado)
       {:ok, proyecto_actualizado}
@@ -203,54 +219,54 @@ defmodule ProyectoFinalPrg3.Services.ProjectService do
   # ============================================================
 
   @doc """
-  Actualiza la visibilidad del proyecto (`:publico` o `:privado`).
+  Actualiza la visibilidad del proyecto (:publico o :privado).
   """
   def actualizar_visibilidad(nombre, nueva_visibilidad) do
     with {:ok, proyecto} <- obtener_proyecto(nombre) do
-      proyecto_actualizado = %{proyecto | visibilidad: nueva_visibilidad}
-      ProjectStore.guardar_proyecto(proyecto_actualizado)
-      BroadcastService.notificar(:visibilidad_actualizada, proyecto_actualizado)
-      {:ok, proyecto_actualizado}
+      actualizado = %{proyecto | visibilidad: nueva_visibilidad}
+      ProjectStore.guardar_proyecto(actualizado)
+      BroadcastService.notificar(:visibilidad_actualizada, actualizado)
+      {:ok, actualizado}
     else
       {:error, razon} -> {:error, razon}
     end
   end
 
   @doc """
-  Asigna etiquetas o palabras clave a un proyecto.
+  Actualiza las etiquetas o palabras clave de un proyecto.
   """
   def actualizar_tags(nombre, nuevas_tags) do
     with {:ok, proyecto} <- obtener_proyecto(nombre) do
-      proyecto_actualizado = %{proyecto | tags: nuevas_tags}
-      ProjectStore.guardar_proyecto(proyecto_actualizado)
-      BroadcastService.notificar(:tags_actualizados, proyecto_actualizado)
-      {:ok, proyecto_actualizado}
+      actualizado = %{proyecto | tags: nuevas_tags}
+      ProjectStore.guardar_proyecto(actualizado)
+      BroadcastService.notificar(:tags_actualizados, actualizado)
+      {:ok, actualizado}
     else
       {:error, razon} -> {:error, razon}
     end
   end
 
   @doc """
-  Actualiza el estado general del proyecto (`:en_desarrollo`, `:pausado`, `:completado`).
+  Actualiza el estado del proyecto (:en_desarrollo, :pausado, :completado).
   """
   def actualizar_estado(nombre, nuevo_estado) do
     with {:ok, proyecto} <- obtener_proyecto(nombre) do
-      proyecto_actualizado = %{
+      actualizado = %{
         proyecto
         | estado: nuevo_estado,
           fecha_actualizacion: DateTime.utc_now()
       }
 
-      ProjectStore.guardar_proyecto(proyecto_actualizado)
-      BroadcastService.notificar(:estado_proyecto_actualizado, proyecto_actualizado)
-      {:ok, proyecto_actualizado}
+      ProjectStore.guardar_proyecto(actualizado)
+      BroadcastService.notificar(:estado_actualizado, actualizado)
+      {:ok, actualizado}
     else
       {:error, razon} -> {:error, razon}
     end
   end
 
   @doc """
-  Actualiza la URL del repositorio asociado al proyecto.
+  Actualiza la URL del repositorio del proyecto.
   """
   def actualizar_repositorio_url(nombre, url) do
     with {:ok, proyecto} <- obtener_proyecto(nombre) do
@@ -278,7 +294,7 @@ defmodule ProyectoFinalPrg3.Services.ProjectService do
   end
 
   @doc """
-  Asigna o actualiza el puntaje obtenido por el proyecto (por jurados o mentores).
+  Actualiza el puntaje obtenido por el proyecto.
   """
   def actualizar_puntaje(nombre, nuevo_puntaje) do
     with {:ok, proyecto} <- obtener_proyecto(nombre) do
@@ -288,18 +304,6 @@ defmodule ProyectoFinalPrg3.Services.ProjectService do
       {:ok, actualizado}
     else
       {:error, razon} -> {:error, razon}
-    end
-  end
-
-  # ============================================================
-  # FUNCIONES AUXILIARES
-  # ============================================================
-
-  @doc false
-  defp obtener_nombre_equipo(id_equipo) do
-    case TeamService.listar_equipos() |> Enum.find(&(&1.id == id_equipo)) do
-      nil -> nil
-      equipo -> equipo.nombre
     end
   end
 end
