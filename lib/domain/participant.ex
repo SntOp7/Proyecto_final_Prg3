@@ -1,4 +1,4 @@
-defmodule Proyecto_final_prg3.Domain.Participante do
+defmodule Proyecto_final_Prg3.Domain.Participant do
   defstruct [:id, :nombre, :correo]
 
   def nuevo(id, nombre, correo) do

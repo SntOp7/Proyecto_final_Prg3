@@ -1,4 +1,4 @@
-defmodule Proyecto_final_prg3.Domain.Equipo do
+defmodule Proyecto_final_Prg3.Domain.Team do
 
 
   defstruct [:id, :nombre, :descripcion, :categoria, :id_proyecto, :id_mentor, :participantes,

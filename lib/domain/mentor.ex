@@ -1,4 +1,4 @@
-defmodule Proyecto_final_prg3.Domain.Mentor do
+defmodule Proyecto_final_Prg3.Domain.Mentor do
   @moduledoc """
   Define la estructura y comportamiento del **mentor** dentro del dominio del proyecto.
   Un **Mentor** representa una figura de apoyo técnico o metodológico en el sistema de hackathon,
