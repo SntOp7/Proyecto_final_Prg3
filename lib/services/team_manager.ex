@@ -1,12 +1,14 @@
 defmodule ProyectoFinalPrg3.Services.TeamManager do
   @moduledoc """
-  Define la lógica y las operaciones asociadas a la gestión de equipos dentro del sistema de hackathon.
-  Permite crear, listar, actualizar y eliminar equipos, así como administrar participantes,
-  mentores, proyectos asociados, canales de comunicación, historial de eventos y puntajes de evaluación.
+  Define la lógica de negocio y operaciones asociadas a la gestión de equipos dentro del sistema de hackathon.
+  Gestiona la creación, actualización, listado, vinculación de proyectos, asignación de mentores,
+  manejo de participantes, historial y canales de comunicación.
+
+  Este módulo forma parte de la capa de servicios de la arquitectura hexagonal.
 
   Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
   Fecha de creación: 2025-10-25
-  Fecha de última modificación: 2025-10-25
+  Fecha de última modificación: 2025-10-26
   Licencia: GNU GPLv3
   """
 
@@ -19,8 +21,8 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
   # ============================================================
 
   @doc """
-  Crea un nuevo equipo con sus atributos principales y lo registra en el sistema.
-  Genera un identificador único, establece la fecha de creación y notifica a los servicios correspondientes.
+  Crea un nuevo equipo y lo registra en el sistema.
+  Genera un ID único, asigna la fecha de creación y notifica a los servicios asociados.
   """
   def crear_equipo(nombre, categoria, descripcion) do
     case TeamStore.obtener_equipo(nombre) do
@@ -50,7 +52,17 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
   end
 
   @doc """
-  Agrega un participante a un equipo, validando su pertenencia previa y actualizando su información.
+  Actualiza la información completa de un equipo existente.
+  """
+  def actualizar_equipo(%Team{} = equipo) do
+    TeamStore.guardar_equipo(equipo)
+    BroadcastService.notificar(:equipo_actualizado, equipo)
+    {:ok, equipo}
+  end
+
+  @doc """
+  Agrega un participante a un equipo, verificando que no exista previamente.
+  También actualiza la información del participante.
   """
   def agregar_participante(nombre_equipo, participante = %Participant{}) do
     with {:ok, equipo} <- obtener_equipo(nombre_equipo),
@@ -92,7 +104,7 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
   end
 
   @doc """
-  Remueve un participante de un equipo y actualiza la información persistida.
+  Remueve un participante de un equipo.
   """
   def remover_participante(nombre_equipo, id_participante) do
     with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
@@ -110,7 +122,7 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
   end
 
   @doc """
-  Disuelve un equipo: cambia su estado a inactivo, lo guarda y notifica a los servicios asociados.
+  Disuelve un equipo (marca su estado como inactivo y notifica el cambio).
   """
   def disolver_equipo(nombre_equipo) do
     with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
@@ -128,14 +140,12 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
   # ============================================================
 
   @doc """
-  Lista todos los equipos registrados en el sistema.
+  Lista todos los equipos registrados.
   """
-  def listar_equipos do
-    TeamStore.listar_equipos()
-  end
+  def listar_equipos, do: TeamStore.listar_equipos()
 
   @doc """
-  Obtiene los datos completos de un equipo a partir de su nombre.
+  Obtiene un equipo por su nombre.
   """
   def obtener_equipo(nombre) do
     case TeamStore.obtener_equipo(nombre) do
@@ -145,7 +155,17 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
   end
 
   @doc """
-  Filtra los equipos según una categoría o estado determinado.
+  Obtiene un equipo por su ID único.
+  """
+  def obtener_por_id(id) do
+    case TeamStore.obtener_por_id(id) do
+      nil -> {:error, :no_encontrado}
+      equipo -> {:ok, equipo}
+    end
+  end
+
+  @doc """
+  Filtra los equipos por categoría o estado.
   """
   def filtrar_equipos(filtro, valor) do
     equipos = TeamStore.listar_equipos()
@@ -158,7 +178,7 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
   end
 
   @doc """
-  Verifica si un equipo se encuentra activo.
+  Verifica si un equipo está activo.
   """
   def equipo_activo?(nombre_equipo) do
     with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
@@ -173,7 +193,7 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
   # ============================================================
 
   @doc """
-  Asigna o actualiza el mentor responsable de un equipo.
+  Asigna o actualiza el mentor de un equipo.
   """
   def asignar_mentor(nombre_equipo, id_mentor) do
     with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
@@ -187,7 +207,7 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
   end
 
   @doc """
-  Vincula un proyecto existente al equipo mediante su identificador.
+  Vincula un proyecto existente al equipo mediante su ID.
   """
   def vincular_proyecto(nombre_equipo, id_proyecto) do
     with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
@@ -205,7 +225,7 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
   # ============================================================
 
   @doc """
-  Actualiza el puntaje del equipo tras un proceso de evaluación o retroalimentación.
+  Actualiza el puntaje global del equipo tras una evaluación.
   """
   def actualizar_puntaje(nombre_equipo, nuevo_puntaje) do
     with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
@@ -227,10 +247,7 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
   """
   def registrar_evento(nombre_equipo, evento) do
     with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
-      historial_actualizado = [
-        %{timestamp: DateTime.utc_now(), detalle: evento} | equipo.historial
-      ]
-
+      historial_actualizado = [%{timestamp: DateTime.utc_now(), detalle: evento} | equipo.historial]
       equipo_actualizado = %{equipo | historial: historial_actualizado}
       TeamStore.guardar_equipo(equipo_actualizado)
       {:ok, equipo_actualizado}
@@ -240,7 +257,7 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
   end
 
   @doc """
-  Obtiene el historial de eventos o acciones asociadas a un equipo.
+  Obtiene el historial completo de eventos de un equipo.
   """
   def obtener_historial(nombre_equipo) do
     with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
@@ -251,11 +268,11 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
   end
 
   # ============================================================
-  # FUNCIONES DE COMUNICACIÓN Y CANALES
+  # FUNCIONES DE COMUNICACIÓN
   # ============================================================
 
   @doc """
-  Asigna o actualiza el canal de chat del equipo dentro del sistema de comunicación.
+  Asigna o actualiza el canal de chat del equipo.
   """
   def asignar_canal_chat(nombre_equipo, canal_id) do
     with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
@@ -269,7 +286,7 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
   end
 
   @doc """
-  Envía un mensaje o notificación a todos los miembros de un equipo.
+  Envía un mensaje de notificación a todos los miembros del equipo.
   """
   def notificar_equipo(equipo, mensaje) do
     BroadcastService.notificar(:mensaje_equipo, %{equipo: equipo.nombre, contenido: mensaje})
@@ -281,7 +298,6 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
   # ============================================================
 
   @doc false
-  defp participante_en_equipo?(equipo, id_participante) do
-    Enum.any?(equipo.participantes, fn p -> p.id == id_participante end)
-  end
+  defp participante_en_equipo?(equipo, id_participante),
+    do: Enum.any?(equipo.participantes, fn p -> p.id == id_participante end)
 end
