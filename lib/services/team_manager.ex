@@ -1,18 +1,18 @@
-defmodule ProyectoFinalPrg3.Services.TeamService do
+defmodule ProyectoFinalPrg3.Services.TeamManager do
   @moduledoc """
   Define la lógica y las operaciones asociadas a la gestión de equipos dentro del sistema de hackathon.
-  El módulo permite crear, listar, actualizar y eliminar equipos, así como administrar participantes,
+  Permite crear, listar, actualizar y eliminar equipos, así como administrar participantes,
   mentores, proyectos asociados, canales de comunicación, historial de eventos y puntajes de evaluación.
 
   Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
   Fecha de creación: 2025-10-25
-  Fecha de última modificación:
+  Fecha de última modificación: 2025-10-25
   Licencia: GNU GPLv3
   """
 
   alias ProyectoFinalPrg3.Domain.{Team, Participant}
   alias ProyectoFinalPrg3.Adapters.Persistence.TeamStore
-  alias ProyectoFinalPrg3.Services.{AuthService, BroadcastService, MatchingService}
+  alias ProyectoFinalPrg3.Services.{AuthService, BroadcastService, ParticipantManager}
 
   # ============================================================
   # FUNCIONES PRINCIPALES DE GESTIÓN DE EQUIPOS
@@ -50,17 +50,18 @@ defmodule ProyectoFinalPrg3.Services.TeamService do
   end
 
   @doc """
-  Agrega un participante a un equipo, validando su pertenencia previa.
-  Actualiza tanto el equipo como el campo `equipo_id` del participante.
+  Agrega un participante a un equipo, validando su pertenencia previa y actualizando su información.
   """
   def agregar_participante(nombre_equipo, participante = %Participant{}) do
-    with {:ok, equipo} <- TeamStore.obtener_equipo(nombre_equipo),
+    with {:ok, equipo} <- obtener_equipo(nombre_equipo),
          false <- participante_en_equipo?(equipo, participante.id) do
       participante_actualizado = %{participante | equipo_id: equipo.id}
       equipo_actualizado = %{equipo | participantes: [participante_actualizado | equipo.participantes]}
 
       TeamStore.guardar_equipo(equipo_actualizado)
+      ParticipantManager.actualizar_equipo(participante.id, equipo.id)
       BroadcastService.notificar(:equipo_actualizado, equipo_actualizado)
+
       {:ok, equipo_actualizado}
     else
       true -> {:error, :ya_en_equipo}
@@ -71,7 +72,6 @@ defmodule ProyectoFinalPrg3.Services.TeamService do
 
   @doc """
   Permite que un participante autenticado se una a un equipo existente.
-  Actualiza su campo `equipo_id` y lo agrega a la lista de `participantes`.
   """
   def unirse_a_equipo(nombre_equipo, id_participante) do
     with {:ok, usuario} <- AuthService.obtener_participante(id_participante),
@@ -81,7 +81,9 @@ defmodule ProyectoFinalPrg3.Services.TeamService do
       equipo_actualizado = %{equipo | participantes: [usuario_actualizado | equipo.participantes]}
 
       TeamStore.guardar_equipo(equipo_actualizado)
+      ParticipantManager.actualizar_equipo(usuario.id, equipo.id)
       BroadcastService.notificar(:miembro_unido, equipo_actualizado)
+
       {:ok, equipo_actualizado}
     else
       true -> {:error, :ya_es_miembro}
@@ -98,7 +100,9 @@ defmodule ProyectoFinalPrg3.Services.TeamService do
       equipo_actualizado = %{equipo | participantes: nuevos_participantes}
 
       TeamStore.guardar_equipo(equipo_actualizado)
+      ParticipantManager.actualizar_equipo(id_participante, nil)
       BroadcastService.notificar(:equipo_actualizado, equipo_actualizado)
+
       {:ok, equipo_actualizado}
     else
       {:error, razon} -> {:error, razon}
@@ -106,13 +110,14 @@ defmodule ProyectoFinalPrg3.Services.TeamService do
   end
 
   @doc """
-  Disuelve un equipo, eliminando su registro de la base de datos y notificando a los servicios asociados.
+  Disuelve un equipo: cambia su estado a inactivo, lo guarda y notifica a los servicios asociados.
   """
   def disolver_equipo(nombre_equipo) do
     with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
-      TeamStore.eliminar_equipo(nombre_equipo)
-      BroadcastService.notificar(:equipo_disuelto, equipo)
-      :ok
+      equipo_actualizado = %{equipo | estado: :inactivo}
+      TeamStore.guardar_equipo(equipo_actualizado)
+      BroadcastService.notificar(:equipo_disuelto, equipo_actualizado)
+      {:ok, :equipo_disuelto}
     else
       {:error, razon} -> {:error, razon}
     end
@@ -149,6 +154,17 @@ defmodule ProyectoFinalPrg3.Services.TeamService do
       :categoria -> Enum.filter(equipos, &(&1.categoria == valor))
       :estado -> Enum.filter(equipos, &(&1.estado == valor))
       _ -> equipos
+    end
+  end
+
+  @doc """
+  Verifica si un equipo se encuentra activo.
+  """
+  def equipo_activo?(nombre_equipo) do
+    with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
+      equipo.estado == :activo
+    else
+      _ -> false
     end
   end
 
@@ -257,7 +273,7 @@ defmodule ProyectoFinalPrg3.Services.TeamService do
   """
   def notificar_equipo(equipo, mensaje) do
     BroadcastService.notificar(:mensaje_equipo, %{equipo: equipo.nombre, contenido: mensaje})
-    :ok
+    {:ok, :mensaje_enviado}
   end
 
   # ============================================================
