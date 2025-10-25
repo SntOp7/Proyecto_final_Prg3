@@ -5,14 +5,14 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
   sobre cambios o acciones que deben ser replicadas.
 
   Este módulo actúa como capa de orquestación de eventos dentro de la arquitectura hexagonal,
-  comunicándose con los adaptadores de red (PubSub, ChannelManager) o con el sistema de logs.
+  comunicándose con los adaptadores de red (`PubSubAdapter`, `ChannelManager`) o con el sistema de logs.
 
   Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
   Fecha de creación: 2025-10-26
   Licencia: GNU GPLv3
   """
 
-  alias ProyectoFinalPrg3.Adapters.Network.{PubSubAdapter, ChannelManager}
+  alias ProyectoFinalPrg3.Adapters.Network.{PubSubAdapter, ChannelManager, NodeManager}
   alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
 
   # ============================================================
@@ -30,14 +30,15 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
       BroadcastService.notificar(:equipo_creado, %{nombre: "Innovadores"})
   """
   def notificar(evento, data) when is_atom(evento) do
-    mensaje = construir_mensaje(evento, data)
+    mensaje = construir_mensaje(:info, evento, data)
 
-    # Publicar localmente (log del sistema)
     LoggerService.registrar_evento("Notificación enviada", mensaje)
 
-    # Difundir por red si hay subscriptores activos
-    PubSubAdapter.publicar(evento, mensaje)
-    ChannelManager.broadcast(evento, mensaje)
+    safe_broadcast(fn ->
+      PubSubAdapter.publicar(evento, mensaje)
+      ChannelManager.broadcast(evento, mensaje)
+      NodeManager.enviar_a_nodos(evento, mensaje)
+    end)
 
     {:ok, mensaje}
   end
@@ -51,10 +52,20 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
     - `mensaje`: contenido o payload a enviar.
   """
   def enviar_directo(destino, mensaje) do
-    payload = %{to: destino, contenido: mensaje, timestamp: DateTime.utc_now()}
+    payload = %{
+      tipo: :directo,
+      destino: destino,
+      contenido: mensaje,
+      timestamp: DateTime.utc_now(),
+      nodo: Atom.to_string(Node.self())
+    }
 
     LoggerService.registrar_evento("Mensaje directo", payload)
-    ChannelManager.enviar(destino, payload)
+
+    safe_broadcast(fn ->
+      ChannelManager.enviar(destino, payload)
+      NodeManager.enviar_directo(destino, payload)
+    end)
 
     {:ok, payload}
   end
@@ -67,21 +78,60 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
       enviar_directo(destino, %{evento: evento, data: contenido})
     end)
 
-    LoggerService.registrar_evento("Difusión grupal", %{evento: evento, cantidad: length(lista_destinos)})
+    LoggerService.registrar_evento("Difusión grupal", %{
+      evento: evento,
+      cantidad: length(lista_destinos),
+      fecha: DateTime.utc_now()
+    })
+
     :ok
   end
 
   # ============================================================
-  # FUNCIONES AUXILIARES DE CONSTRUCCIÓN DE EVENTOS
+  # FUNCIONES DE SUSCRIPCIÓN Y CONTROL DE EVENTOS
+  # ============================================================
+
+  @doc """
+  Permite que un módulo o proceso se suscriba a eventos específicos.
+  """
+  def suscribirse(evento, pid \\ self()) when is_atom(evento) and is_pid(pid) do
+    PubSubAdapter.suscribir(evento, pid)
+    LoggerService.registrar_evento("Suscripción añadida", %{evento: evento, pid: inspect(pid)})
+    {:ok, :suscrito}
+  end
+
+  @doc """
+  Cancela una suscripción existente a un evento.
+  """
+  def cancelar_suscripcion(evento, pid \\ self()) when is_atom(evento) and is_pid(pid) do
+    PubSubAdapter.desuscribir(evento, pid)
+    LoggerService.registrar_evento("Suscripción cancelada", %{evento: evento, pid: inspect(pid)})
+    {:ok, :cancelado}
+  end
+
+  # ============================================================
+  # FUNCIONES AUXILIARES DE CONSTRUCCIÓN Y CONTROL
   # ============================================================
 
   @doc false
-  defp construir_mensaje(evento, data) do
+  defp construir_mensaje(tipo, evento, data) do
     %{
+      tipo: tipo,
       evento: evento,
       contenido: data,
       timestamp: DateTime.utc_now(),
-      nodo: Node.self() |> Atom.to_string()
+      nodo: Atom.to_string(Node.self())
     }
+  end
+
+  @doc false
+  defp safe_broadcast(fun) do
+    try do
+      fun.()
+    rescue
+      error ->
+        LoggerService.registrar_evento("Error de difusión", %{error: Exception.message(error)})
+        {:error, :fallo_difusion}
+    end
   end
 end
