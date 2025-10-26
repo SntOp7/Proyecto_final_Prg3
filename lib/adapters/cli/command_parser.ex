@@ -38,18 +38,13 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandParser do
     - `{:error, :comando_desconocido}` si no existe en el registro.
   """
   def parse(input) when is_binary(input) do
-    case String.split(String.trim(input), " ", trim: true) do
-      [] ->
-        {:error, :entrada_vacia}
-
-      [command | args] ->
-        case CommandRegistry.get(command) do
-          {:ok, _cmd_info} ->
-            {:ok, %{command: command, args: args}}
-
-          {:error, :comando_no_encontrado} ->
-            {:error, :comando_desconocido}
-        end
-    end
+  case String.split(String.trim(input), " ", trim: true) do
+    [] -> {:error, :entrada_vacia}
+    [command | args] ->
+      case CommandRegistry.get(command) do
+        {:ok, _cmd_info} -> %{command: command, args: args}
+        {:error, :comando_no_encontrado} -> {:error, :comando_desconocido}
+      end
   end
+end
 end
