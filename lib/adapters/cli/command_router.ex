@@ -42,7 +42,7 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRouter do
 
       _ ->
         with %{command: cmd, args: args} <- CommandParser.parse(input),
-             command_info when not is_nil(command_info) <- CommandRegistry.get(cmd) do
+          {:ok, command_info} <- CommandRegistry.get(cmd) do
           try do
             LoggerService.registrar_evento("Ejecución de comando", %{comando: cmd, argumentos: args})
             CommandExecutor.execute(command_info, args)
