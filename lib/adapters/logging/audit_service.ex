@@ -1,16 +1,22 @@
 defmodule ProyectoFinalPrg3.Adapters.Logging.AuditService do
   @moduledoc """
-  Servicio de auditoría del sistema de hackathon.
-  Permite consultar, filtrar y exportar los registros generados por `LoggerService`.
+  Servicio de **auditoría** que permite consultar y exportar los registros generados por `LoggerService`.
 
-  Este módulo es parte de la capa de adaptadores (`adapters/logging`) y se usa
-  principalmente para:
-    - Consultar eventos por tipo, rango de fechas o nodo.
-    - Exportar logs a distintos formatos (CSV, JSON, TXT).
-    - Generar reportes de actividad para mentores, equipos o proyectos.
+  Este módulo no registra nuevos eventos; se encarga de **analizar, filtrar y exportar**
+  los logs del sistema en diferentes formatos.
+
+  ## Funcionalidades principales:
+  - Consultar eventos generales registrados.
+  - Filtrar por tipo, nodo o rango de fechas.
+  - Exportar logs a **JSON** o **TXT**.
+  - Buscar eventos por palabra clave.
+
+  ## Integración:
+  - Depende del archivo `event_log.csv` generado por `LoggerService`.
+  - Puede ser consultado por mentores o administradores para reportes.
 
   Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
-  Fecha de creación: 2025-10-27
+  Fecha: 2025-10-27
   Licencia: GNU GPLv3
   """
 
@@ -21,9 +27,7 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.AuditService do
   # CONSULTA Y FILTRADO
   # ============================================================
 
-  @doc """
-  Obtiene todos los eventos del log en formato de lista de mapas.
-  """
+  @doc "Obtiene todos los eventos del sistema."
   def obtener_todos do
     if File.exists?(@log_file) do
       @log_file
@@ -36,17 +40,10 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.AuditService do
     end
   end
 
-  @doc """
-  Filtra eventos por tipo (:info, :warning, :error, :proyecto, etc.)
-  """
-  def filtrar_por_tipo(tipo) do
-    obtener_todos()
-    |> Enum.filter(&(&1.tipo == tipo))
-  end
+  @doc "Filtra eventos por tipo (`:info`, `:warning`, `:error`, etc.)."
+  def filtrar_por_tipo(tipo), do: obtener_todos() |> Enum.filter(&(&1.tipo == tipo))
 
-  @doc """
-  Filtra eventos ocurridos dentro de un rango de fechas ISO8601.
-  """
+  @doc "Filtra eventos dentro de un rango de fechas ISO8601."
   def filtrar_por_rango(fecha_inicio, fecha_fin) do
     with {:ok, fi, _} <- DateTime.from_iso8601(fecha_inicio),
          {:ok, ff, _} <- DateTime.from_iso8601(fecha_fin) do
@@ -55,8 +52,7 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.AuditService do
         case DateTime.from_iso8601(evento.timestamp) do
           {:ok, fecha_evento, _} ->
             DateTime.compare(fecha_evento, fi) != :lt and DateTime.compare(fecha_evento, ff) != :gt
-          _ ->
-            false
+          _ -> false
         end
       end)
     else
@@ -64,31 +60,19 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.AuditService do
     end
   end
 
-  @doc """
-  Busca eventos que contengan un texto o palabra clave en el mensaje o los datos.
-  """
-  def buscar_por_texto(texto) do
-    obtener_todos()
-    |> Enum.filter(fn evento ->
-      String.contains?(evento.mensaje, texto) or String.contains?(evento.datos, texto)
-    end)
-  end
+  @doc "Busca eventos que contengan un texto en el mensaje o datos."
+  def buscar_por_texto(texto),
+    do: obtener_todos() |> Enum.filter(&(String.contains?(&1.mensaje, texto) or String.contains?(&1.datos, texto)))
 
-  @doc """
-  Obtiene todos los eventos registrados por un nodo específico.
-  """
-  def filtrar_por_nodo(nombre_nodo) do
-    obtener_todos()
-    |> Enum.filter(&(&1.nodo == nombre_nodo))
-  end
+  @doc "Filtra eventos por nombre de nodo."
+  def filtrar_por_nodo(nombre_nodo),
+    do: obtener_todos() |> Enum.filter(&(&1.nodo == nombre_nodo))
 
   # ============================================================
   # EXPORTACIÓN DE LOGS
   # ============================================================
 
-  @doc """
-  Exporta los registros actuales a un archivo en formato JSON.
-  """
+  @doc "Exporta los registros actuales a un archivo JSON."
   def exportar_a_json(destino \\ "logs/audit_export.json") do
     eventos = obtener_todos()
     File.mkdir_p!("logs")
@@ -96,9 +80,7 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.AuditService do
     {:ok, destino}
   end
 
-  @doc """
-  Exporta los registros actuales a un archivo en formato TXT legible.
-  """
+  @doc "Exporta los registros actuales a un archivo TXT legible."
   def exportar_a_txt(destino \\ "logs/audit_export.txt") do
     eventos = obtener_todos()
 
