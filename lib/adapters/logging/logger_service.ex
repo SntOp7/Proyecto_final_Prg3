@@ -104,9 +104,10 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
   end
 
   defp evento_a_csv(e) do
-    [e.id, e.timestamp, e.nodo, to_string(e.tipo), escape_csv(e.mensaje), escape_csv(e.datos)]
-    |> Enum.join(",") <> "\n"
-  end
+  ([e.id, e.timestamp, e.nodo, to_string(e.tipo), escape_csv(e.mensaje), escape_csv(e.datos)]
+   |> Enum.join(","))
+  <> "\n"
+end
 
   defp escape_csv(v) when is_binary(v), do: "\"" <> String.replace(v, "\"", "'") <> "\""
   defp escape_csv(v), do: to_string(v)
