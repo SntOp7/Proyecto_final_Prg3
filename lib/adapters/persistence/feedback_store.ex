@@ -1,11 +1,13 @@
 defmodule ProyectoFinalPrg3.Adapters.Persistence.FeedbackStore do
   @moduledoc """
-  Módulo responsable de la persistencia de retroalimentaciones (feedbacks) asociadas a los proyectos.
-  Actúa como un adaptador de la capa de persistencia dentro de la arquitectura hexagonal.
+  Módulo encargado de la persistencia de retroalimentaciones (feedbacks) dentro del
+  sistema de hackathon. Permite registrar, listar, actualizar y eliminar los
+  comentarios y evaluaciones emitidos por mentores o jurados sobre proyectos o equipos.
 
-  Gestiona el almacenamiento, lectura, actualización y eliminación de retroalimentaciones.
-  Utiliza un formato CSV liviano y serialización JSON para mantener compatibilidad con datos anidados
-  (como evaluaciones, observaciones o archivos adjuntos).
+  Este adaptador se usa tanto desde `ProjectManager` como desde `MentorManager`,
+  garantizando que todas las evaluaciones estén centralizadas y sean consultables.
+
+  Los datos se almacenan en `data/feedbacks.csv` y soportan listas serializadas en JSON.
 
   Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
   Fecha de creación: 2025-10-26
@@ -13,15 +15,14 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.FeedbackStore do
   """
 
   alias ProyectoFinalPrg3.Domain.Feedback
-   @ruta_archivo Path.join([File.cwd!(), "data", "feedback.csv"])
+  @ruta_archivo Path.join([File.cwd!(), "data", "feedback.csv"])
 
   # ============================================================
-  # FUNCIONES PÚBLICAS PRINCIPALES
+  # FUNCIONES PRINCIPALES
   # ============================================================
 
   @doc """
-  Guarda una retroalimentación en el sistema.
-  Si ya existe una con el mismo ID, se reemplaza.
+  Guarda una nueva retroalimentación o actualiza una existente si ya existe con el mismo ID.
   """
   def guardar_feedback(%Feedback{} = feedback) do
     feedbacks = listar_feedbacks()
@@ -35,7 +36,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.FeedbackStore do
   end
 
   @doc """
-  Devuelve todas las retroalimentaciones registradas.
+  Devuelve la lista completa de retroalimentaciones registradas.
   """
   def listar_feedbacks do
     if File.exists?(@data_file) do
@@ -49,9 +50,9 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.FeedbackStore do
   end
 
   @doc """
-  Obtiene una retroalimentación específica por su ID.
+  Obtiene una retroalimentación a partir de su identificador único.
   """
-  def obtener_feedback(id) do
+  def obtener_por_id(id) do
     listar_feedbacks()
     |> Enum.find(&(&1.id == id))
   end
@@ -59,21 +60,21 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.FeedbackStore do
   @doc """
   Lista todas las retroalimentaciones asociadas a un proyecto.
   """
-  def listar_por_proyecto(proyecto_id) do
+  def listar_por_proyecto(id_proyecto) do
     listar_feedbacks()
-    |> Enum.filter(&(&1.proyecto_id == proyecto_id))
+    |> Enum.filter(&(&1.proyecto_id == id_proyecto))
   end
 
   @doc """
-  Lista todas las retroalimentaciones hechas por un mentor específico.
+  Lista todas las retroalimentaciones emitidas por un mentor específico.
   """
-  def listar_por_mentor(mentor_id) do
+  def listar_por_mentor(id_mentor) do
     listar_feedbacks()
-    |> Enum.filter(&(&1.autor_id == mentor_id))
+    |> Enum.filter(&(&1.mentor_id == id_mentor))
   end
 
   @doc """
-  Elimina una retroalimentación del registro.
+  Elimina una retroalimentación del sistema por su ID.
   """
   def eliminar_feedback(id) do
     feedbacks =
@@ -88,11 +89,11 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.FeedbackStore do
   # ============================================================
 
   @doc false
-  defp persistir_lista(lista) do
+  defp persistir_lista(lista_feedbacks) do
     File.mkdir_p!("data")
 
     contenido =
-      lista
+      lista_feedbacks
       |> Enum.map(&serializar_feedback/1)
       |> Enum.join("\n")
 
@@ -100,17 +101,17 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.FeedbackStore do
   end
 
   @doc false
-  defp serializar_feedback(%Feedback{} = feedback) do
+  defp serializar_feedback(%Feedback{} = f) do
     [
-      feedback.id,
-      feedback.proyecto_id || "",
-      feedback.autor_id || "",
-      limpiar(feedback.titulo),
-      limpiar(feedback.comentario),
-      feedback.puntaje || 0,
-      feedback.tipo || "general",
-      serialize_timestamp(feedback.fecha),
-      serialize_json(feedback.adjuntos)
+      f.id,
+      limpiar(f.proyecto_id),
+      limpiar(f.mentor_id),
+      limpiar(f.autor_nombre),
+      limpiar(f.comentario),
+      f.calificacion || 0,
+      serialize_timestamp(f.fecha_creacion),
+      serialize_timestamp(f.fecha_actualizacion),
+      serialize_json(f.etiquetas)
     ]
     |> Enum.join(",")
   end
@@ -120,26 +121,26 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.FeedbackStore do
     [
       id,
       proyecto_id,
-      autor_id,
-      titulo,
+      mentor_id,
+      autor_nombre,
       comentario,
-      puntaje,
-      tipo,
-      fecha,
-      adjuntos_json
+      calificacion,
+      fecha_creacion,
+      fecha_actualizacion,
+      etiquetas_json
     ] =
       String.split(linea, ",", parts: 9)
 
     %Feedback{
       id: id,
-      proyecto_id: parse_blank(proyecto_id),
-      autor_id: parse_blank(autor_id),
-      titulo: titulo,
+      proyecto_id: proyecto_id,
+      mentor_id: mentor_id,
+      autor_nombre: autor_nombre,
       comentario: comentario,
-      puntaje: parse_integer(puntaje),
-      tipo: tipo,
-      fecha: parse_timestamp(fecha),
-      adjuntos: parse_json(adjuntos_json)
+      calificacion: String.to_integer(calificacion),
+      fecha_creacion: parse_timestamp(fecha_creacion),
+      fecha_actualizacion: parse_timestamp(fecha_actualizacion),
+      etiquetas: parse_json(etiquetas_json)
     }
   end
 
@@ -150,14 +151,6 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.FeedbackStore do
   @doc false
   defp limpiar(nil), do: ""
   defp limpiar(texto), do: texto |> String.replace(",", ";") |> String.trim()
-
-  @doc false
-  defp parse_blank(""), do: nil
-  defp parse_blank(valor), do: valor
-
-  @doc false
-  defp parse_integer(""), do: 0
-  defp parse_integer(valor), do: String.to_integer(valor)
 
   @doc false
   defp serialize_timestamp(nil), do: ""
@@ -173,15 +166,15 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.FeedbackStore do
   end
 
   @doc false
-  defp serialize_json(nil), do: ""
-  defp serialize_json(map) when is_map(map), do: Jason.encode!(map)
+  defp serialize_json(nil), do: "[]"
+  defp serialize_json(lista) when is_list(lista), do: Jason.encode!(lista)
 
   @doc false
-  defp parse_json(""), do: %{}
+  defp parse_json(""), do: []
   defp parse_json(json) do
     case Jason.decode(json) do
-      {:ok, mapa} -> mapa
-      _ -> %{}
+      {:ok, lista} -> lista
+      _ -> []
     end
   end
 end
