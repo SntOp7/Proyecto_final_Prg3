@@ -59,7 +59,7 @@ defmodule Proyecto_final_Prg3.Domain.Mentor do
     - `activo` — Booleano que indica si continúa participando.
     """
    def nuevo(id, nombre, correo, especialidad, biografia, equipos_asignados, disponibilidad, canal_mentoria_id, fecha_registro, retroalimentaciones, rol, activo) do
-     %__MODULE__{id: id, nombre: nombre, correo: correo, especialidad: especalidad, biografia: biografia,
+     %__MODULE__{id: id, nombre: nombre, correo: correo, especialidad: especialidad, biografia: biografia,
      equipos_asignados: equipos_asignados, disponibilidad: disponibilidad, canal_mentoria_id: canal_mentoria_id,
      fecha_registro: fecha_registro, retroalimentaciones: retroalimentaciones, rol: rol, activo: activo}
    end
