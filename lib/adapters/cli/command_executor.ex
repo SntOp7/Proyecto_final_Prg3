@@ -24,15 +24,18 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandExecutor do
   alias ProyectoFinalPrg3.Services.CommandService
   alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
 
-  @doc """
-  Retorna error si los argumentos no cumplen el formato esperado.
-  """
-  def execute(_, _), do: {:error, "Formato inválido de comando o argumentos."}
+  # ============================================================
+  # EJECUCIÓN PRINCIPAL DE COMANDOS
+  # ============================================================
 
   @doc """
   Ejecuta el comando recibido, enviando la información al `CommandService`.
 
-  Retorna:
+  ## Parámetros
+    - `info`: mapa con los metadatos del comando (por ejemplo, nombre, descripción, alias).
+    - `args`: lista con los argumentos recibidos desde la línea de comandos.
+
+  ## Retorna
     - `{:ok, resultado}` si el comando fue ejecutado correctamente.
     - `{:error, razon}` si ocurre algún error durante la ejecución.
   """
@@ -50,4 +53,6 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandExecutor do
         {:error, "Error al ejecutar el comando: #{Exception.message(error)}"}
     end
   end
+
+  def execute(_, _), do: {:error, "Formato inválido de comando o argumentos."}
 end
