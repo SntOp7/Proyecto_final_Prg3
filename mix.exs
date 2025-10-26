@@ -5,7 +5,7 @@ defmodule ProyectoFinalPrg3.MixProject do
     [
       app: :proyecto_final_prg3,
       version: "0.1.0",
-      elixir: "~> 1.16",
+      elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
       deps: deps()
     ]
@@ -13,13 +13,12 @@ defmodule ProyectoFinalPrg3.MixProject do
 
   def application do
     [
-      extra_applications: [:logger]
+      extra_applications: [:logger],
+      mod: {ProyectoFinalPrg3.Application, []}
     ]
   end
 
   defp deps do
-    [
-      {:elixir_uuid, "~> 1.2"}
-    ]
+    []
   end
 end
