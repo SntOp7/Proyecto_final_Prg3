@@ -1,20 +1,22 @@
 defmodule ProyectoFinalPrg3.Adapters.Persistence.ParticipantStore do
   @moduledoc """
-  Módulo encargado de la persistencia de datos de los participantes en el sistema.
-  Implementa operaciones CRUD sobre un archivo CSV ubicado en la carpeta `data/participants.csv`.
+  Módulo encargado de la persistencia de los participantes del sistema en archivos CSV.
+  Administra las operaciones CRUD y convierte los datos entre estructuras `%Participant{}` y texto CSV.
 
-  Este adaptador sirve como puente entre la capa de servicios (`ParticipantManager`)
-  y el almacenamiento físico, manteniendo el principio de independencia de la lógica de negocio.
+  Este adaptador garantiza la independencia entre la capa de negocio y la persistencia.
 
   Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
-  Fecha de creación: 2025-10-26
+  Fecha de creación: 2025-10-27
   Licencia: GNU GPLv3
   """
 
   alias ProyectoFinalPrg3.Domain.Participant
 
   @ruta_archivo Path.join([File.cwd!(), "data", "participantes.csv"])
-  @headers "id,nombre,correo,contrasena,rol,equipo_id,sesion_activa\n"
+
+  @headers """
+  id,nombre,correo,username,rol,equipo_id,experiencia,fecha_registro,estado,ultima_conexion,mensajes,canales_asignados,token_sesion,perfil_url
+  """ |> String.trim() <> "\n"
 
   # ============================================================
   # FUNCIONES PRINCIPALES CRUD
@@ -22,7 +24,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ParticipantStore do
 
   @doc """
   Guarda o actualiza un participante en el archivo CSV.
-  Si el participante ya existe, se reemplaza su información.
+  Si ya existe un participante con el mismo ID, se reemplaza.
   """
   def guardar_participante(%Participant{} = participante) do
     participantes =
@@ -35,8 +37,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ParticipantStore do
   end
 
   @doc """
-  Obtiene un participante a partir de su identificador único.
-  Retorna `nil` si no existe.
+  Obtiene un participante a partir de su ID.
   """
   def obtener_participante(id) do
     listar_participantes()
@@ -52,7 +53,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ParticipantStore do
   end
 
   @doc """
-  Lista todos los participantes registrados en el archivo CSV.
+  Lista todos los participantes almacenados.
   """
   def listar_participantes do
     if File.exists?(@data_path) do
@@ -66,7 +67,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ParticipantStore do
   end
 
   @doc """
-  Elimina un participante del sistema a partir de su ID.
+  Elimina un participante por su ID.
   """
   def eliminar_participante(id) do
     participantes_filtrados =
@@ -77,41 +78,49 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ParticipantStore do
     :ok
   end
 
-  @doc """
-  Actualiza el estado de sesión (`true` o `false`) de un participante.
-  """
-  def actualizar_estado(id, sesion_activa) when is_boolean(sesion_activa) do
-    with %Participant{} = participante <- obtener_participante(id) do
-      actualizado = %{participante | sesion_activa: sesion_activa}
-      guardar_participante(actualizado)
-    else
-      nil -> {:error, :no_encontrado}
-    end
-  end
-
   # ============================================================
-  # FUNCIONES PRIVADAS DE SERIALIZACIÓN Y DESERIALIZACIÓN
+  # FUNCIONES DE SERIALIZACIÓN / DESERIALIZACIÓN
   # ============================================================
 
-  # Convierte una línea del CSV a una estructura %Participant{}
   defp parse_csv_line(line) do
-    [id, nombre, correo, contrasena, rol, equipo_id, sesion_str] =
+    [
+      id,
+      nombre,
+      correo,
+      username,
+      rol,
+      equipo_id,
+      experiencia,
+      fecha_str,
+      estado_str,
+      ultima_conexion_str,
+      mensajes_str,
+      canales_str,
+      token,
+      perfil_url
+    ] =
       line
       |> String.trim()
-      |> String.split(",", parts: 7)
+      |> String.split(",", parts: 14)
 
     %Participant{
       id: id,
       nombre: nombre,
       correo: correo,
-      contrasena: contrasena,
+      username: username,
       rol: rol,
       equipo_id: parse_nil(equipo_id),
-      sesion_activa: parse_bool(sesion_str)
+      experiencia: experiencia,
+      fecha_registro: parse_datetime(fecha_str),
+      estado: parse_estado(estado_str),
+      ultima_conexion: parse_datetime(ultima_conexion_str),
+      mensajes: parse_json_list(mensajes_str),
+      canales_asignados: parse_list(canales_str),
+      token_sesion: parse_nil(token),
+      perfil_url: parse_nil(perfil_url)
     }
   end
 
-  # Escribe la lista de participantes al archivo CSV
   defp escribir_participantes(participantes) do
     contenido =
       participantes
@@ -122,22 +131,28 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ParticipantStore do
     File.write!(@data_path, @headers <> contenido)
   end
 
-  # Convierte un participante en una línea CSV
   defp to_csv_line(%Participant{} = p) do
     [
       p.id,
       sanitize(p.nombre),
       p.correo,
-      p.contrasena || "",
+      sanitize(p.username),
       p.rol,
       p.equipo_id || "",
-      to_string(p.sesion_activa)
+      sanitize(p.experiencia || ""),
+      serialize_datetime(p.fecha_registro),
+      Atom.to_string(p.estado || :activo),
+      serialize_datetime(p.ultima_conexion),
+      serialize_json_list(p.mensajes),
+      serialize_list(p.canales_asignados),
+      p.token_sesion || "",
+      p.perfil_url || ""
     ]
     |> Enum.join(",")
   end
 
   # ============================================================
-  # FUNCIONES AUXILIARES
+  # FUNCIONES AUXILIARES DE FORMATEO
   # ============================================================
 
   defp sanitize(texto) when is_binary(texto) do
@@ -149,7 +164,50 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ParticipantStore do
   defp parse_nil(""), do: nil
   defp parse_nil(valor), do: valor
 
-  defp parse_bool("true"), do: true
-  defp parse_bool("false"), do: false
-  defp parse_bool(_), do: false
+  defp parse_estado("activo"), do: :activo
+  defp parse_estado("pendiente"), do: :pendiente
+  defp parse_estado("desconectado"), do: :desconectado
+  defp parse_estado(_), do: :activo
+
+  # Manejo de fechas y tiempos
+  defp parse_datetime(""), do: nil
+  defp parse_datetime(str) do
+    case DateTime.from_iso8601(str) do
+      {:ok, dt, _} -> dt
+      _ -> nil
+    end
+  end
+
+  defp serialize_datetime(nil), do: ""
+  defp serialize_datetime(%DateTime{} = dt), do: DateTime.to_iso8601(dt)
+
+  # Manejo de listas simples (ej. canales)
+  defp parse_list(""), do: []
+  defp parse_list(str), do: String.split(str, ";")
+
+  defp serialize_list(lista) when is_list(lista), do: Enum.join(lista, ";")
+  defp serialize_list(_), do: ""
+
+  # Manejo de listas complejas (mensajes)
+  defp parse_json_list(""), do: []
+  defp parse_json_list(str) do
+    str
+    |> String.split("|")
+    |> Enum.map(fn item ->
+      case String.split(item, "~", parts: 2) do
+        [msg, timestamp] -> %{mensaje: msg, timestamp: parse_datetime(timestamp)}
+        [msg] -> %{mensaje: msg, timestamp: nil}
+      end
+    end)
+  end
+
+  defp serialize_json_list(lista) when is_list(lista) do
+    lista
+    |> Enum.map(fn %{mensaje: msg, timestamp: ts} ->
+      "#{sanitize(msg)}~#{serialize_datetime(ts)}"
+    end)
+    |> Enum.join("|")
+  end
+
+  defp serialize_json_list(_), do: ""
 end
