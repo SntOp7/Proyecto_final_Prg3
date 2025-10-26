@@ -28,7 +28,7 @@ defmodule ProyectoFinalPrg3.Adapters.Security.TokenManager do
   alias ProyectoFinalPrg3.Adapters.Security.EncryptionAdapter
 
   # Clave secreta usada para firmar los tokens
-  @secret "clave-super-secreta"
+  @secret "alberto-instantaneo-123"
 
   # ============================================================
   # FUNCIÓN DE GENERACIÓN DE TOKEN
