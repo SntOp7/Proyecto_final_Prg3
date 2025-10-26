@@ -27,8 +27,6 @@ defmodule ProyectoFinalPrg3.Adapters.Security.EncryptionAdapter do
   Licencia: GNU GPLv3
   """
 
-  alias :crypto
-
   @doc """
   Genera un hash SHA-256 de la contraseña en texto plano.
 
