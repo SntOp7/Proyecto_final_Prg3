@@ -1,26 +1,26 @@
 defmodule ProyectoFinalPrg3.Adapters.Security.EncryptionAdapter do
   @moduledoc """
-  Adaptador responsable de manejar el cifrado y verificación de contraseñas
-  dentro del sistema de Hackathon colaborativa.
+  Adaptador responsable del cifrado y verificación de contraseñas
+  dentro del sistema de Hackathon colaborativo.
 
-  Este módulo provee funciones básicas para:
-  - Crear un hash seguro de una contraseña.
-  - Verificar si una contraseña coincide con su hash almacenado.
+  Este módulo ofrece una interfaz simple para:
+  - `cifrar/1`: crear un hash seguro de una contraseña.
+  - `verificar/2`: comprobar si una contraseña coincide con su hash almacenado.
 
-  Se utiliza principalmente en los servicios de autenticación (`AuthService`)
-  y en el manejo de sesiones (`SessionManager`).
+  Se usa en conjunto con `AuthService` para la autenticación de participantes
+  y la validación de credenciales seguras.
 
-  ## Ejemplo de uso
-      iex> hash = EncryptionAdapter.crear_contraseña("mi_secreta")
+  ## Ejemplo
+      iex> hash = EncryptionAdapter.cifrar("mi_secreta")
       "A7F1C33E0A2B9D..."
 
-      iex> EncryptionAdapter.verificar_contraseña("mi_secreta", hash)
+      iex> EncryptionAdapter.verificar("mi_secreta", hash)
       true
 
   ## Notas
-  - Actualmente utiliza el algoritmo SHA-256 como función de hash.
-  - Puede reemplazarse en el futuro por `Bcrypt` o `Argon2` para mayor seguridad.
-  - Los resultados se devuelven en formato hexadecimal (Base16).
+  - Utiliza el algoritmo SHA-256 para hashing.
+  - El resultado se devuelve en formato hexadecimal (Base16).
+  - En futuras versiones podría reemplazarse por `Argon2` o `Bcrypt` para mayor seguridad.
 
   Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
   Fecha de creación: 2025-10-27
@@ -30,39 +30,30 @@ defmodule ProyectoFinalPrg3.Adapters.Security.EncryptionAdapter do
   alias :crypto
 
   @doc """
-  Crea un hash seguro a partir de una contraseña en texto plano.
+  Genera un hash SHA-256 de la contraseña en texto plano.
 
   ## Parámetros:
-    - `contraseña`: texto plano que se desea proteger.
+    - `contrasena`: texto a cifrar.
 
   ## Retorna:
-    - Cadena hexadecimal representando el hash (SHA-256).
-
-  ## Ejemplo:
-      iex> EncryptionAdapter.crear_contraseña("123456")
-      "8D969EEF6ECAD3C29A3A629280E686CF..."
+    - Cadena hexadecimal representando el hash.
   """
-  def crear_contraseña(contraseña) when is_binary(contraseña) do
-    :crypto.hash(:sha256, contraseña) |> Base.encode16()
+  def cifrar(contrasena) when is_binary(contrasena) do
+    :crypto.hash(:sha256, contrasena) |> Base.encode16()
   end
 
   @doc """
-  Verifica si una contraseña en texto plano coincide con su hash almacenado.
+  Verifica si una contraseña ingresada coincide con su hash almacenado.
 
   ## Parámetros:
-    - `contraseña`: texto en claro ingresado por el usuario.
-    - `hash`: hash previamente almacenado.
+    - `contrasena`: texto plano ingresado por el usuario.
+    - `hash`: cadena hexadecimal almacenada.
 
   ## Retorna:
     - `true` si coinciden.
     - `false` en caso contrario.
-
-  ## Ejemplo:
-      iex> hash = EncryptionAdapter.crear_contraseña("hola123")
-      iex> EncryptionAdapter.verificar_contraseña("hola123", hash)
-      true
   """
-  def verificar_contraseña(contraseña, hash) when is_binary(contraseña) and is_binary(hash) do
-    crear_contraseña(contraseña) == hash
+  def verificar(contrasena, hash) when is_binary(contrasena) and is_binary(hash) do
+    cifrar(contrasena) == hash
   end
 end
