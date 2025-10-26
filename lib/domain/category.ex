@@ -52,6 +52,6 @@ defmodule Proyecto_final_Prg3.Domain.Category do
   """
 
   def nuevo(id, nombre, descripcion, proyectos, fecha_creacion, creador_id, activo) do
-    %__MODULE__{id: id, nombre: nombre descripcion: descripcion, proyectos: proyectos, fecha_creacion: fecha_creacion, creador_id: creador_id, activo: activo}
+    %__MODULE__{id: id, nombre: nombre, descripcion: descripcion, proyectos: proyectos, fecha_creacion: fecha_creacion, creador_id: creador_id, activo: activo}
   end
 end
