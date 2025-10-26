@@ -6,10 +6,10 @@ defmodule Proyecto_final_Prg3.Test.Domain.TeamTest do
   Pruebas unitarias del dominio `Team`.
 
   Validan:
-    - Integridad de la estructura `Team`.
-    - Correcta inicialización de los campos.
-    - Compatibilidad con valores opcionales.
-    - Consistencia de datos entre campos relacionados.
+    - Integridad de la estructura del equipo (`Team`).
+    - Correcto funcionamiento del constructor `nuevo/12`.
+    - Coherencia de campos relacionados con proyecto, mentor, participantes y estado.
+    - Manejo de listas vacías y valores opcionales.
   """
 
   describe "Estructura base del equipo" do
@@ -19,59 +19,115 @@ defmodule Proyecto_final_Prg3.Test.Domain.TeamTest do
         :id,
         :nombre,
         :descripcion,
+        :categoria,
+        :id_proyecto,
+        :id_mentor,
         :participantes,
-        :proyecto_id
+        :fecha_creacion,
+        :estado,
+        :canal_chat_id,
+        :puntaje,
+        :historial
       ]
 
       assert Enum.sort(campos) == Enum.sort(esperados)
     end
   end
 
-  describe "Creación de equipos" do
+  describe "Función nuevo/12" do
     setup do
-      team = %Team{
-        id: 1,
-        nombre: "Innovadores del Futuro",
-        descripcion: "Equipo enfocado en soluciones educativas con IA",
-        participantes: [1, 2, 3],
-        proyecto_id: 5
-      }
+      fecha = ~D[2025-10-26]
 
-      %{team: team}
+      equipo = Team.nuevo(
+        1,
+        "Tech Innovators",
+        "Equipo enfocado en soluciones basadas en IA para educación.",
+        "Educación",
+        5,
+        3,
+        ["Juan", "María", "Sofía"],
+        fecha,
+        :activo,
+        1001,
+        4.7,
+        ["Primer avance", "Revisión del mentor"]
+      )
+
+      %{equipo: equipo, fecha: fecha}
     end
 
-    test "se inicializa correctamente con todos los campos", %{team: team} do
-      assert team.id == 1
-      assert team.nombre == "Innovadores del Futuro"
-      assert String.contains?(team.descripcion, "educativas")
-      assert is_list(team.participantes)
-      assert Enum.count(team.participantes) == 3
-      assert team.proyecto_id == 5
+    test "se inicializa correctamente con todos los campos", %{equipo: e, fecha: fecha} do
+      assert e.id == 1
+      assert e.nombre == "Tech Innovators"
+      assert e.descripcion =~ "IA para educación"
+      assert e.categoria == "Educación"
+      assert e.id_proyecto == 5
+      assert e.id_mentor == 3
+      assert is_list(e.participantes)
+      assert Enum.count(e.participantes) == 3
+      assert e.fecha_creacion == fecha
+      assert e.estado == :activo
+      assert e.canal_chat_id == 1001
+      assert is_float(e.puntaje)
+      assert Enum.member?(e.historial, "Primer avance")
     end
 
-    test "permite listas vacías o nil en participantes" do
-      t1 = %Team{id: 2, nombre: "Sin miembros", descripcion: "", participantes: [], proyecto_id: nil}
-      t2 = %Team{id: 3, nombre: "Pendiente", descripcion: nil, participantes: nil, proyecto_id: nil}
+    test "permite listas vacías y valores nulos" do
+      e = Team.nuevo(
+        2,
+        "Empty Team",
+        nil,
+        "General",
+        nil,
+        nil,
+        [],
+        ~D[2025-10-25],
+        :inactivo,
+        nil,
+        nil,
+        []
+      )
 
-      assert t1.participantes == []
-      assert t2.participantes == nil
-      assert t2.descripcion == nil
+      assert e.descripcion == nil
+      assert e.id_proyecto == nil
+      assert e.id_mentor == nil
+      assert e.participantes == []
+      assert e.canal_chat_id == nil
+      assert e.puntaje == nil
+      assert e.historial == []
+      assert e.estado == :inactivo
     end
   end
 
   describe "Validaciones básicas de datos" do
-    test "el nombre del equipo es una cadena no vacía" do
-      t = %Team{id: 10, nombre: "CodeMasters", descripcion: "Desarrollo backend", participantes: [], proyecto_id: 1}
-      assert is_binary(t.nombre)
-      assert String.length(t.nombre) > 0
+    test "nombre y categoría deben ser cadenas válidas" do
+      e = Team.nuevo(3, "Data Wizards", "Análisis predictivo de datos", "Ciencia de Datos", nil, nil, [], ~D[2025-10-26], :activo, nil, nil, [])
+      assert is_binary(e.nombre)
+      assert String.length(e.nombre) > 3
+      assert is_binary(e.categoria)
     end
 
-    test "participantes es siempre una lista o nil" do
-      t1 = %Team{participantes: [1, 2]}
-      t2 = %Team{participantes: nil}
+    test "fecha_creacion debe ser de tipo Date" do
+      e = %Team{fecha_creacion: ~D[2025-10-26]}
+      assert match?(%Date{}, e.fecha_creacion)
+    end
 
-      assert is_list(t1.participantes)
-      assert is_nil(t2.participantes)
+    test "participantes debe ser una lista" do
+      e = %Team{participantes: ["Ana", "Carlos"]}
+      assert is_list(e.participantes)
+      assert Enum.member?(e.participantes, "Carlos")
+    end
+
+    test "estado debe ser un átomo válido" do
+      e = %Team{estado: :activo}
+      assert e.estado in [:activo, :inactivo, :pendiente]
+    end
+
+    test "puntaje puede ser numérico o nil" do
+      e1 = %Team{puntaje: 4.8}
+      e2 = %Team{puntaje: nil}
+      assert is_float(e1.puntaje)
+      assert is_nil(e2.puntaje)
     end
   end
 end
