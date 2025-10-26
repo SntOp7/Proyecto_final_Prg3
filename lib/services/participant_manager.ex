@@ -1,14 +1,14 @@
 defmodule ProyectoFinalPrg3.Services.ParticipantManager do
   @moduledoc """
-  Módulo encargado de la gestión de participantes dentro del sistema de hackathon.
-  Permite registrar, consultar, actualizar y eliminar participantes, así como administrar
-  su asociación con equipos y roles dentro de la plataforma.
+  Servicio de gestión de participantes dentro del sistema de hackathon.
+  Permite registrar, consultar, actualizar y eliminar participantes, además de
+  gestionar sus canales, tokens, experiencia y estado de conexión.
 
-  Este servicio se comunica con la capa de persistencia (`ParticipantStore`)
-  y otros servicios relacionados como `AuthService` o `TeamManager`.
+  Se comunica con la capa de persistencia (`ParticipantStore`) y otros servicios
+  como `AuthService` o `BroadcastService`.
 
   Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
-  Fecha de creación: 2025-10-25
+  Fecha de creación: 2025-10-27
   Licencia: GNU GPLv3
   """
 
@@ -21,19 +21,26 @@ defmodule ProyectoFinalPrg3.Services.ParticipantManager do
   # ============================================================
 
   @doc """
-  Registra un nuevo participante en el sistema con los datos básicos.
-  Genera un identificador único y lo almacena en el repositorio.
+  Registra un nuevo participante con todos los campos relevantes.
   """
-  def registrar_participante(nombre, correo, rol \\ "participante") do
+  def registrar_participante(nombre, correo, username, rol \\ "participante", experiencia \\ "N/A") do
     case ParticipantStore.buscar_por_correo(correo) do
       nil ->
         participante = %Participant{
           id: UUID.uuid4(),
           nombre: nombre,
           correo: correo,
+          username: username,
           rol: rol,
           equipo_id: nil,
-          sesion_activa: false
+          experiencia: experiencia,
+          fecha_registro: DateTime.utc_now(),
+          estado: :activo,
+          ultima_conexion: nil,
+          mensajes: [],
+          canales_asignados: [],
+          token_sesion: nil,
+          perfil_url: nil
         }
 
         ParticipantStore.guardar_participante(participante)
@@ -46,14 +53,14 @@ defmodule ProyectoFinalPrg3.Services.ParticipantManager do
   end
 
   @doc """
-  Lista todos los participantes registrados en el sistema.
+  Lista todos los participantes registrados.
   """
   def listar_participantes do
     ParticipantStore.listar_participantes()
   end
 
   @doc """
-  Obtiene un participante a partir de su identificador.
+  Obtiene un participante por su ID.
   """
   def obtener_participante(id_participante) do
     case ParticipantStore.obtener_participante(id_participante) do
@@ -73,15 +80,19 @@ defmodule ProyectoFinalPrg3.Services.ParticipantManager do
   end
 
   # ============================================================
-  # FUNCIONES DE ACTUALIZACIÓN
+  # FUNCIONES DE ACTUALIZACIÓN Y PERFIL
   # ============================================================
 
   @doc """
-  Actualiza los datos de un participante (nombre, rol, etc.).
+  Actualiza datos generales del participante (nombre, rol, experiencia, etc.).
   """
   def actualizar_datos(id_participante, nuevos_datos) when is_map(nuevos_datos) do
     with {:ok, participante} <- obtener_participante(id_participante) do
-      actualizado = Map.merge(participante, nuevos_datos)
+      actualizado =
+        participante
+        |> Map.merge(nuevos_datos)
+        |> Map.put(:ultima_conexion, DateTime.utc_now())
+
       ParticipantStore.guardar_participante(actualizado)
       BroadcastService.notificar(:participante_actualizado, actualizado)
       {:ok, actualizado}
@@ -91,30 +102,85 @@ defmodule ProyectoFinalPrg3.Services.ParticipantManager do
   end
 
   @doc """
-  Actualiza el identificador del equipo al que pertenece un participante.
+  Actualiza la experiencia o descripción del participante.
+  """
+  def actualizar_experiencia(id_participante, nueva_exp) do
+    actualizar_datos(id_participante, %{experiencia: nueva_exp})
+  end
+
+  @doc """
+  Cambia el rol del participante (por ejemplo, de participante a mentor).
+  """
+  def actualizar_rol(id_participante, nuevo_rol) do
+    actualizar_datos(id_participante, %{rol: nuevo_rol})
+  end
+
+  @doc """
+  Actualiza el estado actual del participante (:activo, :desconectado, :pendiente).
+  """
+  def actualizar_estado(id_participante, nuevo_estado) do
+    actualizar_datos(id_participante, %{estado: nuevo_estado})
+  end
+
+  @doc """
+  Actualiza el enlace de perfil público o imagen del participante.
+  """
+  def actualizar_perfil(id_participante, nueva_url) do
+    actualizar_datos(id_participante, %{perfil_url: nueva_url})
+  end
+
+  @doc """
+  Actualiza el token de sesión de un participante autenticado.
+  """
+  def asignar_token(id_participante, token) do
+    actualizar_datos(id_participante, %{token_sesion: token})
+  end
+
+  @doc """
+  Actualiza la fecha y hora de última conexión del participante.
+  """
+  def registrar_conexion(id_participante) do
+    actualizar_datos(id_participante, %{ultima_conexion: DateTime.utc_now(), estado: :activo})
+  end
+
+  # ============================================================
+  # FUNCIONES RELACIONADAS CON EQUIPOS Y CANALES
+  # ============================================================
+
+  @doc """
+  Actualiza el equipo al que pertenece el participante.
   """
   def actualizar_equipo(id_participante, id_equipo) do
+    actualizar_datos(id_participante, %{equipo_id: id_equipo})
+  end
+
+  @doc """
+  Añade un canal a la lista de canales asignados al participante.
+  """
+  def asignar_canal(id_participante, canal_id) do
     with {:ok, participante} <- obtener_participante(id_participante) do
-      actualizado = %{participante | equipo_id: id_equipo}
-      ParticipantStore.guardar_participante(actualizado)
-      BroadcastService.notificar(:equipo_actualizado_participante, actualizado)
-      {:ok, actualizado}
-    else
-      {:error, razon} -> {:error, razon}
+      nuevos_canales = Enum.uniq([canal_id | participante.canales_asignados])
+      actualizar_datos(id_participante, %{canales_asignados: nuevos_canales})
     end
   end
 
   @doc """
-  Cambia el rol de un participante (por ejemplo, de "participante" a "mentor").
+  Elimina un canal de la lista de canales asignados al participante.
   """
-  def actualizar_rol(id_participante, nuevo_rol) do
+  def remover_canal(id_participante, canal_id) do
     with {:ok, participante} <- obtener_participante(id_participante) do
-      actualizado = %{participante | rol: nuevo_rol}
-      ParticipantStore.guardar_participante(actualizado)
-      BroadcastService.notificar(:rol_cambiado, actualizado)
-      {:ok, actualizado}
-    else
-      {:error, razon} -> {:error, razon}
+      nuevos_canales = Enum.reject(participante.canales_asignados, &(&1 == canal_id))
+      actualizar_datos(id_participante, %{canales_asignados: nuevos_canales})
+    end
+  end
+
+  @doc """
+  Registra un nuevo mensaje enviado por el participante.
+  """
+  def registrar_mensaje(id_participante, mensaje) do
+    with {:ok, participante} <- obtener_participante(id_participante) do
+      nuevos_mensajes = [%{mensaje: mensaje, timestamp: DateTime.utc_now()} | participante.mensajes]
+      actualizar_datos(id_participante, %{mensajes: nuevos_mensajes})
     end
   end
 
@@ -123,7 +189,7 @@ defmodule ProyectoFinalPrg3.Services.ParticipantManager do
   # ============================================================
 
   @doc """
-  Elimina un participante del sistema por su ID.
+  Elimina un participante del sistema.
   """
   def eliminar_participante(id_participante) do
     case ParticipantStore.eliminar_participante(id_participante) do
@@ -137,7 +203,7 @@ defmodule ProyectoFinalPrg3.Services.ParticipantManager do
   end
 
   @doc """
-  Filtra los participantes por rol (ej. "mentor", "participante", "admin").
+  Filtra los participantes por rol.
   """
   def filtrar_por_rol(rol) do
     listar_participantes()
@@ -145,7 +211,7 @@ defmodule ProyectoFinalPrg3.Services.ParticipantManager do
   end
 
   @doc """
-  Lista los participantes que no pertenecen actualmente a ningún equipo.
+  Lista los participantes que no pertenecen a ningún equipo.
   """
   def sin_equipo do
     listar_participantes()
