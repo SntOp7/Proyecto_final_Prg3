@@ -1,39 +1,44 @@
 defmodule ProyectoFinalPrg3.Services.MentorManager do
   @moduledoc """
   Servicio encargado de la gestión de mentores dentro del sistema de hackathon.
-  Permite registrar, listar, asignar mentores a equipos o proyectos, registrar retroalimentaciones
-  y consultar el progreso de los equipos que supervisan.
+  Permite registrar, listar, asignar mentores a equipos, administrar su disponibilidad,
+  canal de mentoría, biografía y retroalimentaciones.
 
-  Este módulo pertenece a la capa de servicios de la arquitectura hexagonal.
+  Este módulo pertenece a la capa de servicios dentro de la arquitectura hexagonal.
 
   Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
   Fecha de creación: 2025-10-26
+  Última modificación: 2025-10-27
   Licencia: GNU GPLv3
   """
 
-  alias ProyectoFinalPrg3.Domain.{Mentor, Team, Project, Feedback}
+  alias ProyectoFinalPrg3.Domain.{Mentor, Team, Feedback}
   alias ProyectoFinalPrg3.Adapters.Persistence.{MentorStore, FeedbackStore}
-  alias ProyectoFinalPrg3.Services.{TeamManager, ProjectManager, BroadcastService}
+  alias ProyectoFinalPrg3.Services.{TeamManager, BroadcastService}
 
   # ============================================================
   # FUNCIONES PRINCIPALES DE GESTIÓN DE MENTORES
   # ============================================================
 
   @doc """
-  Registra un nuevo mentor en el sistema.
+  Registra un nuevo mentor con sus datos principales en el sistema.
   """
-  def registrar_mentor(nombre, especialidad, experiencia) do
-    case MentorStore.obtener_por_nombre(nombre) do
+  def registrar_mentor(nombre, correo, especialidad, rol \\ "mentor", biografia \\ "") do
+    case MentorStore.buscar_por_correo(correo) do
       nil ->
         mentor = %Mentor{
           id: UUID.uuid4(),
           nombre: nombre,
+          correo: correo,
           especialidad: especialidad,
-          experiencia: experiencia,
+          biografia: biografia,
           equipos_asignados: [],
-          proyectos_asignados: [],
+          disponibilidad: :disponible,
+          canal_mentoria_id: nil,
           fecha_registro: DateTime.utc_now(),
-          estado: :activo
+          retroalimentaciones: [],
+          rol: rol,
+          activo: true
         }
 
         MentorStore.guardar_mentor(mentor)
@@ -41,28 +46,33 @@ defmodule ProyectoFinalPrg3.Services.MentorManager do
         {:ok, mentor}
 
       _ ->
-        {:error, :mentor_existente}
+        {:error, :correo_ya_registrado}
     end
   end
 
   @doc """
-  Actualiza la información de un mentor existente.
+  Actualiza la información de un mentor (biografía, especialidad, rol, etc.).
   """
-  def actualizar_mentor(%Mentor{} = mentor) do
-    MentorStore.guardar_mentor(mentor)
-    BroadcastService.notificar(:mentor_actualizado, mentor)
-    {:ok, mentor}
+  def actualizar_datos(id_mentor, nuevos_datos) when is_map(nuevos_datos) do
+    with {:ok, mentor} <- obtener_mentor(id_mentor) do
+      actualizado = Map.merge(mentor, nuevos_datos)
+      MentorStore.guardar_mentor(actualizado)
+      BroadcastService.notificar(:mentor_actualizado, actualizado)
+      {:ok, actualizado}
+    else
+      {:error, razon} -> {:error, razon}
+    end
   end
 
   @doc """
-  Desactiva un mentor del sistema (sin eliminarlo físicamente).
+  Marca a un mentor como inactivo en el sistema.
   """
   def desactivar_mentor(id_mentor) do
     with {:ok, mentor} <- obtener_mentor(id_mentor) do
-      mentor_actualizado = %{mentor | estado: :inactivo}
-      MentorStore.guardar_mentor(mentor_actualizado)
-      BroadcastService.notificar(:mentor_desactivado, mentor_actualizado)
-      {:ok, mentor_actualizado}
+      actualizado = %{mentor | activo: false, disponibilidad: :desconectado}
+      MentorStore.guardar_mentor(actualizado)
+      BroadcastService.notificar(:mentor_desactivado, actualizado)
+      {:ok, actualizado}
     else
       {:error, razon} -> {:error, razon}
     end
@@ -78,7 +88,7 @@ defmodule ProyectoFinalPrg3.Services.MentorManager do
   def listar_mentores, do: MentorStore.listar_mentores()
 
   @doc """
-  Obtiene los datos completos de un mentor por su ID.
+  Obtiene la información de un mentor por su ID.
   """
   def obtener_mentor(id_mentor) do
     case MentorStore.obtener_por_id(id_mentor) do
@@ -88,10 +98,25 @@ defmodule ProyectoFinalPrg3.Services.MentorManager do
   end
 
   @doc """
-  Obtiene los mentores activos del sistema.
+  Lista todos los mentores activos.
   """
   def listar_activos do
-    listar_mentores() |> Enum.filter(&(&1.estado == :activo))
+    listar_mentores() |> Enum.filter(&(&1.activo))
+  end
+
+  @doc """
+  Filtra mentores por especialidad o disponibilidad.
+  """
+  def filtrar(filtro, valor) do
+    listar_mentores()
+    |> Enum.filter(fn mentor ->
+      case filtro do
+        :especialidad -> mentor.especialidad == valor
+        :disponibilidad -> mentor.disponibilidad == valor
+        :rol -> mentor.rol == valor
+        _ -> false
+      end
+    end)
   end
 
   # ============================================================
@@ -99,7 +124,7 @@ defmodule ProyectoFinalPrg3.Services.MentorManager do
   # ============================================================
 
   @doc """
-  Asigna un mentor a un equipo específico.
+  Asigna un mentor a un equipo.
   """
   def asignar_a_equipo(id_mentor, nombre_equipo) do
     with {:ok, mentor} <- obtener_mentor(id_mentor),
@@ -114,7 +139,6 @@ defmodule ProyectoFinalPrg3.Services.MentorManager do
 
       MentorStore.guardar_mentor(mentor_actualizado)
       BroadcastService.notificar(:mentor_asignado_equipo, %{mentor: mentor.id, equipo: equipo.id})
-
       {:ok, mentor_actualizado}
     else
       {:error, razon} -> {:error, razon}
@@ -122,97 +146,49 @@ defmodule ProyectoFinalPrg3.Services.MentorManager do
   end
 
   @doc """
-  Asigna un mentor a un proyecto determinado.
+  Cambia la disponibilidad actual del mentor.
   """
-  def asignar_a_proyecto(id_mentor, nombre_proyecto) do
-    with {:ok, mentor} <- obtener_mentor(id_mentor),
-         {:ok, proyecto} <- ProjectManager.obtener_proyecto(nombre_proyecto) do
-      proyecto_actualizado = %{proyecto | mentor_id: mentor.id}
-      ProjectManager.actualizar_proyecto(nombre_proyecto, proyecto_actualizado)
-
-      mentor_actualizado = %{
-        mentor
-        | proyectos_asignados: Enum.uniq([proyecto.id | mentor.proyectos_asignados])
-      }
-
-      MentorStore.guardar_mentor(mentor_actualizado)
-      BroadcastService.notificar(:mentor_asignado_proyecto, %{mentor: mentor.id, proyecto: proyecto.id})
-
-      {:ok, mentor_actualizado}
+  def cambiar_disponibilidad(id_mentor, nuevo_estado) do
+    with {:ok, mentor} <- obtener_mentor(id_mentor) do
+      actualizado = %{mentor | disponibilidad: nuevo_estado}
+      MentorStore.guardar_mentor(actualizado)
+      BroadcastService.notificar(:disponibilidad_cambiada, actualizado)
+      {:ok, actualizado}
     else
       {:error, razon} -> {:error, razon}
     end
   end
 
-  @doc """
-  Obtiene todos los equipos supervisados por un mentor.
-  """
-  def listar_equipos_asignados(id_mentor) do
-    with {:ok, mentor} <- obtener_mentor(id_mentor) do
-      mentor.equipos_asignados
-      |> Enum.map(&TeamManager.obtener_por_id/1)
-      |> Enum.map(fn
-        {:ok, equipo} -> equipo
-        _ -> nil
-      end)
-      |> Enum.reject(&is_nil/1)
-    end
-  end
-
-  @doc """
-  Obtiene todos los proyectos asignados a un mentor.
-  """
-  def listar_proyectos_asignados(id_mentor) do
-    with {:ok, mentor} <- obtener_mentor(id_mentor) do
-      mentor.proyectos_asignados
-      |> Enum.map(&ProjectManager.obtener_por_id/1)
-      |> Enum.map(fn
-        {:ok, proyecto} -> proyecto
-        _ -> nil
-      end)
-      |> Enum.reject(&is_nil/1)
-    end
-  end
-
   # ============================================================
-  # FUNCIONES DE RETROALIMENTACIÓN Y EVALUACIÓN
+  # FUNCIONES DE RETROALIMENTACIÓN
   # ============================================================
 
   @doc """
-  Registra una retroalimentación de un mentor hacia un proyecto o equipo.
+  Registra una retroalimentación realizada por un mentor.
   """
-  def registrar_feedback(id_mentor, destino, comentario, puntaje \\ nil) do
+  def registrar_feedback(id_mentor, destino_id, comentario, puntaje \\ nil) do
     with {:ok, mentor} <- obtener_mentor(id_mentor) do
       feedback = %Feedback{
         id: UUID.uuid4(),
-        proyecto_id: destino.proyecto_id || destino.id,
         autor_id: mentor.id,
-        titulo: "Retroalimentación de #{mentor.nombre}",
+        destino_id: destino_id,
         comentario: comentario,
         puntaje: puntaje,
         tipo: "mentor",
-        fecha: DateTime.utc_now(),
-        adjuntos: %{}
+        fecha: DateTime.utc_now()
       }
 
       FeedbackStore.guardar_feedback(feedback)
-      BroadcastService.notificar(:retroalimentacion_registrada, feedback)
+
+      mentor_actualizado = %{
+        mentor
+        | retroalimentaciones: [feedback.id | mentor.retroalimentaciones]
+      }
+
+      MentorStore.guardar_mentor(mentor_actualizado)
+      BroadcastService.notificar(:feedback_mentor, feedback)
 
       {:ok, feedback}
-    else
-      {:error, razon} -> {:error, razon}
-    end
-  end
-
-  @doc """
-  Evalúa un proyecto con un puntaje, y actualiza su estado.
-  """
-  def evaluar_proyecto(id_mentor, nombre_proyecto, puntaje) do
-    with {:ok, _mentor} <- obtener_mentor(id_mentor),
-         {:ok, proyecto} <- ProjectManager.obtener_proyecto(nombre_proyecto) do
-      actualizado = ProjectManager.actualizar_puntaje(nombre_proyecto, puntaje)
-      BroadcastService.notificar(:proyecto_evaluado, %{mentor: id_mentor, proyecto: proyecto.id, puntaje: puntaje})
-      actualizado
     else
       {:error, razon} -> {:error, razon}
     end
@@ -223,18 +199,30 @@ defmodule ProyectoFinalPrg3.Services.MentorManager do
   # ============================================================
 
   @doc """
-  Envía un mensaje a todos los equipos o proyectos supervisados por un mentor.
+  Asigna o actualiza el canal de mentoría para el mentor.
+  """
+  def asignar_canal(id_mentor, canal_id) do
+    with {:ok, mentor} <- obtener_mentor(id_mentor) do
+      actualizado = %{mentor | canal_mentoria_id: canal_id}
+      MentorStore.guardar_mentor(actualizado)
+      BroadcastService.notificar(:canal_asignado_mentor, actualizado)
+      {:ok, actualizado}
+    else
+      {:error, razon} -> {:error, razon}
+    end
+  end
+
+  @doc """
+  Envía un mensaje general del mentor a todos sus equipos asignados.
   """
   def enviar_mensaje_general(id_mentor, mensaje) do
     with {:ok, mentor} <- obtener_mentor(id_mentor) do
-      destinos =
-        mentor.equipos_asignados
-        |> Enum.map(&TeamManager.obtener_por_id/1)
-        |> Enum.filter(&match?({:ok, _}, &1))
-        |> Enum.map(fn {:ok, equipo} -> equipo end)
-
-      Enum.each(destinos, fn equipo ->
-        BroadcastService.notificar(:mensaje_mentor, %{mentor: mentor.nombre, equipo: equipo.nombre, mensaje: mensaje})
+      Enum.each(mentor.equipos_asignados, fn equipo_id ->
+        BroadcastService.notificar(:mensaje_mentor, %{
+          mentor: mentor.nombre,
+          equipo_id: equipo_id,
+          mensaje: mensaje
+        })
       end)
 
       {:ok, :mensajes_enviados}
