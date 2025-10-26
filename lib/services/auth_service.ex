@@ -21,7 +21,7 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
   alias ProyectoFinalPrg3.Adapters.Persistence.ParticipantStore
 
   # ============================================================
-  # FUNCIONES DE REGISTRO Y AUTENTICACIÓN
+  # REGISTRO Y AUTENTICACIÓN
   # ============================================================
 
   @doc """
@@ -62,10 +62,13 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
 
       %Participant{} = p ->
         if EncryptionAdapter.verificar(contrasena, p.contrasena) do
-          token = TokenManager.generar_token(p.id)
-          SessionManager.activar_sesion(p.id, token)
-          ParticipantStore.actualizar_estado(p.id, true)
-          {:ok, %{participante: p, token: token}}
+          with {:ok, token} <- TokenManager.generar_token(p.id),
+               :ok <- SessionManager.activar_sesion(p.id, token) do
+            ParticipantStore.actualizar_estado(p.id, true)
+            {:ok, %{participante: p, token: token}}
+          else
+            _ -> {:error, :error_en_sesion}
+          end
         else
           {:error, :contrasena_invalida}
         end
@@ -82,7 +85,7 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
   end
 
   # ============================================================
-  # FUNCIONES DE VALIDACIÓN Y CONSULTA
+  # VALIDACIÓN Y CONSULTA
   # ============================================================
 
   @doc """
@@ -90,11 +93,8 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
   """
   def validar_token(token) do
     case TokenManager.validar_token(token) do
-      {:ok, id} ->
-        obtener_participante(id)
-
-      {:error, _} ->
-        {:error, :token_invalido}
+      {:ok, id} -> obtener_participante(id)
+      {:error, _} -> {:error, :token_invalido}
     end
   end
 
@@ -109,10 +109,13 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
   end
 
   @doc """
-  Verifica si un participante tiene una sesión activa.
+  Verifica si un participante tiene una sesión activa válida.
   """
-  def sesion_activa?(id_participante) do
-    SessionManager.sesion_activa?(id_participante)
+  def sesion_activa?(token) do
+    case SessionManager.validar_sesion(token) do
+      {:ok, _id} -> true
+      _ -> false
+    end
   end
 
   @doc """
@@ -127,7 +130,7 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
   end
 
   # ============================================================
-  # FUNCIONES DE SOPORTE INTERNO
+  # FUNCIONES INTERNAS
   # ============================================================
 
   @doc false
