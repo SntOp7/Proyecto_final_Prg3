@@ -1,27 +1,17 @@
 defmodule ProyectoFinalPrg3.Adapters.Security.SessionManager do
   @moduledoc """
-  Módulo encargado del manejo de sesiones de usuario dentro del sistema de hackathon.
+  Módulo encargado del manejo de sesiones activas de los participantes autenticados.
 
-  Este componente pertenece a la capa **Adapters/Security** y provee
-  funciones para iniciar, validar y cerrar sesiones activas de participantes
-  autenticados, utilizando los tokens generados por `TokenManager`.
+  Forma parte de la capa **Adapters/Security** y se encarga de:
+  - Registrar sesiones activas (`activar_sesion/2`).
+  - Validar tokens (`validar_sesion/1`).
+  - Revocar sesiones (`revocar_sesion/1`).
+  - Comprobar si un usuario tiene una sesión activa (`sesion_activa?/1`).
 
-  Es utilizado directamente por `AuthService` para gestionar el inicio y cierre
-  de sesión de los usuarios, y por otros servicios (como `TeamManager` o `ChatService`)
-  para obtener el usuario actualmente autenticado.
-
-  ## Funcionalidades principales:
-    - Iniciar sesión (`iniciar_sesion/1`)
-    - Validar sesión (`validar_sesion/1`)
-    - Cerrar sesión (`cerrar_sesion/1`)
-    - Obtener el usuario actual (`obtener_participante_actual/0`)
-
-  ## Ejemplo de uso:
-      iex> {:ok, token} = SessionManager.iniciar_sesion("user_001")
-      iex> SessionManager.validar_sesion(token)
-      {:ok, "user_001"}
-      iex> SessionManager.obtener_participante_actual()
-      "user_001"
+  Se comunica directamente con:
+  - `AuthService` para la autenticación de usuarios.
+  - `TokenManager` para la generación y validación de tokens.
+  - `LoggerService` para registrar eventos de inicio o cierre de sesión.
 
   Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
   Fecha de creación: 2025-10-27
@@ -31,7 +21,6 @@ defmodule ProyectoFinalPrg3.Adapters.Security.SessionManager do
   alias ProyectoFinalPrg3.Adapters.Security.TokenManager
   alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
 
-  # Almacén temporal de sesiones activas (ETS o Agent según necesidad)
   @table :sesiones_activas
 
   # ============================================================
@@ -52,49 +41,32 @@ defmodule ProyectoFinalPrg3.Adapters.Security.SessionManager do
   # ============================================================
 
   @doc """
-  Inicia una nueva sesión para el usuario especificado, generando un token
-  mediante `TokenManager`.
+  Activa una sesión en el sistema para un usuario autenticado.
 
-  Guarda la sesión activa en memoria y la retorna al cliente.
+  Recibe el `id_usuario` y el `token` ya generado por `AuthService`.
 
   ## Parámetros:
-    - `id_usuario`: identificador único del usuario (por ejemplo, su UUID).
+    - `id_usuario`: identificador único del usuario.
+    - `token`: cadena generada por `TokenManager`.
 
   ## Retorna:
-    - `{:ok, token}` si la sesión se creó correctamente.
-    - `{:error, :no_autorizado}` si hubo un fallo durante la creación.
+    - `:ok` si la sesión fue registrada correctamente.
   """
-  def iniciar_sesion(id_usuario) when is_binary(id_usuario) do
-    case TokenManager.generar_token(id_usuario) do
-      {:ok, token} ->
-        :ets.insert(@table, {id_usuario, token, System.system_time(:second)})
-        LoggerService.registrar_evento("Sesión iniciada", %{usuario: id_usuario})
-        {:ok, token}
-
-      _ ->
-        {:error, :no_autorizado}
-    end
+  def activar_sesion(id_usuario, token) when is_binary(id_usuario) and is_binary(token) do
+    :ets.insert(@table, {id_usuario, token, System.system_time(:second)})
+    LoggerService.registrar_evento("Sesión activada", %{usuario: id_usuario})
+    :ok
   end
 
   @doc """
-  Valida si un token corresponde a una sesión activa y legítima.
-
-  ## Parámetros:
-    - `token`: cadena codificada en Base64 generada por `TokenManager`.
-
-  ## Retorna:
-    - `{:ok, id_usuario}` si la sesión es válida.
-    - `{:error, :token_invalido}` si el token no es reconocido o expiró.
+  Valida si un token corresponde a una sesión activa en memoria.
   """
   def validar_sesion(token) when is_binary(token) do
     case TokenManager.validar_token(token) do
       {:ok, id_usuario} ->
         case :ets.lookup(@table, id_usuario) do
-          [{^id_usuario, ^token, _timestamp}] ->
-            {:ok, id_usuario}
-
-          _ ->
-            {:error, :token_invalido}
+          [{^id_usuario, ^token, _timestamp}] -> {:ok, id_usuario}
+          _ -> {:error, :token_invalido}
         end
 
       {:error, _} ->
@@ -103,16 +75,9 @@ defmodule ProyectoFinalPrg3.Adapters.Security.SessionManager do
   end
 
   @doc """
-  Cierra la sesión activa del usuario, eliminando su registro del sistema.
-
-  ## Parámetros:
-    - `id_usuario`: identificador del usuario autenticado.
-
-  ## Retorna:
-    - `:ok` si la sesión fue eliminada.
-    - `{:error, :no_sesion}` si no había sesión activa.
+  Revoca (cierra) una sesión activa y elimina su registro.
   """
-  def cerrar_sesion(id_usuario) when is_binary(id_usuario) do
+  def revocar_sesion(id_usuario) when is_binary(id_usuario) do
     case :ets.lookup(@table, id_usuario) do
       [{^id_usuario, _token, _timestamp}] ->
         :ets.delete(@table, id_usuario)
@@ -124,20 +89,18 @@ defmodule ProyectoFinalPrg3.Adapters.Security.SessionManager do
     end
   end
 
-  # ============================================================
-  # CONSULTA DE USUARIO ACTUAL
-  # ============================================================
+  @doc """
+  Verifica si un usuario tiene una sesión activa actualmente.
+  """
+  def sesion_activa?(id_usuario) do
+    case :ets.lookup(@table, id_usuario) do
+      [{^id_usuario, _token, _timestamp}] -> true
+      _ -> false
+    end
+  end
 
   @doc """
-  Retorna el identificador del usuario autenticado actualmente,
-  si existe una sesión activa en el proceso actual.
-
-  **Nota:** En una versión distribuida, este método se conectaría
-  con un contexto de sesión por proceso (por ejemplo, mediante `Process.put/2`).
-
-  ## Retorna:
-    - `id_usuario` si hay sesión activa.
-    - `nil` si no existe una sesión registrada.
+  Obtiene el usuario actualmente autenticado (si existe una sesión activa).
   """
   def obtener_participante_actual do
     case :ets.tab2list(@table) do
