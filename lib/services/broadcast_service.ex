@@ -1,14 +1,18 @@
 defmodule ProyectoFinalPrg3.Services.BroadcastService do
   @moduledoc """
   Servicio responsable de la difusión de eventos y notificaciones dentro del sistema.
-  Permite notificar a diferentes módulos o nodos (como chat, equipos o proyectos)
-  sobre cambios o acciones que deben ser replicadas.
+  Actúa como el bus central de comunicación entre módulos del dominio y adaptadores de red.
 
-  Este módulo actúa como capa de orquestación de eventos dentro de la arquitectura hexagonal,
-  comunicándose con los adaptadores de red (`PubSubAdapter`, `ChannelManager`) o con el sistema de logs.
+  Gestiona tres niveles de difusión:
+    1. Local (logs y auditoría)
+    2. Red (PubSub y ChannelManager)
+    3. Distribuido (NodeManager, para sincronización entre nodos)
+
+  Este módulo es usado por gestores como `TeamManager`, `ProjectManager`, `MentorManager`, etc.
 
   Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
   Fecha de creación: 2025-10-26
+  Última modificación: 2025-10-27
   Licencia: GNU GPLv3
   """
 
@@ -16,24 +20,23 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
   alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
 
   # ============================================================
-  # FUNCIONES PRINCIPALES DE DIFUSIÓN DE EVENTOS
+  # DIFUSIÓN DE EVENTOS
   # ============================================================
 
   @doc """
-  Envía una notificación general a través del sistema.
-
-  ## Parámetros:
-    - `evento`: átomo que indica el tipo de evento (`:equipo_creado`, `:proyecto_actualizado`, etc.).
-    - `data`: estructura de datos asociada al evento.
+  Envía una notificación general del sistema.
+  Es la forma estándar de propagar eventos como `:proyecto_creado` o `:equipo_actualizado`.
 
   ## Ejemplo:
-      BroadcastService.notificar(:equipo_creado, %{nombre: "Innovadores"})
+      BroadcastService.notificar(:proyecto_creado, %{nombre: "SmartHub", categoria: "IA"})
   """
-  def notificar(evento, data) when is_atom(evento) do
-    mensaje = construir_mensaje(:info, evento, data)
+  def notificar(evento, data, tipo \\ :info) when is_atom(evento) do
+    mensaje = construir_mensaje(tipo, evento, data)
 
-    LoggerService.registrar_evento("Notificación enviada", mensaje)
+    # Log local (historial del sistema)
+    LoggerService.registrar_evento("Difusión: #{evento}", mensaje)
 
+    # Difusión segura hacia red y nodos
     safe_broadcast(fn ->
       PubSubAdapter.publicar(evento, mensaje)
       ChannelManager.broadcast(evento, mensaje)
@@ -44,23 +47,18 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
   end
 
   @doc """
-  Envía un mensaje directo entre componentes internos.
-  Por ejemplo, desde un mentor a un equipo, o desde el sistema a un participante.
-
-  ## Parámetros:
-    - `destino`: identificador del canal o entidad destino.
-    - `mensaje`: contenido o payload a enviar.
+  Envía un mensaje directo a un destino específico (por ejemplo, a un canal o a un nodo).
   """
-  def enviar_directo(destino, mensaje) do
+  def enviar_directo(destino, mensaje, tipo \\ :directo) do
     payload = %{
-      tipo: :directo,
+      tipo: tipo,
       destino: destino,
       contenido: mensaje,
       timestamp: DateTime.utc_now(),
       nodo: Atom.to_string(Node.self())
     }
 
-    LoggerService.registrar_evento("Mensaje directo", payload)
+    LoggerService.registrar_evento("Mensaje directo enviado", payload)
 
     safe_broadcast(fn ->
       ChannelManager.enviar(destino, payload)
@@ -71,16 +69,17 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
   end
 
   @doc """
-  Notifica un cambio a múltiples suscriptores o canales simultáneamente.
+  Notifica simultáneamente un mismo evento a múltiples destinos.
+  Útil para difusión grupal (equipos, proyectos o mentores asignados).
   """
   def notificar_grupo(evento, lista_destinos, contenido) do
     Enum.each(lista_destinos, fn destino ->
       enviar_directo(destino, %{evento: evento, data: contenido})
     end)
 
-    LoggerService.registrar_evento("Difusión grupal", %{
+    LoggerService.registrar_evento("Difusión grupal completada", %{
       evento: evento,
-      cantidad: length(lista_destinos),
+      cantidad_destinos: length(lista_destinos),
       fecha: DateTime.utc_now()
     })
 
@@ -88,11 +87,11 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
   end
 
   # ============================================================
-  # FUNCIONES DE SUSCRIPCIÓN Y CONTROL DE EVENTOS
+  # SUSCRIPCIÓN Y CONTROL DE EVENTOS
   # ============================================================
 
   @doc """
-  Permite que un módulo o proceso se suscriba a eventos específicos.
+  Permite que un proceso se suscriba a eventos específicos dentro del sistema.
   """
   def suscribirse(evento, pid \\ self()) when is_atom(evento) and is_pid(pid) do
     PubSubAdapter.suscribir(evento, pid)
@@ -110,10 +109,45 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
   end
 
   # ============================================================
-  # FUNCIONES AUXILIARES DE CONSTRUCCIÓN Y CONTROL
+  # TRAZABILIDAD Y ALERTAS DE PROYECTOS
   # ============================================================
 
-  @doc false
+  @doc """
+  Registra un evento especial para trazabilidad de proyectos.
+  Usado por `ProjectManager` para registrar avances, evaluaciones y cambios.
+  """
+  def registrar_evento_proyecto(evento, proyecto_nombre, detalles) do
+    payload = construir_mensaje(:proyecto, evento, %{proyecto: proyecto_nombre, data: detalles})
+
+    LoggerService.registrar_evento("Evento de proyecto: #{evento}", payload)
+
+    safe_broadcast(fn ->
+      PubSubAdapter.publicar(:evento_proyecto, payload)
+      ChannelManager.broadcast(:evento_proyecto, payload)
+    end)
+
+    {:ok, payload}
+  end
+
+  @doc """
+  Envía una alerta o error del sistema con prioridad alta.
+  """
+  def notificar_error(contexto, detalle) do
+    mensaje = construir_mensaje(:error, :error_sistema, %{contexto: contexto, detalle: detalle})
+    LoggerService.registrar_evento("ERROR", mensaje)
+
+    safe_broadcast(fn ->
+      PubSubAdapter.publicar(:error_sistema, mensaje)
+      ChannelManager.broadcast(:error_sistema, mensaje)
+    end)
+
+    {:error, mensaje}
+  end
+
+  # ============================================================
+  # FUNCIONES AUXILIARES
+  # ============================================================
+
   defp construir_mensaje(tipo, evento, data) do
     %{
       tipo: tipo,
@@ -124,13 +158,17 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
     }
   end
 
-  @doc false
   defp safe_broadcast(fun) do
     try do
       fun.()
     rescue
       error ->
-        LoggerService.registrar_evento("Error de difusión", %{error: Exception.message(error)})
+        LoggerService.registrar_evento("Error de difusión", %{
+          mensaje: Exception.message(error),
+          tipo: :error,
+          timestamp: DateTime.utc_now()
+        })
+
         {:error, :fallo_difusion}
     end
   end
