@@ -2,7 +2,7 @@ defmodule ProyectoFinalPrg3.Services.MentorManager do
   @moduledoc """
   Servicio encargado de la gestión de mentores dentro del sistema de hackathon.
   Permite registrar, listar, asignar mentores a equipos, administrar su disponibilidad,
-  canal de mentoría, biografía y retroalimentaciones.
+  canal de mentoría, biografía y retroalimentaciones sobre equipos, proyectos o avances.
 
   Este módulo pertenece a la capa de servicios dentro de la arquitectura hexagonal.
 
@@ -12,7 +12,7 @@ defmodule ProyectoFinalPrg3.Services.MentorManager do
   Licencia: GNU GPLv3
   """
 
-  alias ProyectoFinalPrg3.Domain.{Mentor, Team, Feedback}
+  alias ProyectoFinalPrg3.Domain.{Mentor, Feedback}
   alias ProyectoFinalPrg3.Adapters.Persistence.{MentorStore, FeedbackStore}
   alias ProyectoFinalPrg3.Services.{TeamManager, BroadcastService}
 
@@ -21,7 +21,7 @@ defmodule ProyectoFinalPrg3.Services.MentorManager do
   # ============================================================
 
   @doc """
-  Registra un nuevo mentor con sus datos principales en el sistema.
+  Registra un nuevo mentor en el sistema.
   """
   def registrar_mentor(nombre, correo, especialidad, rol \\ "mentor", biografia \\ "") do
     case MentorStore.buscar_por_correo(correo) do
@@ -45,8 +45,7 @@ defmodule ProyectoFinalPrg3.Services.MentorManager do
         BroadcastService.notificar(:mentor_registrado, mentor)
         {:ok, mentor}
 
-      _ ->
-        {:error, :correo_ya_registrado}
+      _ -> {:error, :correo_ya_registrado}
     end
   end
 
@@ -98,14 +97,7 @@ defmodule ProyectoFinalPrg3.Services.MentorManager do
   end
 
   @doc """
-  Lista todos los mentores activos.
-  """
-  def listar_activos do
-    listar_mentores() |> Enum.filter(&(&1.activo))
-  end
-
-  @doc """
-  Filtra mentores por especialidad o disponibilidad.
+  Filtra mentores por especialidad, rol o disponibilidad.
   """
   def filtrar(filtro, valor) do
     listar_mentores()
@@ -160,38 +152,101 @@ defmodule ProyectoFinalPrg3.Services.MentorManager do
   end
 
   # ============================================================
-  # FUNCIONES DE RETROALIMENTACIÓN
+  # FUNCIONES DE RETROALIMENTACIÓN (FEEDBACK)
   # ============================================================
 
   @doc """
-  Registra una retroalimentación realizada por un mentor.
+  Registra un nuevo feedback emitido por un mentor.
+  Soporta feedback dirigido a proyectos, equipos o avances específicos.
   """
-  def registrar_feedback(id_mentor, destino_id, comentario, puntaje \\ nil) do
+  def registrar_feedback(
+        id_mentor,
+        attrs = %{
+          proyecto_id: proyecto_id,
+          equipo_id: equipo_id,
+          avance_id: avance_id,
+          contenido: contenido
+        }
+      ) do
     with {:ok, mentor} <- obtener_mentor(id_mentor) do
       feedback = %Feedback{
         id: UUID.uuid4(),
-        autor_id: mentor.id,
-        destino_id: destino_id,
-        comentario: comentario,
-        puntaje: puntaje,
-        tipo: "mentor",
-        fecha: DateTime.utc_now()
+        mentor_id: mentor.id,
+        proyecto_id: proyecto_id,
+        equipo_id: equipo_id,
+        avance_id: avance_id,
+        contenido: contenido,
+        fecha_creacion: DateTime.utc_now(),
+        nivel: Map.get(attrs, :nivel, "informativo"),
+        visibilidad: Map.get(attrs, :visibilidad, "privado"),
+        estado: Map.get(attrs, :estado, "pendiente")
       }
 
       FeedbackStore.guardar_feedback(feedback)
 
+      # Asociar al mentor
       mentor_actualizado = %{
         mentor
         | retroalimentaciones: [feedback.id | mentor.retroalimentaciones]
       }
 
       MentorStore.guardar_mentor(mentor_actualizado)
-      BroadcastService.notificar(:feedback_mentor, feedback)
-
+      BroadcastService.notificar(:feedback_creado, feedback)
       {:ok, feedback}
     else
       {:error, razon} -> {:error, razon}
     end
+  end
+
+  @doc """
+  Actualiza el estado de un feedback (por ejemplo, de 'pendiente' a 'revisado').
+  """
+  def actualizar_estado_feedback(id_feedback, nuevo_estado) do
+    with {:ok, feedback} <- FeedbackStore.obtener_feedback(id_feedback) do
+      actualizado = %{feedback | estado: nuevo_estado}
+      FeedbackStore.guardar_feedback(actualizado)
+      BroadcastService.notificar(:feedback_actualizado, actualizado)
+      {:ok, actualizado}
+    else
+      {:error, razon} -> {:error, razon}
+    end
+  end
+
+  @doc """
+  Cambia la visibilidad de un feedback (privado o público).
+  """
+  def cambiar_visibilidad_feedback(id_feedback, nueva_visibilidad) do
+    with {:ok, feedback} <- FeedbackStore.obtener_feedback(id_feedback) do
+      actualizado = %{feedback | visibilidad: nueva_visibilidad}
+      FeedbackStore.guardar_feedback(actualizado)
+      BroadcastService.notificar(:feedback_visibilidad_cambiada, actualizado)
+      {:ok, actualizado}
+    else
+      {:error, razon} -> {:error, razon}
+    end
+  end
+
+  @doc """
+  Obtiene todos los feedback emitidos por un mentor.
+  """
+  def listar_feedback_por_mentor(id_mentor) do
+    FeedbackStore.listar_feedbacks()
+    |> Enum.filter(&(&1.mentor_id == id_mentor))
+  end
+
+  @doc """
+  Filtra feedbacks según su estado o nivel (informativo, corrección, elogio).
+  """
+  def filtrar_feedbacks(filtro, valor) do
+    FeedbackStore.listar_feedbacks()
+    |> Enum.filter(fn fb ->
+      case filtro do
+        :estado -> fb.estado == valor
+        :nivel -> fb.nivel == valor
+        :visibilidad -> fb.visibilidad == valor
+        _ -> false
+      end
+    end)
   end
 
   # ============================================================
