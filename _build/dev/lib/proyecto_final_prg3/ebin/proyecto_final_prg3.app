@@ -38,6 +38,7 @@
                         'Elixir.ProyectoFinalPrg3.Services.MatchingService',
                         'Elixir.ProyectoFinalPrg3.Services.MentorManager',
                         'Elixir.ProyectoFinalPrg3.Services.ParticipantManager',
+                        'Elixir.ProyectoFinalPrg3.Services.PermissionService',
                         'Elixir.ProyectoFinalPrg3.Services.ProjectManager',
                         'Elixir.ProyectoFinalPrg3.Services.TeamManager']},
               {optional_applications,[]},
