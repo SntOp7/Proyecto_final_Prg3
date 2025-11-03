@@ -14,7 +14,14 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
 
   alias ProyectoFinalPrg3.Domain.{Team, Participant}
   alias ProyectoFinalPrg3.Adapters.Persistence.TeamStore
-  alias ProyectoFinalPrg3.Services.{AuthService, BroadcastService, ParticipantManager}
+  alias ProyectoFinalPrg3.Adapters.Security.SessionManager
+
+  alias ProyectoFinalPrg3.Services.{
+    AuthService,
+    BroadcastService,
+    ParticipantManager,
+    PermissionService
+  }
 
   # ============================================================
   # FUNCIONES PRINCIPALES DE GESTIÓN DE EQUIPOS
@@ -25,29 +32,33 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
   Genera un ID único, asigna la fecha de creación y notifica a los servicios asociados.
   """
   def crear_equipo(nombre, categoria, descripcion) do
-    case TeamStore.obtener_equipo(nombre) do
-      nil ->
-        equipo = %Team{
-          id: UUID.uuid4(),
-          nombre: nombre,
-          descripcion: descripcion,
-          categoria: categoria,
-          id_proyecto: nil,
-          id_mentor: nil,
-          participantes: [],
-          fecha_creacion: DateTime.utc_now(),
-          estado: :activo,
-          canal_chat_id: nil,
-          puntaje: 0,
-          historial: []
-        }
+    if PermissionService.autorizado?(SessionManager.obtener_participante_actual().id, :crear_equipo) do
+      case TeamStore.obtener_equipo(nombre) do
+        nil ->
+          equipo = %Team{
+            id: UUID.uuid4(),
+            nombre: nombre,
+            descripcion: descripcion,
+            categoria: categoria,
+            id_proyecto: nil,
+            id_mentor: nil,
+            participantes: [],
+            fecha_creacion: DateTime.utc_now(),
+            estado: :activo,
+            canal_chat_id: nil,
+            puntaje: 0,
+            historial: []
+          }
 
-        TeamStore.guardar_equipo(equipo)
-        BroadcastService.notificar(:equipo_creado, equipo)
-        {:ok, equipo}
+          TeamStore.guardar_equipo(equipo)
+          BroadcastService.notificar(:equipo_creado, equipo)
+          {:ok, equipo}
 
-      _existente ->
-        {:error, :equipo_ya_existente}
+        _existente ->
+          {:error, :equipo_ya_existente}
+        end
+    else
+      {:error, :permiso_denegado}
     end
   end
 
@@ -68,7 +79,11 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
     with {:ok, equipo} <- obtener_equipo(nombre_equipo),
          false <- participante_en_equipo?(equipo, participante.id) do
       participante_actualizado = %{participante | equipo_id: equipo.id}
-      equipo_actualizado = %{equipo | participantes: [participante_actualizado | equipo.participantes]}
+
+      equipo_actualizado = %{
+        equipo
+        | participantes: [participante_actualizado | equipo.participantes]
+      }
 
       TeamStore.guardar_equipo(equipo_actualizado)
       ParticipantManager.actualizar_equipo(participante.id, equipo.id)
@@ -108,7 +123,9 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
   """
   def remover_participante(nombre_equipo, id_participante) do
     with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
-      nuevos_participantes = Enum.reject(equipo.participantes, fn p -> p.id == id_participante end)
+      nuevos_participantes =
+        Enum.reject(equipo.participantes, fn p -> p.id == id_participante end)
+
       equipo_actualizado = %{equipo | participantes: nuevos_participantes}
 
       TeamStore.guardar_equipo(equipo_actualizado)
@@ -125,13 +142,17 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
   Disuelve un equipo (marca su estado como inactivo y notifica el cambio).
   """
   def disolver_equipo(nombre_equipo) do
-    with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
-      equipo_actualizado = %{equipo | estado: :inactivo}
-      TeamStore.guardar_equipo(equipo_actualizado)
-      BroadcastService.notificar(:equipo_disuelto, equipo_actualizado)
-      {:ok, :equipo_disuelto}
+    if PermissionService.autorizado?(SessionManager.obtener_participante_actual().id, :disolver_equipo) do
+      with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
+        equipo_actualizado = %{equipo | estado: :inactivo}
+        TeamStore.guardar_equipo(equipo_actualizado)
+        BroadcastService.notificar(:equipo_disuelto, equipo_actualizado)
+        {:ok, :equipo_disuelto}
+      else
+        {:error, razon} -> {:error, razon}
+      end
     else
-      {:error, razon} -> {:error, razon}
+      {:error, :permiso_denegado}
     end
   end
 
@@ -196,13 +217,17 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
   Asigna o actualiza el mentor de un equipo.
   """
   def asignar_mentor(nombre_equipo, id_mentor) do
-    with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
-      equipo_actualizado = %{equipo | id_mentor: id_mentor}
-      TeamStore.guardar_equipo(equipo_actualizado)
-      BroadcastService.notificar(:mentor_asignado, equipo_actualizado)
-      {:ok, equipo_actualizado}
+    if PermissionService.autorizado?(SessionManager.obtener_participante_actual().id, :asignar_mentor) do
+      with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
+        equipo_actualizado = %{equipo | id_mentor: id_mentor}
+        TeamStore.guardar_equipo(equipo_actualizado)
+        BroadcastService.notificar(:mentor_asignado, equipo_actualizado)
+        {:ok, equipo_actualizado}
+      else
+        {:error, razon} -> {:error, razon}
+      end
     else
-      {:error, razon} -> {:error, razon}
+      {:error, :permiso_denegado}
     end
   end
 
@@ -247,7 +272,10 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
   """
   def registrar_evento(nombre_equipo, evento) do
     with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
-      historial_actualizado = [%{timestamp: DateTime.utc_now(), detalle: evento} | equipo.historial]
+      historial_actualizado = [
+        %{timestamp: DateTime.utc_now(), detalle: evento} | equipo.historial
+      ]
+
       equipo_actualizado = %{equipo | historial: historial_actualizado}
       TeamStore.guardar_equipo(equipo_actualizado)
       {:ok, equipo_actualizado}
