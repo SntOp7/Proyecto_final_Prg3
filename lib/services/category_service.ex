@@ -39,7 +39,7 @@ defmodule ProyectoFinalPrg3.Services.CategoryService do
     - `{:error, :categoria_existente}` si ya hay una categoría con ese nombre.
   """
   def crear_categoria(nombre, descripcion \\ "", creador_id \\ nil) do
-    case CategoryStore.buscar_por_nombre(nombre) do
+    case CategoryStore.obtener_categoria(nombre) do
       nil ->
         categoria = %Category{
           id: UUID.uuid4(),
@@ -122,7 +122,7 @@ defmodule ProyectoFinalPrg3.Services.CategoryService do
   Busca una categoría por su nombre (insensible a mayúsculas).
   """
   def buscar_por_nombre(nombre) do
-    case CategoryStore.buscar_por_nombre(nombre) do
+    case CategoryStore.obtener_categoria(nombre) do
       nil -> {:error, :no_encontrada}
       categoria -> {:ok, categoria}
     end
@@ -132,7 +132,7 @@ defmodule ProyectoFinalPrg3.Services.CategoryService do
   Verifica si una categoría ya existe en el sistema.
   """
   def categoria_existe?(nombre) do
-    case CategoryStore.buscar_por_nombre(nombre) do
+    case CategoryStore.obtener_categoria(nombre) do
       nil -> false
       _ -> true
     end
