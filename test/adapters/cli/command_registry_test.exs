@@ -1,0 +1,74 @@
+defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRegistryTest do
+  use ExUnit.Case, async: true
+
+  alias ProyectoFinalPrg3.Adapters.CLI.CommandRegistry
+
+  @expected_commands [
+    "/teams",
+    "/project",
+    "/join",
+    "/chat",
+    "/help"
+  ]
+
+  describe "all/0" do
+    test "retorna todos los comandos registrados en el sistema" do
+      commands = CommandRegistry.all()
+      assert is_map(commands)
+      assert Map.keys(commands) == @expected_commands
+    end
+
+    test "cada comando contiene las claves esperadas (:description, :service, :action)" do
+      CommandRegistry.all()
+      |> Enum.each(fn {cmd, info} ->
+        assert is_map(info), "La definición del comando #{cmd} debe ser un mapa"
+        assert Map.has_key?(info, :description), "Falta la descripción en #{cmd}"
+        assert Map.has_key?(info, :service), "Falta el servicio en #{cmd}"
+        assert Map.has_key?(info, :action), "Falta la acción en #{cmd}"
+      end)
+    end
+  end
+
+  describe "get/1" do
+    test "retorna {:ok, info} con datos válidos para un comando existente" do
+      {:ok, data} = CommandRegistry.get("/join")
+
+      assert data.description == "Unirse a un equipo existente"
+      assert data.service == :team_manager
+      assert data.action == :join_team
+    end
+
+    test "retorna {:error, :comando_no_encontrado} para comandos inexistentes" do
+      assert {:error, :comando_no_encontrado} = CommandRegistry.get("/no_existe")
+    end
+
+    test "retorna información consistente entre get/1 y all/0" do
+      all = CommandRegistry.all()
+
+      Enum.each(@expected_commands, fn cmd ->
+        {:ok, info_from_get} = CommandRegistry.get(cmd)
+        info_from_all = all[cmd]
+        assert info_from_get == info_from_all
+      end)
+    end
+  end
+
+  describe "estructura de datos" do
+    test "los servicios y acciones están correctamente definidos como átomos" do
+      CommandRegistry.all()
+      |> Enum.each(fn {cmd, info} ->
+        assert is_atom(info.service), "El servicio de #{cmd} debe ser un átomo"
+        assert is_atom(info.action), "La acción de #{cmd} debe ser un átomo"
+      end)
+    end
+
+    test "las descripciones son cadenas legibles" do
+      CommandRegistry.all()
+      |> Enum.each(fn {cmd, info} ->
+        assert is_binary(info.description)
+        assert String.length(info.description) > 5,
+               "La descripción de #{cmd} es demasiado corta o inválida"
+      end)
+    end
+  end
+end
