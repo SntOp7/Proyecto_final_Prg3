@@ -30,8 +30,7 @@ defmodule ProyectoFinalPrg3.Services.SupervisionManager do
   """
 
   alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
-  alias ProyectoFinalPrg3.Adapters.Security.SessionManager
-  alias ProyectoFinalPrg3.Services.{MetricsService, BroadcastService}
+  alias ProyectoFinalPrg3.Services.BroadcastService
 
   @agent_name __MODULE__
 
@@ -107,7 +106,7 @@ defmodule ProyectoFinalPrg3.Services.SupervisionManager do
     iniciar()
     procesos = listar_procesos()
     resultados =
-      for {nombre, modulo} <- procesos, into: [] do
+      for {nombre, _modulo} <- procesos, into: [] do
         case verificar_estado(nombre) do
           {:ok, :activo} -> {nombre, :activo}
           {:restarted, _} -> {nombre, :reiniciado}
