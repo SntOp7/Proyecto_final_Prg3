@@ -6,7 +6,13 @@ defmodule ProyectoFinalPrg3.Services.ProjectManager do
 
   alias ProyectoFinalPrg3.Domain.{Project, Progress}
   alias ProyectoFinalPrg3.Adapters.Persistence.{ProjectStore, ProgressStore, FeedbackStore}
-  alias ProyectoFinalPrg3.Services.{TeamManager, BroadcastService, CategoryService, PermissionService}
+
+  alias ProyectoFinalPrg3.Services.{
+    TeamManager,
+    BroadcastService,
+    CategoryService,
+    PermissionService
+  }
 
   # ============================================================
   # FUNCIONES PRINCIPALES DE GESTIÓN DE PROYECTOS
@@ -44,8 +50,11 @@ defmodule ProyectoFinalPrg3.Services.ProjectManager do
         # Asociar al equipo si existe
         if equipo_id do
           case TeamManager.obtener_por_id(equipo_id) do
-            {:ok, equipo} -> TeamManager.vincular_proyecto(equipo.nombre, proyecto.id)
-            {:error, _} -> BroadcastService.notificar(:equipo_no_encontrado, %{equipo_id: equipo_id})
+            {:ok, equipo} ->
+              TeamManager.vincular_proyecto(equipo.nombre, proyecto.id)
+
+            {:error, _} ->
+              BroadcastService.notificar(:equipo_no_encontrado, %{equipo_id: equipo_id})
           end
         end
 
@@ -154,7 +163,14 @@ defmodule ProyectoFinalPrg3.Services.ProjectManager do
     do: actualizar_lista(nombre_proyecto, :avances, avance, ProgressStore, :avance_registrado)
 
   def registrar_retroalimentacion(nombre_proyecto, feedback),
-    do: actualizar_lista(nombre_proyecto, :retroalimentaciones, feedback, FeedbackStore, :retroalimentacion_registrada)
+    do:
+      actualizar_lista(
+        nombre_proyecto,
+        :retroalimentaciones,
+        feedback,
+        FeedbackStore,
+        :retroalimentacion_registrada
+      )
 
   @doc """
   Archiva un proyecto (requiere permiso :archivar_proyecto).
@@ -180,11 +196,10 @@ defmodule ProyectoFinalPrg3.Services.ProjectManager do
 
   defp actualizar_lista(nombre, campo, item, store_mod, evento) do
     with {:ok, proyecto} <- obtener_proyecto(nombre) do
-      actualizado = %{
+      actualizado =
         proyecto
-        |>Map.get(campo) => [item | Map.get(proyecto, campo)],
-          fecha_actualizacion: DateTime.utc_now()
-      }
+        |> Map.update!(campo, fn lista -> [item | lista] end)
+        |> Map.put(:fecha_actualizacion, DateTime.utc_now())
 
       store_mod.guardar_feedback(item)
       ProjectStore.guardar_proyecto(actualizado)
