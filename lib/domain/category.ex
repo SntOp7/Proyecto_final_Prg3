@@ -1,4 +1,4 @@
-defmodule ProyectofinalPrg3.Domain.Category do
+defmodule ProyectoFinalPrg3.Domain.Category do
 
   @moduledoc """
 
