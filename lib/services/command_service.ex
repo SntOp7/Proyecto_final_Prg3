@@ -50,7 +50,6 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
       {:ok, proyecto}
     else
       {:error, :no_encontrado} -> {:error, "No se encontró el equipo o proyecto indicado."}
-      _ -> {:error, "Error al recuperar el proyecto."}
     end
   end
 
@@ -64,7 +63,6 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
 
       {:error, :ya_es_miembro} -> {:error, "Ya perteneces a este equipo."}
       {:error, :no_encontrado} -> {:error, "No se encontró el equipo indicado."}
-      _ -> {:error, "No fue posible unirse al equipo."}
     end
   end
 
