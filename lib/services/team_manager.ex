@@ -6,7 +6,7 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
 
   Este módulo forma parte de la capa de servicios de la arquitectura hexagonal.
 
-  Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
+  Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez].
   Fecha de creación: 2025-10-25
   Fecha de última modificación: 2025-10-26
   Licencia: GNU GPLv3
@@ -158,7 +158,7 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
   Obtiene un equipo por su ID único.
   """
   def obtener_por_id(id) do
-    case TeamStore.obtener_por_id(id) do
+    case TeamStore.obtener_equipo_por_id(id) do
       nil -> {:error, :no_encontrado}
       equipo -> {:ok, equipo}
     end
