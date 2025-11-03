@@ -121,4 +121,24 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
       true -> :info
     end
   end
+
+  # ============================================================
+  # INTEGRACIÓN CON SUPERVISIÓN
+  # ============================================================
+
+  @doc """
+  Registra este servicio dentro del `SupervisionManager` para monitoreo continuo.
+  """
+  def registrar_supervision do
+    ProyectoFinalPrg3.Services.SupervisionManager.registrar_proceso(:logger_service, __MODULE__)
+  end
+
+  @doc """
+  Verifica que el servicio de logging esté activo.
+  """
+  def inicializar_supervision do
+    File.mkdir_p!("logs")
+    registrar_evento("LoggerService inicializado", %{estado: :ok})
+    :ok
+  end
 end
