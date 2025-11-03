@@ -36,13 +36,13 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.CategoryStore do
   end
 
   @doc """
-  Obtiene una categoría por su nombre desde el archivo CSV.
+  Obtiene una categoría por su id desde el archivo CSV.
   Retorna `{:ok, categoria}` si se encuentra, o `nil` si no existe.
   """
-  def obtener_categoria(nombre) do
+  def obtener_categoria(id) do
     categorias = listar_categorias()
 
-    case Enum.find(categorias, &(&1.nombre == nombre)) do
+    case Enum.find(categorias, &(&1.id == id)) do
       nil -> nil
       categoria -> {:ok, categoria}
     end

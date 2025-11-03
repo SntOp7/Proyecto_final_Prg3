@@ -112,12 +112,9 @@ defmodule ProyectoFinalPrg3.Services.CategoryService do
     - `{:error, :no_encontrada}` en caso contrario.
   """
   def obtener_categoria(id_categoria) do
-    categoria = CategoryStore.obtener_categoria(id_categoria)
-
-    if categoria do
-      {:ok, categoria}
-    else
-      {:error, :no_encontrada}
+    case CategoryStore.obtener_categoria(id_categoria) do
+      nil -> {:error, :no_encontrada}
+      {:ok, categoria} -> {:ok, categoria}
     end
   end
 
