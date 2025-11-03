@@ -11,9 +11,12 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
   3. Se ejecuta el servicio correspondiente (`TeamManager`, `ChatService`, etc.).
   4. Se devuelve el resultado o mensaje al usuario.
 
-  ## Ejemplo
-      iex> CommandService.ejecutar_comando(%{service: :command_service, action: :listar_equipos}, [])
-      {:ok, [%Team{}, %Team{}]}
+  ## Comandos disponibles
+  - `listar_equipos` → lista todos los equipos.
+  - `mostrar_proyecto` → muestra el proyecto asociado a un equipo.
+  - `unirse_a_equipo` → permite a un participante unirse a un equipo existente.
+  - `ingresar_chat_equipo` → ingresa al canal de chat del equipo.
+  - `mostrar_ayuda` → muestra los comandos disponibles.
 
   Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
   Fecha de creación: 2025-10-27
@@ -25,33 +28,21 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
   alias ProyectoFinalPrg3.Adapters.CLI.CommandRegistry
   alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
 
-  # ============================================================
-  # CASO POR DEFECTO
-  # ============================================================
-
   @doc """
-  Maneja comandos no reconocidos o con formato incorrecto.
+  Ejecuta comandos provenientes de la CLI según el servicio y acción especificados.
   """
-  def ejecutar_comando(_, _) do
-    {:error, "Comando no reconocido o uso incorrecto. Usa /help para ver los comandos disponibles."}
-  end
+  @spec ejecutar_comando(map(), list()) :: {:ok, any()} | {:error, String.t()}
 
   # ============================================================
   # COMANDOS PRINCIPALES
   # ============================================================
 
-  @doc """
-  Lista todos los equipos registrados en el sistema.
-  """
   def ejecutar_comando(%{service: :command_service, action: :listar_equipos}, _args) do
     equipos = TeamManager.listar_equipos()
     LoggerService.registrar_evento("Comando ejecutado", %{accion: :listar_equipos})
     {:ok, equipos}
   end
 
-  @doc """
-  Muestra la información del proyecto asociado a un equipo.
-  """
   def ejecutar_comando(%{service: :command_service, action: :mostrar_proyecto}, [nombre_equipo]) do
     with {:ok, equipo} <- TeamManager.obtener_equipo(nombre_equipo),
          {:ok, proyecto} <- ProjectManager.obtener_proyecto_por_id(equipo.id_proyecto) do
@@ -63,9 +54,6 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
     end
   end
 
-  @doc """
-  Permite a un participante autenticado unirse a un equipo existente.
-  """
   def ejecutar_comando(%{service: :command_service, action: :unirse_a_equipo}, [nombre_equipo]) do
     id_participante = SessionManager.obtener_participante_actual()
 
@@ -80,20 +68,22 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
     end
   end
 
-  @doc """
-  Permite ingresar al canal de chat de un equipo.
-  """
   def ejecutar_comando(%{service: :command_service, action: :ingresar_chat_equipo}, [nombre_equipo]) do
     ChatService.ingresar_chat_equipo(nombre_equipo)
     LoggerService.registrar_evento("Comando ejecutado", %{accion: :ingresar_chat_equipo, equipo: nombre_equipo})
     {:ok, "Has ingresado al chat del equipo #{nombre_equipo}."}
   end
 
-  @doc """
-  Muestra la lista de comandos disponibles registrados en el sistema.
-  """
   def ejecutar_comando(%{service: :command_service, action: :mostrar_ayuda}, _args) do
     mostrar_ayuda()
+  end
+
+  # ============================================================
+  # CASO POR DEFECTO (debe ir al final)
+  # ============================================================
+
+  def ejecutar_comando(_, _) do
+    {:error, "Comando no reconocido o uso incorrecto. Usa /help para ver los comandos disponibles."}
   end
 
   # ============================================================
@@ -101,13 +91,16 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
   # ============================================================
 
   @doc """
-  Imprime la lista de comandos disponibles en la CLI.
+  Imprime la lista de comandos disponibles registrados en el sistema.
   """
+  @spec mostrar_ayuda() :: {:ok, atom()}
   def mostrar_ayuda do
     IO.puts("\nComandos disponibles:")
     Enum.each(CommandRegistry.all(), fn {cmd, info} ->
       IO.puts("  #{cmd} → #{info.description}")
     end)
+
+    LoggerService.registrar_evento("Comando ejecutado", %{accion: :mostrar_ayuda})
     {:ok, :help_mostrado}
   end
 end
