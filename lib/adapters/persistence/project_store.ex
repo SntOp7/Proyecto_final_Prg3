@@ -14,7 +14,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProjectStore do
   """
 
   alias ProyectoFinalPrg3.Domain.Project
-  @data_path "data/projects.csv"
+  @ruta_archivo "data/projects.csv"
 
   # ============================================================
   # API PÚBLICA
@@ -55,8 +55,8 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProjectStore do
   Lista todos los proyectos almacenados.
   """
   def listar_proyectos do
-    if File.exists?(@data_path) do
-      @data_path
+    if File.exists?(@ruta_archivo) do
+      @ruta_archivo
       |> File.stream!()
       |> CSV.decode!(headers: true)
       |> Enum.map(&mapear_a_struct/1)
@@ -91,7 +91,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProjectStore do
       "visibilidad", "tags"
     ]
 
-    File.open!(@data_path, [:write], fn file ->
+    File.open!(@ruta_archivo, [:write], fn file ->
       IO.write(file, Enum.join(encabezados, ",") <> "\n")
 
       Enum.each(proyectos, fn p ->
