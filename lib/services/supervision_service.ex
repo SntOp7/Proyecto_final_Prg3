@@ -126,7 +126,7 @@ defmodule ProyectoFinalPrg3.Services.SupervisionManager do
   @doc false
   defp reiniciar_proceso(nombre, modulo) do
     try do
-      apply(modulo, :inicializar, [])
+      apply(modulo, :inicializar_supervision, [])
       BroadcastService.notificar(:proceso_reiniciado, %{nombre: nombre, modulo: modulo})
       LoggerService.registrar_evento("Proceso reiniciado correctamente", %{nombre: nombre})
     rescue
