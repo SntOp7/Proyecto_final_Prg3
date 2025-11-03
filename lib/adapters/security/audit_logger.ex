@@ -77,19 +77,23 @@ defmodule ProyectoFinalPrg3.Adapters.Security.AuditLogger do
   end
 
   defp evento_a_csv(e) do
-  Enum.join([
-    e.id,
-    e.timestamp,
-    e.accion,
-    e.usuario,
-    e.rol,
-    e.ip,
-    e.estado,
-    escape_csv(e.detalles)
-  ], ",") <> "\n"
-end
+    Enum.join(
+      [
+        e.id,
+        e.timestamp,
+        e.accion,
+        e.usuario,
+        e.rol,
+        e.ip,
+        e.estado,
+        escape_csv(e.detalles)
+      ],
+      ","
+    ) <> "\n"
+  end
 
-
-  defp escape_csv(v) when is_binary(v), do: "\"" <> String.replace(v, "\"", "'") <> "\""
-  defp escape_csv(v), do: to_string(v)
+  defp escape_csv(v) when is_binary(v) do
+    escaped = String.replace(v, "\"", "'")
+    "\"#{escaped}\""
+  end
 end
