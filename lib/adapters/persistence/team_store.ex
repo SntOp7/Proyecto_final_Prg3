@@ -49,8 +49,8 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.TeamStore do
   Lista todos los equipos registrados en el archivo CSV.
   """
   def listar_equipos do
-    if File.exists?(@data_path) do
-      File.stream!(@data_path)
+    if File.exists?(@ruta_archivo) do
+      File.stream!(@ruta_archivo)
       |> Stream.drop(1)
       |> Stream.map(&parse_csv_line/1)
       |> Enum.to_list()
@@ -107,7 +107,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.TeamStore do
       |> Enum.join("\n")
 
     File.mkdir_p!("data")
-    File.write!(@data_path, @headers <> contenido)
+    File.write!(@ruta_archivo, @headers <> contenido)
   end
 
   # Convierte un equipo a una línea CSV
