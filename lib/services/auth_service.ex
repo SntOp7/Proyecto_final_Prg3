@@ -45,6 +45,7 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
           nombre: nombre,
           correo: correo,
           username: username,
+          contrasena: hashed,
           rol: rol,
           equipo_id: nil,
           experiencia: experiencia,
