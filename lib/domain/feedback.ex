@@ -1,4 +1,4 @@
-defmodule ProyectofinalPrg3.Domain.Feedback do
+defmodule ProyectoFinalPrg3.Domain.Feedback do
 
   @moduledoc """
 
