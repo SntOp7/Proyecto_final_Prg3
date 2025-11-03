@@ -129,9 +129,11 @@ defmodule ProyectoFinalPrg3.Services.MetricsService do
 
   @doc false
   defp contar_usuarios do
-    case AuthService do
-      nil -> 0
-      _ -> AuthService |> :erlang.apply(:listar_participantes, []) |> length()
+    if Code.ensure_loaded?(AuthService) and
+         function_exported?(AuthService, :listar_participantes, 0) do
+      AuthService.listar_participantes() |> length()
+    else
+      0
     end
   end
 
@@ -140,8 +142,6 @@ defmodule ProyectoFinalPrg3.Services.MetricsService do
     case TeamManager.listar_equipos() do
       equipos when is_list(equipos) ->
         Enum.count(equipos, &(&1.estado == estado))
-
-      _ -> 0
     end
   end
 
@@ -150,8 +150,6 @@ defmodule ProyectoFinalPrg3.Services.MetricsService do
     case ProjectManager.listar_proyectos() do
       proyectos when is_list(proyectos) ->
         Enum.count(proyectos, &(&1.estado == estado))
-
-      _ -> 0
     end
   end
 
