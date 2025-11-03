@@ -65,15 +65,22 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ParticipantStore do
   end
 
   @doc """
-  Elimina un participante por su ID.
+  Elimina un participante por su ID del archivo CSV.
   """
   def eliminar_participante(id) do
-    participantes_filtrados =
-      listar_participantes()
-      |> Enum.reject(fn p -> p.id == id end)
+    participantes = listar_participantes()
 
-    escribir_participantes(participantes_filtrados)
-    :ok
+    # Verificamos si existe
+    if Enum.any?(participantes, &(&1.id == id)) do
+      participantes_filtrados =
+        participantes
+        |> Enum.reject(fn p -> p.id == id end)
+
+      escribir_participantes(participantes_filtrados)
+      :ok
+    else
+      {:error, :no_encontrado}
+    end
   end
 
   # ============================================================
@@ -169,6 +176,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ParticipantStore do
 
   # Manejo de fechas y tiempos
   defp parse_datetime(""), do: nil
+
   defp parse_datetime(str) do
     case DateTime.from_iso8601(str) do
       {:ok, dt, _} -> dt
@@ -188,6 +196,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ParticipantStore do
 
   # Manejo de listas complejas (mensajes)
   defp parse_json_list(""), do: []
+
   defp parse_json_list(str) do
     str
     |> String.split("|")
