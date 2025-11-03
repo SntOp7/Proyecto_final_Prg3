@@ -1,245 +1,303 @@
-defmodule ProyectoFinalPrg3.Test.Services.TeamManagerTest do
-  use ExUnit.Case, async: true
-  import Mox
+defmodule ProyectoFinalPrg3.Services.TeamManager do
+  @moduledoc """
+  Define la lógica de negocio y operaciones asociadas a la gestión de equipos dentro del sistema de hackathon.
+  Gestiona la creación, actualización, listado, vinculación de proyectos, asignación de mentores,
+  manejo de participantes, historial y canales de comunicación.
 
-  alias ProyectoFinalPrg3.Services.TeamManager
+  Este módulo forma parte de la capa de servicios de la arquitectura hexagonal.
+
+  Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
+  Fecha de creación: 2025-10-25
+  Fecha de última modificación: 2025-10-26
+  Licencia: GNU GPLv3
+  """
+
   alias ProyectoFinalPrg3.Domain.{Team, Participant}
   alias ProyectoFinalPrg3.Adapters.Persistence.TeamStore
   alias ProyectoFinalPrg3.Services.{AuthService, BroadcastService, ParticipantManager}
 
-  @moduledoc """
-  Pruebas unitarias para `TeamManager`.
+  # ============================================================
+  # FUNCIONES PRINCIPALES DE GESTIÓN DE EQUIPOS
+  # ============================================================
 
-  Se validan operaciones clave:
-  - Creación, actualización y disolución de equipos.
-  - Gestión de participantes (agregar, remover, unirse).
-  - Asignación de mentores, proyectos y canales.
-  - Filtrado, historial y notificaciones de equipo.
-
-  Cobertura total de campos del struct Team:
-  id, nombre, descripcion, categoria, id_proyecto, id_mentor,
-  participantes, fecha_creacion, estado, canal_chat_id, puntaje, historial.
+  @doc """
+  Crea un nuevo equipo y lo registra en el sistema.
+  Genera un ID único, asigna la fecha de creación y notifica a los servicios asociados.
   """
+  def crear_equipo(nombre, categoria, descripcion) do
+    case TeamStore.obtener_equipo(nombre) do
+      nil ->
+        equipo = %Team{
+          id: UUID.uuid4(),
+          nombre: nombre,
+          descripcion: descripcion,
+          categoria: categoria,
+          id_proyecto: nil,
+          id_mentor: nil,
+          participantes: [],
+          fecha_creacion: DateTime.utc_now(),
+          estado: :activo,
+          canal_chat_id: nil,
+          puntaje: 0,
+          historial: []
+        }
 
-  setup :verify_on_exit!
+        TeamStore.guardar_equipo(equipo)
+        BroadcastService.notificar(:equipo_creado, equipo)
+        {:ok, equipo}
 
-  # ============================================================
-  # CREACIÓN DE EQUIPOS
-  # ============================================================
-
-  describe "crear_equipo/3" do
-    test "crea correctamente un nuevo equipo" do
-      expect(TeamStoreMock, :obtener_equipo, fn _ -> nil end)
-      expect(TeamStoreMock, :guardar_equipo, fn equipo -> equipo end)
-      expect(BroadcastServiceMock, :notificar, fn :equipo_creado, _ -> :ok end)
-
-      {:ok, equipo} = TeamManager.crear_equipo("Team Phoenix", "IA", "Equipo especializado en ML")
-
-      assert %Team{} = equipo
-      assert equipo.nombre == "Team Phoenix"
-      assert equipo.categoria == "IA"
-      assert equipo.descripcion =~ "ML"
-      assert equipo.estado == :activo
-      assert equipo.puntaje == 0
-      assert equipo.historial == []
-      assert equipo.participantes == []
+      _existente ->
+        {:error, :equipo_ya_existente}
     end
+  end
 
-    test "retorna error si el equipo ya existe" do
-      expect(TeamStoreMock, :obtener_equipo, fn _ -> %Team{nombre: "Team Phoenix"} end)
-      assert {:error, :equipo_ya_existente} =
-               TeamManager.crear_equipo("Team Phoenix", "IA", "Equipo duplicado")
+  @doc """
+  Actualiza la información completa de un equipo existente.
+  """
+  def actualizar_equipo(%Team{} = equipo) do
+    TeamStore.guardar_equipo(equipo)
+    BroadcastService.notificar(:equipo_actualizado, equipo)
+    {:ok, equipo}
+  end
+
+  @doc """
+  Agrega un participante a un equipo, verificando que no exista previamente.
+  También actualiza la información del participante.
+  """
+  def agregar_participante(nombre_equipo, participante = %Participant{}) do
+    with {:ok, equipo} <- obtener_equipo(nombre_equipo),
+         false <- participante_en_equipo?(equipo, participante.id) do
+      participante_actualizado = %{participante | equipo_id: equipo.id}
+      equipo_actualizado = %{equipo | participantes: [participante_actualizado | equipo.participantes]}
+
+      TeamStore.guardar_equipo(equipo_actualizado)
+      ParticipantManager.actualizar_equipo(participante.id, equipo.id)
+      BroadcastService.notificar(:equipo_actualizado, equipo_actualizado)
+
+      {:ok, equipo_actualizado}
+    else
+      true -> {:error, :ya_en_equipo}
+      {:error, razon} -> {:error, razon}
+      nil -> {:error, :equipo_no_encontrado}
+    end
+  end
+
+  @doc """
+  Permite que un participante autenticado se una a un equipo existente.
+  """
+  def unirse_a_equipo(nombre_equipo, id_participante) do
+    with {:ok, usuario} <- AuthService.obtener_participante(id_participante),
+         {:ok, equipo} <- obtener_equipo(nombre_equipo),
+         false <- participante_en_equipo?(equipo, id_participante) do
+      usuario_actualizado = %{usuario | equipo_id: equipo.id}
+      equipo_actualizado = %{equipo | participantes: [usuario_actualizado | equipo.participantes]}
+
+      TeamStore.guardar_equipo(equipo_actualizado)
+      ParticipantManager.actualizar_equipo(usuario.id, equipo.id)
+      BroadcastService.notificar(:miembro_unido, equipo_actualizado)
+
+      {:ok, equipo_actualizado}
+    else
+      true -> {:error, :ya_es_miembro}
+      {:error, razon} -> {:error, razon}
+    end
+  end
+
+  @doc """
+  Remueve un participante de un equipo.
+  """
+  def remover_participante(nombre_equipo, id_participante) do
+    with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
+      nuevos_participantes = Enum.reject(equipo.participantes, fn p -> p.id == id_participante end)
+      equipo_actualizado = %{equipo | participantes: nuevos_participantes}
+
+      TeamStore.guardar_equipo(equipo_actualizado)
+      ParticipantManager.actualizar_equipo(id_participante, nil)
+      BroadcastService.notificar(:equipo_actualizado, equipo_actualizado)
+
+      {:ok, equipo_actualizado}
+    else
+      {:error, razon} -> {:error, razon}
+    end
+  end
+
+  @doc """
+  Disuelve un equipo (marca su estado como inactivo y notifica el cambio).
+  """
+  def disolver_equipo(nombre_equipo) do
+    with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
+      equipo_actualizado = %{equipo | estado: :inactivo}
+      TeamStore.guardar_equipo(equipo_actualizado)
+      BroadcastService.notificar(:equipo_disuelto, equipo_actualizado)
+      {:ok, :equipo_disuelto}
+    else
+      {:error, razon} -> {:error, razon}
     end
   end
 
   # ============================================================
-  # ACTUALIZACIÓN Y DISOLUCIÓN
+  # FUNCIONES DE CONSULTA Y FILTRADO
   # ============================================================
 
-  describe "actualizar_equipo/1" do
-    test "actualiza correctamente un equipo existente" do
-      equipo = %Team{nombre: "Team Alpha", categoria: "IA"}
-      expect(TeamStoreMock, :guardar_equipo, fn t -> t end)
-      expect(BroadcastServiceMock, :notificar, fn :equipo_actualizado, _ -> :ok end)
+  @doc """
+  Lista todos los equipos registrados.
+  """
+  def listar_equipos, do: TeamStore.listar_equipos()
 
-      {:ok, actualizado} = TeamManager.actualizar_equipo(equipo)
-      assert actualizado.nombre == "Team Alpha"
+  @doc """
+  Obtiene un equipo por su nombre.
+  """
+  def obtener_equipo(nombre) do
+    case TeamStore.obtener_equipo(nombre) do
+      nil -> {:error, :no_encontrado}
+      equipo -> {:ok, equipo}
     end
   end
 
-  describe "disolver_equipo/1" do
-    test "marca un equipo como inactivo" do
-      equipo = %Team{nombre: "Team Alpha", estado: :activo}
-      expect(TeamStoreMock, :obtener_equipo, fn _ -> equipo end)
-      expect(TeamStoreMock, :guardar_equipo, fn e -> e end)
-      expect(BroadcastServiceMock, :notificar, fn :equipo_disuelto, _ -> :ok end)
-
-      {:ok, :equipo_disuelto} = TeamManager.disolver_equipo("Team Alpha")
+  @doc """
+  Obtiene un equipo por su ID único.
+  """
+  def obtener_por_id(id) do
+    case TeamStore.obtener_por_id(id) do
+      nil -> {:error, :no_encontrado}
+      equipo -> {:ok, equipo}
     end
   end
 
-  # ============================================================
-  # PARTICIPANTES
-  # ============================================================
+  @doc """
+  Filtra los equipos por categoría o estado.
+  """
+  def filtrar_equipos(filtro, valor) do
+    equipos = TeamStore.listar_equipos()
 
-  describe "agregar_participante/2" do
-    test "agrega un participante a un equipo correctamente" do
-      equipo = %Team{id: "t1", nombre: "Team Beta", participantes: []}
-      participante = %Participant{id: "p1", nombre: "Alice"}
-
-      expect(TeamStoreMock, :obtener_equipo, fn _ -> equipo end)
-      expect(TeamStoreMock, :guardar_equipo, fn e -> e end)
-      expect(ParticipantManagerMock, :actualizar_equipo, fn _, _ -> :ok end)
-      expect(BroadcastServiceMock, :notificar, fn :equipo_actualizado, _ -> :ok end)
-
-      {:ok, actualizado} = TeamManager.agregar_participante("Team Beta", participante)
-      assert Enum.any?(actualizado.participantes, &(&1.id == "p1"))
-    end
-
-    test "retorna error si el participante ya está en el equipo" do
-      participante = %Participant{id: "p1", nombre: "Alice"}
-      equipo = %Team{id: "t1", nombre: "Team Beta", participantes: [participante]}
-      expect(TeamStoreMock, :obtener_equipo, fn _ -> equipo end)
-      assert {:error, :ya_en_equipo} = TeamManager.agregar_participante("Team Beta", participante)
+    case filtro do
+      :categoria -> Enum.filter(equipos, &(&1.categoria == valor))
+      :estado -> Enum.filter(equipos, &(&1.estado == valor))
+      _ -> equipos
     end
   end
 
-  describe "unirse_a_equipo/2" do
-    test "permite a un usuario autenticado unirse a un equipo existente" do
-      participante = %Participant{id: "p2", nombre: "Bob", equipo_id: nil}
-      equipo = %Team{id: "t2", nombre: "Team Gamma", participantes: []}
-
-      expect(AuthServiceMock, :obtener_participante, fn _ -> {:ok, participante} end)
-      expect(TeamStoreMock, :obtener_equipo, fn _ -> equipo end)
-      expect(TeamStoreMock, :guardar_equipo, fn e -> e end)
-      expect(ParticipantManagerMock, :actualizar_equipo, fn _, _ -> :ok end)
-      expect(BroadcastServiceMock, :notificar, fn :miembro_unido, _ -> :ok end)
-
-      {:ok, actualizado} = TeamManager.unirse_a_equipo("Team Gamma", "p2")
-      assert Enum.any?(actualizado.participantes, &(&1.id == "p2"))
-    end
-  end
-
-  describe "remover_participante/2" do
-    test "remueve correctamente un participante" do
-      equipo = %Team{
-        nombre: "Team Zeta",
-        participantes: [%Participant{id: "p1", nombre: "Alice"}]
-      }
-
-      expect(TeamStoreMock, :obtener_equipo, fn _ -> equipo end)
-      expect(TeamStoreMock, :guardar_equipo, fn e -> e end)
-      expect(ParticipantManagerMock, :actualizar_equipo, fn _, _ -> :ok end)
-      expect(BroadcastServiceMock, :notificar, fn :equipo_actualizado, _ -> :ok end)
-
-      {:ok, actualizado} = TeamManager.remover_participante("Team Zeta", "p1")
-      refute Enum.any?(actualizado.participantes, &(&1.id == "p1"))
+  @doc """
+  Verifica si un equipo está activo.
+  """
+  def equipo_activo?(nombre_equipo) do
+    with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
+      equipo.estado == :activo
+    else
+      _ -> false
     end
   end
 
   # ============================================================
-  # FILTRADO Y CONSULTA
+  # FUNCIONES DE MENTORÍA Y PROYECTOS
   # ============================================================
 
-  describe "obtener_equipo/1 y filtrar_equipos/2" do
-    test "obtiene correctamente un equipo existente" do
-      equipo = %Team{nombre: "Team Omega"}
-      expect(TeamStoreMock, :obtener_equipo, fn _ -> equipo end)
-      {:ok, result} = TeamManager.obtener_equipo("Team Omega")
-      assert result.nombre == "Team Omega"
+  @doc """
+  Asigna o actualiza el mentor de un equipo.
+  """
+  def asignar_mentor(nombre_equipo, id_mentor) do
+    with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
+      equipo_actualizado = %{equipo | id_mentor: id_mentor}
+      TeamStore.guardar_equipo(equipo_actualizado)
+      BroadcastService.notificar(:mentor_asignado, equipo_actualizado)
+      {:ok, equipo_actualizado}
+    else
+      {:error, razon} -> {:error, razon}
     end
+  end
 
-    test "filtra equipos por categoría" do
-      equipos = [
-        %Team{nombre: "Alpha", categoria: "IA"},
-        %Team{nombre: "Beta", categoria: "Salud"}
-      ]
-
-      expect(TeamStoreMock, :listar_equipos, fn -> equipos end)
-      result = TeamManager.filtrar_equipos(:categoria, "IA")
-      assert Enum.count(result) == 1
-      assert hd(result).nombre == "Alpha"
+  @doc """
+  Vincula un proyecto existente al equipo mediante su ID.
+  """
+  def vincular_proyecto(nombre_equipo, id_proyecto) do
+    with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
+      equipo_actualizado = %{equipo | id_proyecto: id_proyecto}
+      TeamStore.guardar_equipo(equipo_actualizado)
+      BroadcastService.notificar(:proyecto_vinculado, equipo_actualizado)
+      {:ok, equipo_actualizado}
+    else
+      {:error, razon} -> {:error, razon}
     end
   end
 
   # ============================================================
-  # MENTOR Y PROYECTO
+  # FUNCIONES DE EVALUACIÓN Y PUNTAJE
   # ============================================================
 
-  describe "asignar_mentor/2 y vincular_proyecto/2" do
-    test "asigna correctamente un mentor a un equipo" do
-      equipo = %Team{nombre: "Team Delta", id_mentor: nil}
-      expect(TeamStoreMock, :obtener_equipo, fn _ -> equipo end)
-      expect(TeamStoreMock, :guardar_equipo, fn e -> e end)
-      expect(BroadcastServiceMock, :notificar, fn :mentor_asignado, _ -> :ok end)
-
-      {:ok, actualizado} = TeamManager.asignar_mentor("Team Delta", "mentor-1")
-      assert actualizado.id_mentor == "mentor-1"
-    end
-
-    test "vincula un proyecto al equipo" do
-      equipo = %Team{nombre: "Team Sigma", id_proyecto: nil}
-      expect(TeamStoreMock, :obtener_equipo, fn _ -> equipo end)
-      expect(TeamStoreMock, :guardar_equipo, fn e -> e end)
-      expect(BroadcastServiceMock, :notificar, fn :proyecto_vinculado, _ -> :ok end)
-
-      {:ok, actualizado} = TeamManager.vincular_proyecto("Team Sigma", "proj-1")
-      assert actualizado.id_proyecto == "proj-1"
+  @doc """
+  Actualiza el puntaje global del equipo tras una evaluación.
+  """
+  def actualizar_puntaje(nombre_equipo, nuevo_puntaje) do
+    with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
+      equipo_actualizado = %{equipo | puntaje: nuevo_puntaje}
+      TeamStore.guardar_equipo(equipo_actualizado)
+      BroadcastService.notificar(:puntaje_actualizado, equipo_actualizado)
+      {:ok, equipo_actualizado}
+    else
+      {:error, razon} -> {:error, razon}
     end
   end
 
   # ============================================================
-  # PUNTAJE, HISTORIAL Y COMUNICACIÓN
+  # FUNCIONES DE HISTORIAL Y TRAZABILIDAD
   # ============================================================
 
-  describe "actualizar_puntaje/2" do
-    test "modifica el puntaje de un equipo" do
-      equipo = %Team{nombre: "Team Orion", puntaje: 0}
-      expect(TeamStoreMock, :obtener_equipo, fn _ -> equipo end)
-      expect(TeamStoreMock, :guardar_equipo, fn e -> e end)
-      expect(BroadcastServiceMock, :notificar, fn :puntaje_actualizado, _ -> :ok end)
-
-      {:ok, actualizado} = TeamManager.actualizar_puntaje("Team Orion", 95)
-      assert actualizado.puntaje == 95
+  @doc """
+  Registra un evento o acción en el historial del equipo.
+  """
+  def registrar_evento(nombre_equipo, evento) do
+    with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
+      historial_actualizado = [%{timestamp: DateTime.utc_now(), detalle: evento} | equipo.historial]
+      equipo_actualizado = %{equipo | historial: historial_actualizado}
+      TeamStore.guardar_equipo(equipo_actualizado)
+      {:ok, equipo_actualizado}
+    else
+      {:error, razon} -> {:error, razon}
     end
   end
 
-  describe "registrar_evento/2 y obtener_historial/1" do
-    test "registra un evento en el historial del equipo" do
-      equipo = %Team{nombre: "Team Phoenix", historial: []}
-      expect(TeamStoreMock, :obtener_equipo, fn _ -> equipo end)
-      expect(TeamStoreMock, :guardar_equipo, fn e -> e end)
-
-      {:ok, actualizado} = TeamManager.registrar_evento("Team Phoenix", "Proyecto completado")
-      assert length(actualizado.historial) == 1
-      assert hd(actualizado.historial).detalle == "Proyecto completado"
-    end
-
-    test "obtiene el historial correctamente" do
-      historial = [%{detalle: "Registro"}]
-      equipo = %Team{nombre: "Team Phoenix", historial: historial}
-      expect(TeamStoreMock, :obtener_equipo, fn _ -> equipo end)
-      {:ok, lista} = TeamManager.obtener_historial("Team Phoenix")
-      assert lista == historial
+  @doc """
+  Obtiene el historial completo de eventos de un equipo.
+  """
+  def obtener_historial(nombre_equipo) do
+    with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
+      {:ok, equipo.historial}
+    else
+      {:error, razon} -> {:error, razon}
     end
   end
 
-  describe "asignar_canal_chat/2 y notificar_equipo/2" do
-    test "asigna un canal de chat al equipo" do
-      equipo = %Team{nombre: "Team Nova", canal_chat_id: nil}
-      expect(TeamStoreMock, :obtener_equipo, fn _ -> equipo end)
-      expect(TeamStoreMock, :guardar_equipo, fn e -> e end)
-      expect(BroadcastServiceMock, :notificar, fn :canal_chat_asignado, _ -> :ok end)
+  # ============================================================
+  # FUNCIONES DE COMUNICACIÓN
+  # ============================================================
 
-      {:ok, actualizado} = TeamManager.asignar_canal_chat("Team Nova", "channel-99")
-      assert actualizado.canal_chat_id == "channel-99"
-    end
-
-    test "envía un mensaje de notificación al equipo" do
-      equipo = %Team{nombre: "Team Nova"}
-      expect(BroadcastServiceMock, :notificar, fn :mensaje_equipo, _ -> :ok end)
-
-      {:ok, :mensaje_enviado} = TeamManager.notificar_equipo(equipo, "Bienvenidos al hackathon!")
+  @doc """
+  Asigna o actualiza el canal de chat del equipo.
+  """
+  def asignar_canal_chat(nombre_equipo, canal_id) do
+    with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
+      equipo_actualizado = %{equipo | canal_chat_id: canal_id}
+      TeamStore.guardar_equipo(equipo_actualizado)
+      BroadcastService.notificar(:canal_chat_asignado, equipo_actualizado)
+      {:ok, equipo_actualizado}
+    else
+      {:error, razon} -> {:error, razon}
     end
   end
+
+  @doc """
+  Envía un mensaje de notificación a todos los miembros del equipo.
+  """
+  def notificar_equipo(equipo, mensaje) do
+    BroadcastService.notificar(:mensaje_equipo, %{equipo: equipo.nombre, contenido: mensaje})
+    {:ok, :mensaje_enviado}
+  end
+
+  # ============================================================
+  # FUNCIONES AUXILIARES
+  # ============================================================
+
+  @doc false
+  defp participante_en_equipo?(equipo, id_participante),
+    do: Enum.any?(equipo.participantes, fn p -> p.id == id_participante end)
 end
