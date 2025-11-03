@@ -31,40 +31,48 @@ defmodule ProyectoFinalPrg3.Services.PermissionService do
   # ============================================================
 
   @permissions %{
-    "participante" => [
-      :ver_proyectos,
-      :unirse_equipo,
-      :editar_perfil,
-      :ver_mentores
-    ],
-    "líder" => [
-      :ver_proyectos,
-      :unirse_equipo,
-      :crear_equipo,
-      :asignar_tareas,
-      :editar_perfil
-    ],
-    "mentor" => [
-      :ver_proyectos,
-      :comentar_proyecto,
-      :calificar_proyecto,
-      :ver_equipos
-    ],
-    "organizador" => [
-      :crear_equipo,
-      :asignar_mentor,
-      :ver_todos_los_usuarios,
-      :eliminar_equipo,
-      :modificar_configuracion
-    ],
-    "admin" => [
-      :crear_usuario,
-      :eliminar_usuario,
-      :gestionar_roles,
-      :ver_todos_los_logs,
-      :modificar_configuracion
-    ]
-  }
+  "participante" => [
+    :ver_proyectos,
+    :unirse_equipo,
+    :editar_perfil,
+    :ver_mentores
+  ],
+  "líder" => [
+    :ver_proyectos,
+    :unirse_equipo,
+    :crear_equipo,
+    :asignar_tareas,
+    :editar_perfil,
+    :crear_proyecto,
+    :editar_proyecto
+  ],
+  "mentor" => [
+    :ver_proyectos,
+    :comentar_proyecto,
+    :calificar_proyecto,
+    :ver_equipos
+  ],
+  "organizador" => [
+    :crear_equipo,
+    :asignar_mentor,
+    :ver_todos_los_usuarios,
+    :eliminar_equipo,
+    :modificar_configuracion,
+    :eliminar_proyecto,
+    :archivar_proyecto
+  ],
+  "admin" => [
+    :crear_usuario,
+    :eliminar_usuario,
+    :gestionar_roles,
+    :ver_todos_los_logs,
+    :modificar_configuracion,
+    :crear_proyecto,
+    :editar_proyecto,
+    :eliminar_proyecto,
+    :archivar_proyecto
+  ]
+}
 
   # ============================================================
   # VALIDACIÓN DE PERMISOS
