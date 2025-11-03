@@ -50,31 +50,13 @@ defmodule Proyecto_final_Prg3.Domain.Participant do
     - `perfil_url` — Enlace al perfil o imagen del participante.
   """
 
-   @spec nuevo(
-          id :: integer() | String.t(),
-          nombre :: String.t(),
-          correo :: String.t(),
-          username :: String.t(),
-          rol :: String.t(),
-          equipo_id :: integer() | String.t() | nil,
-          experiencia :: String.t() | nil,
-          fecha_registro :: NaiveDateTime.t() | DateTime.t() | String.t(),
-          estado :: atom() | String.t(),
-          ultima_conexion :: NaiveDateTime.t() | DateTime.t() | String.t() | nil,
-          mensajes :: list() | nil,
-          canales_asignados :: list() | nil,
-          token_sesion :: String.t() | nil,
-          perfil_url :: String.t() | nil
-        ) :: t()
-
 
 
   def nuevo(id, nombre, correo, username, rol, equipo_id, experiencia, fecha_registro, estado,
    ultima_conexion, mensajes, canales_asignados, token_sesion, perfil_url) do
     %__MODULE__{id: id, nombre: nombre, correo: correo, username: username, rol: rol, equipo_id: equipo_id, experiencia: experiencia,
-  fecha_registro: fecha_registro, estado: estado, ultima_conexion: ultima_conexion, mensajes: mensajes,
-  canales_asignados: canales_asignados, token_sesion: token_sesion, perfil_url: perfil_url
-}
+    fecha_registro: fecha_registro, estado: estado, ultima_conexion: ultima_conexion, mensajes: mensajes,
+    canales_asignados: canales_asignados, token_sesion: token_sesion, perfil_url: perfil_url}
   end
 
 end
