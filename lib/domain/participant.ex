@@ -1,4 +1,4 @@
-defmodule Proyecto_final_Prg3.Domain.Participant do
+defmodule ProyectofinalPrg3.Domain.Participant do
     @moduledoc """
      Define la estructura y comportamiento del **participante** dentro del dominio del sistema de hackathon.
 
