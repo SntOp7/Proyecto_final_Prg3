@@ -41,19 +41,23 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRouter do
         {:error, "No se ingresó ningún comando. Usa /help para ver las opciones disponibles."}
 
       _ ->
-        with %{command: cmd, args: args} <- CommandParser.parse(input),
-          {:ok, command_info} <- CommandRegistry.get(cmd) do
-          try do
-            LoggerService.registrar_evento("Ejecución de comando", %{comando: cmd, argumentos: args})
-            CommandExecutor.execute(command_info, args)
-          rescue
-            error ->
-              LoggerService.registrar_evento("Error en comando", %{comando: cmd, error: Exception.message(error)})
-              {:error, "Ocurrió un error al ejecutar el comando #{cmd}: #{Exception.message(error)}"}
-          end
-        else
-          nil ->
-            {:error, "Comando no reconocido. Usa /help para ver las opciones."}
+        case CommandParser.parse(input) do
+          %{command: cmd, args: args} ->
+            with {:ok, command_info} <- CommandRegistry.get(cmd) do
+              try do
+                LoggerService.registrar_evento("Ejecución de comando", %{comando: cmd, argumentos: args})
+                CommandExecutor.execute(command_info, args)
+              rescue
+                error ->
+                  LoggerService.registrar_evento("Error en comando", %{comando: cmd, error: Exception.message(error)})
+                  {:error, "Ocurrió un error al ejecutar el comando #{cmd}: #{Exception.message(error)}"}
+              end
+            else
+              _ -> {:error, "Comando no reconocido. Usa /help para ver las opciones."}
+            end
+
+          _ ->
+            {:error, "Comando no reconocido o con formato incorrecto. Usa /help para ver las opciones."}
         end
     end
   end
