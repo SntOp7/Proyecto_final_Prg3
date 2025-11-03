@@ -53,7 +53,7 @@ defmodule ProyectoFinalPrg3.Adapters.Security.TokenManager do
   def generar_token(id_usuario) when is_binary(id_usuario) do
     timestamp = System.system_time(:second)
     data = "#{id_usuario}:#{timestamp}"
-    firma = EncryptionAdapter.crear_contraseña(data <> @secret)
+    firma = EncryptionAdapter.cifrar(data <> @secret)
     token = Base.encode64("#{id_usuario}:#{timestamp}:#{firma}")
     {:ok, token}
   end
@@ -80,7 +80,7 @@ defmodule ProyectoFinalPrg3.Adapters.Security.TokenManager do
   def validar_token(token) when is_binary(token) do
     with {:ok, decoded} <- Base.decode64(token),
          [id_usuario, timestamp, firma] <- String.split(decoded, ":"),
-         true <- EncryptionAdapter.verificar_contraseña("#{id_usuario}:#{timestamp}#{@secret}", firma) do
+         true <- EncryptionAdapter.verificar("#{id_usuario}:#{timestamp}#{@secret}", firma) do
       {:ok, id_usuario}
     else
       _ -> {:error, :token_invalido}
