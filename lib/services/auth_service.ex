@@ -30,7 +30,14 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
 
   Cifra la contraseña, inicializa los valores por defecto y guarda el usuario.
   """
-  def registrar_participante(nombre, correo, username, contrasena, rol \\ "participante", experiencia \\ "") do
+  def registrar_participante(
+        nombre,
+        correo,
+        username,
+        contrasena,
+        rol \\ "participante",
+        experiencia \\ ""
+      ) do
     case ParticipantStore.buscar_por_correo(correo) do
       nil ->
         hashed = EncryptionAdapter.cifrar(contrasena)
@@ -84,7 +91,12 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
             }
 
             ParticipantStore.guardar_participante(actualizado)
-            LoggerService.registrar_evento("Inicio de sesión", %{usuario: correo, rol: participante.rol})
+
+            LoggerService.registrar_evento("Inicio de sesión", %{
+              usuario: correo,
+              rol: participante.rol
+            })
+
             {:ok, %{participante: actualizado, token: token}}
           else
             _ -> {:error, :error_en_sesion}
@@ -111,6 +123,21 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
         LoggerService.registrar_evento("Sesión cerrada", %{usuario: id_participante})
         {:ok, :sesion_cerrada}
     end
+  end
+
+  # ============================================================
+  # CONSULTA DE PARTICIPANTES
+  # ============================================================
+
+  @doc """
+  Lista todos los participantes registrados en el sistema.
+
+  Retorna una lista de estructuras `%Participant{}` obtenidas desde el `ParticipantStore`.
+  """
+  def listar_participantes do
+    participantes = ParticipantStore.listar_participantes()
+    LoggerService.registrar_evento("Consulta de participantes", %{total: length(participantes)})
+    participantes
   end
 
   # ============================================================
@@ -145,11 +172,19 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
   def tiene_permiso?(id_participante, accion) when is_atom(accion) do
     case PermissionService.autorizado?(id_participante, accion) do
       true ->
-        LoggerService.registrar_evento("Permiso concedido", %{usuario: id_participante, accion: accion})
+        LoggerService.registrar_evento("Permiso concedido", %{
+          usuario: id_participante,
+          accion: accion
+        })
+
         true
 
       false ->
-        LoggerService.registrar_evento("Acceso denegado", %{usuario: id_participante, accion: accion})
+        LoggerService.registrar_evento("Acceso denegado", %{
+          usuario: id_participante,
+          accion: accion
+        })
+
         false
     end
   end
