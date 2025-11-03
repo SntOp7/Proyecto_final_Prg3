@@ -1,62 +1,71 @@
 defmodule ProyectoFinalPrg3.Adapters.Persistence.ProgressStore do
   @moduledoc """
-  Módulo responsable de la persistencia de los avances (Progress) asociados a proyectos dentro del sistema Hackathon.
-  Este adaptador forma parte de la capa de persistencia de la arquitectura hexagonal y es utilizado por `ProjectManager`.
+  Adaptador de persistencia encargado de almacenar y recuperar los avances (`Progress`)
+  asociados a proyectos dentro del sistema Hackathon.
 
-  Los datos se almacenan en formato CSV en `data/progress.csv`, con cada línea representando un avance.
-  Incluye soporte para serialización JSON para estructuras anidadas (por ejemplo, metadatos o archivos adjuntos).
+  Este módulo pertenece a la capa de persistencia de la arquitectura hexagonal y es utilizado
+  por `ProjectManager` o `TeamManager` para registrar y consultar el progreso de los equipos.
+
+  Los datos se almacenan en formato CSV dentro de `data/progress.csv`.
+  Incluye soporte para serialización de campos complejos (por ejemplo, listas de adjuntos o notas de retroalimentación).
 
   Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
-  Fecha de creación: 2025-10-26
+  Fecha de creación: 2025-10-27
   Licencia: GNU GPLv3
   """
 
   alias ProyectoFinalPrg3.Domain.Progress
-  @ruta_archivo Path.join([File.cwd!(), "data", "progress.csv"])
+
+  @data_path Path.join([File.cwd!(), "data", "progress.csv"])
+  @headers "id,proyecto_id,equipo_id,titulo,descripcion,fecha_registro,autor_id,estado,retroalimentacion,adjuntos,version\n"
 
   # ============================================================
-  # FUNCIONES PÚBLICAS PRINCIPALES
+  # FUNCIONES CRUD PRINCIPALES
   # ============================================================
 
   @doc """
-  Guarda un nuevo avance en el archivo CSV.
-  Si ya existe un avance con el mismo ID, lo reemplaza.
+  Guarda un avance en el archivo CSV.
+  Si ya existe un avance con el mismo `id`, lo reemplaza.
   """
   def guardar_avance(%Progress{} = avance) do
-    avances = listar_avances()
-
-    avances_actualizados =
-      avances
+    avances =
+      listar_avances()
       |> Enum.reject(&(&1.id == avance.id))
       |> Kernel.++([avance])
 
-    persistir_lista(avances_actualizados)
+    persistir_lista(avances)
+    {:ok, avance}
   end
 
   @doc """
-  Lista todos los avances registrados.
+  Retorna una lista con todos los avances registrados.
   """
   def listar_avances do
-    if File.exists?(@data_file) do
-      File.stream!(@data_file)
+    if File.exists?(@data_path) do
+      File.stream!(@data_path)
+      |> Stream.drop(1) # Saltar encabezado
       |> Stream.map(&String.trim/1)
       |> Stream.reject(&(&1 == ""))
       |> Enum.map(&parsear_linea/1)
     else
       []
     end
+  rescue
+    _ -> []
   end
 
   @doc """
-  Obtiene un avance a partir de su ID.
+  Obtiene un avance por su identificador único.
   """
   def obtener_avance(id) do
-    listar_avances()
-    |> Enum.find(&(&1.id == id))
+    case Enum.find(listar_avances(), &(&1.id == id)) do
+      nil -> {:error, :no_encontrado}
+      avance -> {:ok, avance}
+    end
   end
 
   @doc """
-  Obtiene todos los avances asociados a un proyecto.
+  Lista los avances asociados a un proyecto específico.
   """
   def listar_por_proyecto(proyecto_id) do
     listar_avances()
@@ -67,15 +76,16 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProgressStore do
   Elimina un avance por su ID.
   """
   def eliminar_avance(id) do
-    avances =
+    avances_filtrados =
       listar_avances()
       |> Enum.reject(&(&1.id == id))
 
-    persistir_lista(avances)
+    persistir_lista(avances_filtrados)
+    :ok
   end
 
   # ============================================================
-  # FUNCIONES INTERNAS DE PERSISTENCIA
+  # FUNCIONES PRIVADAS DE SERIALIZACIÓN Y DESERIALIZACIÓN
   # ============================================================
 
   @doc false
@@ -87,7 +97,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProgressStore do
       |> Enum.map(&serializar_avance/1)
       |> Enum.join("\n")
 
-    File.write!(@data_file, contenido)
+    File.write!(@data_path, @headers <> contenido <> "\n")
   end
 
   @doc false
@@ -95,12 +105,15 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProgressStore do
     [
       avance.id,
       avance.proyecto_id || "",
-      avance.autor_id || "",
-      avance.titulo || "",
+      avance.equipo_id || "",
+      limpiar(avance.titulo),
       limpiar(avance.descripcion),
-      serialize_timestamp(avance.fecha),
-      avance.estado |> Atom.to_string(),
-      serialize_json(avance.metadatos)
+      serialize_datetime(avance.fecha_registro),
+      avance.autor_id || "",
+      avance.estado || "",
+      limpiar(avance.retroalimentacion),
+      serialize_list(avance.adjuntos),
+      avance.version || ""
     ]
     |> Enum.join(",")
   end
@@ -110,62 +123,71 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProgressStore do
     [
       id,
       proyecto_id,
-      autor_id,
+      equipo_id,
       titulo,
       descripcion,
-      fecha,
+      fecha_registro,
+      autor_id,
       estado,
-      metadatos
+      retroalimentacion,
+      adjuntos,
+      version
     ] =
-      String.split(linea, ",", parts: 8)
+      String.split(linea, ",", parts: 11)
 
     %Progress{
       id: id,
       proyecto_id: parse_blank(proyecto_id),
-      autor_id: parse_blank(autor_id),
+      equipo_id: parse_blank(equipo_id),
       titulo: titulo,
       descripcion: descripcion,
-      fecha: parse_timestamp(fecha),
-      estado: String.to_atom(estado),
-      metadatos: parse_json(metadatos)
+      fecha_registro: parse_datetime(fecha_registro),
+      autor_id: parse_blank(autor_id),
+      estado: estado,
+      retroalimentacion: retroalimentacion,
+      adjuntos: parse_list(adjuntos),
+      version: version
     }
   end
 
   # ============================================================
-  # FUNCIONES AUXILIARES DE SERIALIZACIÓN
+  # FUNCIONES AUXILIARES
   # ============================================================
 
-  @doc false
   defp limpiar(nil), do: ""
-  defp limpiar(texto), do: String.replace(texto, ",", ";")
+  defp limpiar(texto) do
+    texto
+    |> String.replace(",", ";")
+    |> String.replace("\n", " ")
+  end
 
-  @doc false
   defp parse_blank(""), do: nil
   defp parse_blank(valor), do: valor
 
-  @doc false
-  defp serialize_timestamp(nil), do: ""
-  defp serialize_timestamp(%DateTime{} = dt), do: DateTime.to_iso8601(dt)
+  defp serialize_datetime(nil), do: ""
+  defp serialize_datetime(%DateTime{} = dt), do: DateTime.to_iso8601(dt)
+  defp serialize_datetime(%NaiveDateTime{} = dt), do: NaiveDateTime.to_string(dt)
 
-  @doc false
-  defp parse_timestamp(""), do: nil
-  defp parse_timestamp(valor) do
-    case DateTime.from_iso8601(valor) do
-      {:ok, dt, _} -> dt
-      _ -> nil
+  defp parse_datetime(""), do: nil
+  defp parse_datetime(str) do
+    cond do
+      String.contains?(str, "T") ->
+        case DateTime.from_iso8601(str) do
+          {:ok, dt, _} -> dt
+          _ -> nil
+        end
+
+      true ->
+        case NaiveDateTime.from_iso8601(str) do
+          {:ok, dt} -> dt
+          _ -> nil
+        end
     end
   end
 
-  @doc false
-  defp serialize_json(nil), do: ""
-  defp serialize_json(map) when is_map(map), do: Jason.encode!(map)
+  defp serialize_list(nil), do: ""
+  defp serialize_list(lista) when is_list(lista), do: Enum.join(lista, "|")
 
-  @doc false
-  defp parse_json(""), do: %{}
-  defp parse_json(json) do
-    case Jason.decode(json) do
-      {:ok, mapa} -> mapa
-      _ -> %{}
-    end
-  end
+  defp parse_list(""), do: []
+  defp parse_list(cadena), do: String.split(cadena, "|")
 end
