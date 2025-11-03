@@ -1,8 +1,8 @@
-defmodule Proyecto_final_Prg3.Domain.Feedback do
+defmodule ProyectofinalPrg3.Domain.Feedback do
 
   @moduledoc """
 
-   ## Módulo: `Proyecto_final_Prg3.Domain.Feedback`
+   ## Módulo: `ProyectofinalPrg3.Domain.Feedback`
 
   Este módulo define la estructura y el comportamiento de la **retroalimentación (Feedback)** dentro
   del dominio del sistema de hackathon.
