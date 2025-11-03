@@ -32,7 +32,10 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
   Genera un ID único, asigna la fecha de creación y notifica a los servicios asociados.
   """
   def crear_equipo(nombre, categoria, descripcion) do
-    if PermissionService.autorizado?(SessionManager.obtener_participante_actual().id, :crear_equipo) do
+    if PermissionService.autorizado?(
+         SessionManager.obtener_participante_actual().id,
+         :crear_equipo
+       ) do
       case TeamStore.obtener_equipo(nombre) do
         nil ->
           equipo = %Team{
@@ -56,7 +59,7 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
 
         _existente ->
           {:error, :equipo_ya_existente}
-        end
+      end
     else
       {:error, :permiso_denegado}
     end
@@ -93,7 +96,6 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
     else
       true -> {:error, :ya_en_equipo}
       {:error, razon} -> {:error, razon}
-      nil -> {:error, :equipo_no_encontrado}
     end
   end
 
@@ -142,7 +144,10 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
   Disuelve un equipo (marca su estado como inactivo y notifica el cambio).
   """
   def disolver_equipo(nombre_equipo) do
-    if PermissionService.autorizado?(SessionManager.obtener_participante_actual().id, :disolver_equipo) do
+    if PermissionService.autorizado?(
+         SessionManager.obtener_participante_actual().id,
+         :disolver_equipo
+       ) do
       with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
         equipo_actualizado = %{equipo | estado: :inactivo}
         TeamStore.guardar_equipo(equipo_actualizado)
@@ -217,7 +222,10 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
   Asigna o actualiza el mentor de un equipo.
   """
   def asignar_mentor(nombre_equipo, id_mentor) do
-    if PermissionService.autorizado?(SessionManager.obtener_participante_actual().id, :asignar_mentor) do
+    if PermissionService.autorizado?(
+         SessionManager.obtener_participante_actual().id,
+         :asignar_mentor
+       ) do
       with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
         equipo_actualizado = %{equipo | id_mentor: id_mentor}
         TeamStore.guardar_equipo(equipo_actualizado)
