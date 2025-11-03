@@ -1,4 +1,4 @@
-defmodule ProyectofinalPrg3.Domain.Progress do
+defmodule ProyectoFinalPrg3.Domain.Progress do
    @moduledoc """
     Este módulo define la estructura y el comportamiento asociados al **avance (progress)**
     dentro del dominio del sistema de hackathon.
