@@ -203,4 +203,28 @@ defmodule ProyectoFinalPrg3.Services.MetricsService do
       @metrics
     end
   end
+
+  # ============================================================
+# INTEGRACIÓN CON SUPERVISIÓN
+# ============================================================
+
+@doc """
+Registra este servicio en el `SupervisionManager` para permitir supervisión y reinicio automático.
+"""
+def registrar_supervision do
+  ProyectoFinalPrg3.Services.SupervisionManager.registrar_proceso(:metrics_service, __MODULE__)
+end
+
+@doc """
+Inicializa el servicio de métricas.
+Si el `Agent` interno no está corriendo, lo levanta nuevamente.
+"""
+def inicializar_supervision do
+  unless Process.whereis(__MODULE__) do
+    {:ok, _pid} = Agent.start_link(fn -> %{uptime: DateTime.utc_now(), registros: []} end, name: __MODULE__)
+  end
+
+  LoggerService.registrar_evento("MetricsService inicializado o verificado", %{estado: :ok})
+  :ok
+end
 end
