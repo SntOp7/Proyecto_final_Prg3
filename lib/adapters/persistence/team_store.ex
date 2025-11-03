@@ -45,6 +45,11 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.TeamStore do
     |> Enum.find(fn eq -> eq.nombre == nombre end)
   end
 
+  def obtener_equipo_por_id(id) do
+    listar_equipos()
+    |> Enum.find(fn eq -> eq.id == id end)
+  end
+
   @doc """
   Lista todos los equipos registrados en el archivo CSV.
   """

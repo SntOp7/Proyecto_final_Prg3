@@ -6,7 +6,7 @@ defmodule ProyectoFinalPrg3.Services.ProjectManager do
   retroalimentaciones, categorías, visibilidad y vinculación con equipos y mentores.
 
   Además, mantiene comunicación con los servicios de difusión (`BroadcastService`),
-  persistencia (`ProjectStore`, `ProgressStore`, `FeedbackStore`) y coordinación (`TeamManager`, `CategoryService`).
+  persistencia (`ProjectStore`, `ProgressStore`, `FeedbackStore`) y coordinación (`TeamManager`, `CategoryService`)
 
   Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
   Fecha de creación: 2025-10-26
@@ -56,14 +56,14 @@ defmodule ProyectoFinalPrg3.Services.ProjectManager do
 
       # Asociar al equipo si existe
       if equipo_id do
-        case TeamManager.obtener_equipo_por_id(equipo_id) do
+        case TeamManager.obtener_por_id(equipo_id) do
           {:ok, equipo} -> TeamManager.vincular_proyecto(equipo.nombre, proyecto.id)
           {:error, _} -> BroadcastService.notificar(:equipo_no_encontrado, %{equipo_id: equipo_id})
         end
       end
 
       # Asociar a la categoría si existe
-      if categoria, do: CategoryService.agregar_proyecto_a_categoria(categoria, proyecto.id)
+      if categoria, do: CategoryService.agregar_proyecto(categoria, proyecto.id)
 
       {:ok, proyecto}
     end
@@ -96,14 +96,14 @@ defmodule ProyectoFinalPrg3.Services.ProjectManager do
 
       # Desvincular del equipo si aplica
       if proyecto.equipo_id do
-        case TeamManager.obtener_equipo_por_id(proyecto.equipo_id) do
+        case TeamManager.obtener_por_id(proyecto.equipo_id) do
           {:ok, equipo} -> TeamManager.vincular_proyecto(equipo.nombre, nil)
           _ -> :ok
         end
       end
 
       # Eliminar de la categoría
-      if proyecto.categoria, do: CategoryService.eliminar_proyecto_de_categoria(proyecto.categoria, proyecto.id)
+      if proyecto.categoria, do: CategoryService.remover_proyecto(proyecto.categoria.id, proyecto.id)
 
       BroadcastService.notificar(:proyecto_eliminado, proyecto)
       {:ok, :proyecto_eliminado}

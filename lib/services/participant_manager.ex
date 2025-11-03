@@ -15,6 +15,7 @@ defmodule ProyectoFinalPrg3.Services.ParticipantManager do
   alias ProyectoFinalPrg3.Domain.Participant
   alias ProyectoFinalPrg3.Adapters.Persistence.ParticipantStore
   alias ProyectoFinalPrg3.Services.BroadcastService
+  alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
 
   # ============================================================
   # FUNCIONES PRINCIPALES DE GESTIÓN DE PARTICIPANTES
@@ -192,15 +193,16 @@ defmodule ProyectoFinalPrg3.Services.ParticipantManager do
   Elimina un participante del sistema.
   """
   def eliminar_participante(id_participante) do
-    case ParticipantStore.eliminar_participante(id_participante) do
-      :ok ->
-        BroadcastService.notificar(:participante_eliminado, id_participante)
-        {:ok, :eliminado}
+  case ParticipantStore.eliminar_participante(id_participante) do
+    :ok ->
+      BroadcastService.notificar(:participante_eliminado, %{id: id_participante})
+      LoggerService.registrar_evento("Participante eliminado", %{id: id_participante})
+      {:ok, :eliminado}
 
-      {:error, razon} ->
-        {:error, razon}
-    end
+    _ ->
+      {:error, :no_eliminado}
   end
+end
 
   @doc """
   Filtra los participantes por rol.
