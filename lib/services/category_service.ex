@@ -1,17 +1,22 @@
 defmodule ProyectoFinalPrg3.Services.CategoryService do
   @moduledoc """
-  Define la lógica de negocio para la gestión de categorías dentro del sistema de hackathon.
-  Este módulo permite crear, listar, actualizar y eliminar categorías, así como validar su existencia
-  para garantizar la correcta clasificación de proyectos y equipos.
+  Servicio responsable de la **gestión de categorías** dentro del sistema Hackathon.
 
-  Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
-  Fecha de creación: 2025-10-26
-  Fecha de última modificación:
-  Licencia: GNU GPLv3
+  Permite crear, listar, actualizar, eliminar y filtrar categorías que agrupan
+  proyectos según su temática (por ejemplo, *Educación*, *Salud*, *Innovación Social*, etc.).
+
+  Este módulo pertenece a la capa de **servicios** dentro de la arquitectura hexagonal
+  y coordina la comunicación entre el dominio (`Category`) y los adaptadores de persistencia
+  (`CategoryStore`) y de eventos (`BroadcastService`).
+
+  ---
+  **Autores:** Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez
+  **Fecha de creación:** 2025-10-27
+  **Licencia:** GNU GPLv3
   """
 
   alias ProyectoFinalPrg3.Domain.Category
-  alias ProyectoFinalPrg3.Adapters.Persistence.Repository.CategoryStore
+  alias ProyectoFinalPrg3.Adapters.Persistence.CategoryStore
   alias ProyectoFinalPrg3.Services.BroadcastService
 
   # ============================================================
@@ -19,18 +24,31 @@ defmodule ProyectoFinalPrg3.Services.CategoryService do
   # ============================================================
 
   @doc """
-  Crea una nueva categoría dentro del sistema.
-  Verifica que no exista previamente una categoría con el mismo nombre.
+  Crea una nueva categoría dentro del sistema Hackathon.
+
+  Verifica que no exista previamente una categoría con el mismo nombre y
+  la registra con estado activo.
+
+  ## Parámetros:
+    - `nombre`: Nombre descriptivo de la categoría.
+    - `descripcion`: Breve texto explicativo de su propósito.
+    - `creador_id`: ID del usuario o administrador que la define (opcional).
+
+  ## Retorna:
+    - `{:ok, categoria}` si se crea exitosamente.
+    - `{:error, :categoria_existente}` si ya hay una categoría con ese nombre.
   """
-  def crear_categoria(nombre, descripcion \\ "") do
-    case CategoryStore.obtener_categoria(nombre) do
+  def crear_categoria(nombre, descripcion \\ "", creador_id \\ nil) do
+    case CategoryStore.buscar_por_nombre(nombre) do
       nil ->
         categoria = %Category{
           id: UUID.uuid4(),
           nombre: nombre,
           descripcion: descripcion,
+          proyectos: [],
           fecha_creacion: DateTime.utc_now(),
-          estado: :activa
+          creador_id: creador_id,
+          activo: true
         }
 
         CategoryStore.guardar_categoria(categoria)
@@ -38,37 +56,38 @@ defmodule ProyectoFinalPrg3.Services.CategoryService do
         {:ok, categoria}
 
       _existente ->
-        {:error, :categoria_ya_existente}
+        {:error, :categoria_existente}
     end
   end
 
   @doc """
   Actualiza los datos de una categoría existente.
-  Permite modificar su descripción o estado.
+
+  Permite modificar la descripción, el estado o la lista de proyectos asociados.
   """
-  def actualizar_categoria(nombre, nuevos_datos) do
-    with {:ok, categoria} <- obtener_categoria(nombre) do
-      categoria_actualizada =
+  def actualizar_categoria(id_categoria, nuevos_datos) when is_map(nuevos_datos) do
+    with {:ok, categoria} <- obtener_categoria(id_categoria) do
+      actualizada =
         categoria
         |> Map.merge(nuevos_datos)
         |> Map.put(:fecha_modificacion, DateTime.utc_now())
 
-      CategoryStore.guardar_categoria(categoria_actualizada)
-      BroadcastService.notificar(:categoria_actualizada, categoria_actualizada)
-      {:ok, categoria_actualizada}
+      CategoryStore.guardar_categoria(actualizada)
+      BroadcastService.notificar(:categoria_actualizada, actualizada)
+      {:ok, actualizada}
     else
       {:error, razon} -> {:error, razon}
     end
   end
 
   @doc """
-  Elimina una categoría existente del sistema.
+  Elimina una categoría del sistema según su identificador.
   """
-  def eliminar_categoria(nombre) do
-    with {:ok, categoria} <- obtener_categoria(nombre) do
-      CategoryStore.eliminar_categoria(nombre)
+  def eliminar_categoria(id_categoria) do
+    with {:ok, categoria} <- obtener_categoria(id_categoria) do
+      CategoryStore.eliminar_categoria(id_categoria)
       BroadcastService.notificar(:categoria_eliminada, categoria)
-      :ok
+      {:ok, :eliminada}
     else
       {:error, razon} -> {:error, razon}
     end
@@ -79,29 +98,41 @@ defmodule ProyectoFinalPrg3.Services.CategoryService do
   # ============================================================
 
   @doc """
-  Lista todas las categorías registradas en el sistema.
+  Lista todas las categorías registradas.
   """
   def listar_categorias do
     CategoryStore.listar_categorias()
   end
 
   @doc """
-  Obtiene la información completa de una categoría a partir de su nombre.
-  Retorna `{:ok, categoria}` si existe, o `{:error, :no_encontrada}` en caso contrario.
+  Obtiene una categoría por su identificador único.
+
+  Retorna:
+    - `{:ok, categoria}` si existe.
+    - `{:error, :no_encontrada}` en caso contrario.
   """
-  def obtener_categoria(nombre) do
-    case CategoryStore.obtener_categoria(nombre) do
+  def obtener_categoria(id_categoria) do
+    case CategoryStore.obtener_categoria(id_categoria) do
       nil -> {:error, :no_encontrada}
       categoria -> {:ok, categoria}
     end
   end
 
   @doc """
-  Verifica si una categoría existe en el sistema.
-  Retorna `true` si se encuentra registrada, o `false` en caso contrario.
+  Busca una categoría por su nombre (insensible a mayúsculas).
+  """
+  def buscar_por_nombre(nombre) do
+    case CategoryStore.buscar_por_nombre(nombre) do
+      nil -> {:error, :no_encontrada}
+      categoria -> {:ok, categoria}
+    end
+  end
+
+  @doc """
+  Verifica si una categoría ya existe en el sistema.
   """
   def categoria_existe?(nombre) do
-    case CategoryStore.obtener_categoria(nombre) do
+    case CategoryStore.buscar_por_nombre(nombre) do
       nil -> false
       _ -> true
     end
@@ -112,24 +143,56 @@ defmodule ProyectoFinalPrg3.Services.CategoryService do
   # ============================================================
 
   @doc """
-  Cambia el estado de una categoría (por ejemplo: `:activa` o `:inactiva`).
+  Cambia el estado de una categoría (`true` para activa, `false` para inactiva).
   """
-  def actualizar_estado(nombre, nuevo_estado) do
-    with {:ok, categoria} <- obtener_categoria(nombre) do
-      categoria_actualizada = %{categoria | estado: nuevo_estado, fecha_modificacion: DateTime.utc_now()}
-      CategoryStore.guardar_categoria(categoria_actualizada)
-      BroadcastService.notificar(:estado_categoria_actualizado, categoria_actualizada)
-      {:ok, categoria_actualizada}
+  def cambiar_estado(id_categoria, activo) when is_boolean(activo) do
+    with {:ok, categoria} <- obtener_categoria(id_categoria) do
+      actualizada = %{categoria | activo: activo}
+      CategoryStore.guardar_categoria(actualizada)
+      BroadcastService.notificar(:categoria_estado_cambiado, actualizada)
+      {:ok, actualizada}
     else
       {:error, razon} -> {:error, razon}
     end
   end
 
   @doc """
-  Filtra las categorías registradas según su estado actual.
+  Filtra las categorías según su estado (`true` = activas, `false` = inactivas).
   """
-  def filtrar_categorias(estado) do
+  def filtrar_por_estado(activo) when is_boolean(activo) do
     listar_categorias()
-    |> Enum.filter(&(&1.estado == estado))
+    |> Enum.filter(&(&1.activo == activo))
+  end
+
+  # ============================================================
+  # FUNCIONES DE RELACIÓN CON PROYECTOS
+  # ============================================================
+
+  @doc """
+  Agrega un proyecto a la lista de proyectos asociados a una categoría.
+  """
+  def agregar_proyecto(id_categoria, id_proyecto) do
+    with {:ok, categoria} <- obtener_categoria(id_categoria) do
+      actualizada = %{categoria | proyectos: Enum.uniq([id_proyecto | categoria.proyectos])}
+      CategoryStore.guardar_categoria(actualizada)
+      BroadcastService.notificar(:proyecto_agregado_categoria, actualizada)
+      {:ok, actualizada}
+    else
+      {:error, razon} -> {:error, razon}
+    end
+  end
+
+  @doc """
+  Elimina un proyecto asociado de una categoría.
+  """
+  def remover_proyecto(id_categoria, id_proyecto) do
+    with {:ok, categoria} <- obtener_categoria(id_categoria) do
+      actualizada = %{categoria | proyectos: Enum.reject(categoria.proyectos, &(&1 == id_proyecto))}
+      CategoryStore.guardar_categoria(actualizada)
+      BroadcastService.notificar(:proyecto_removido_categoria, actualizada)
+      {:ok, actualizada}
+    else
+      {:error, razon} -> {:error, razon}
+    end
   end
 end
