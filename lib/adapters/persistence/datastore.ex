@@ -100,7 +100,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.DataStore do
 
     @doc false
     defp persistir_en_csv(categorias) do
-      encabezado = "id,nombre,descripcion,fecha_creacion,fecha_modificacion,estado"
+      encabezado = "id,nombre,descripcion,proyectos,fecha_creacion,creador_id,activo"
 
       filas =
         categorias
@@ -113,35 +113,44 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.DataStore do
 
     @doc false
     defp parsear_linea_a_struct(linea) do
-      [id, nombre, descripcion, fecha_creacion, fecha_modificacion, estado] =
+      [id, nombre, descripcion, proyectos_str, fecha_creacion, creador_id, activo_str] =
         String.split(linea, ",")
 
       %Category{
         id: id,
         nombre: nombre,
         descripcion: descripcion,
+        proyectos: parsear_proyectos(proyectos_str),
         fecha_creacion: parsear_fecha(fecha_creacion),
-        fecha_modificacion: convertir_a_nil(fecha_modificacion),
-        estado: String.to_atom(estado)
+        creador_id: creador_id,
+        activo: String.downcase(activo_str) in ["true", "1", "yes", "activo"]
       }
     end
 
     @doc false
     defp serializar_categoria(categoria) do
+      proyectos_str = serializar_proyectos(categoria.proyectos)
+
       [
         categoria.id,
         categoria.nombre,
         categoria.descripcion,
+        proyectos_str,
         DateTime.to_string(categoria.fecha_creacion),
-        categoria.fecha_modificacion || "",
-        Atom.to_string(categoria.estado)
+        categoria.creador_id,
+        to_string(categoria.activo)
       ]
       |> Enum.join(",")
     end
 
     @doc false
-    defp convertir_a_nil(""), do: nil
-    defp convertir_a_nil(valor), do: valor
+    defp parsear_proyectos(""), do: []
+    defp parsear_proyectos(str), do: String.split(str, ";", trim: true)
+
+    @doc false
+    defp serializar_proyectos(nil), do: ""
+    defp serializar_proyectos([]), do: ""
+    defp serializar_proyectos(lista) when is_list(lista), do: Enum.join(lista, ";")
 
     @doc false
     defp parsear_fecha(fecha_str) do
