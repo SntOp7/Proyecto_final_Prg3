@@ -5,7 +5,7 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
   Este módulo actúa como punto unificado para registrar eventos de operación,
   notificaciones del sistema, acciones de usuarios y trazas generales.
 
-  🔹 **No registra eventos de seguridad crítica**, los cuales se manejan
+  **No registra eventos de seguridad crítica**, los cuales se manejan
   desde `ProyectoFinalPrg3.Adapters.Security.AuditLogger`.
 
   ## Funcionalidades principales:
@@ -104,13 +104,15 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
   end
 
   defp evento_a_csv(e) do
-  ([e.id, e.timestamp, e.nodo, to_string(e.tipo), escape_csv(e.mensaje), escape_csv(e.datos)]
-   |> Enum.join(","))
-  <> "\n"
-end
+    ([e.id, e.timestamp, e.nodo, to_string(e.tipo), escape_csv(e.mensaje), escape_csv(e.datos)]
+     |> Enum.join(",")) <>
+      "\n"
+  end
 
-  defp escape_csv(v) when is_binary(v), do: "\"" <> String.replace(v, "\"", "'") <> "\""
-  defp escape_csv(v), do: to_string(v)
+  defp escape_csv(v) when is_binary(v) do
+    escaped = String.replace(v, "\"", "'")
+    "\"#{escaped}\""
+  end
 
   defp inferir_tipo(msg) do
     cond do
