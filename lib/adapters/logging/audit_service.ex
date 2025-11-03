@@ -74,7 +74,7 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.AuditService do
   def exportar_a_json(destino \\ "logs/audit_export.json") do
     eventos = obtener_todos()
     File.mkdir_p!("logs")
-    File.write!(destino, Jason.encode_pretty!(eventos, indent: 2))
+    File.write!(destino, Jason.encode!(eventos) |> Jason.Formatter.pretty_print())
     {:ok, destino}
   end
 
