@@ -1,8 +1,8 @@
-defmodule Proyecto_final_Prg3.Domain.Category do
+defmodule ProyectofinalPrg3.Domain.Category do
 
   @moduledoc """
 
-  ## Módulo: `Proyecto_final_Prg3.Domain.Category`
+  ## Módulo: `ProyectofinalPrg3.Domain.Category`
 
   Este módulo define la estructura y comportamiento de una **categoría (Category)** dentro
   del dominio del sistema de hackathon.
