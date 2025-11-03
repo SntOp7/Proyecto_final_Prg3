@@ -16,7 +16,6 @@ defmodule ProyectoFinalPrg3.Services.MatchingService do
   """
 
   alias ProyectoFinalPrg3.Services.{TeamManager, ParticipantManager, BroadcastService}
-  alias ProyectoFinalPrg3.Domain.{Team, Participant}
 
   # ============================================================
   # FUNCIÓN PRINCIPAL: ASIGNACIÓN AUTOMÁTICA DE PARTICIPANTES
