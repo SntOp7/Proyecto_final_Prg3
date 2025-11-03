@@ -99,7 +99,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.TeamStore do
       fecha_creacion: parse_datetime(fecha_str),
       estado: parse_estado(estado_str),
       canal_chat_id: parse_nil(canal_chat_id),
-      puntaje: String.to_integer(puntaje_str || "0"),
+      puntaje: String.to_integer(puntaje_str),
       historial: parse_historial(historial_str)
     }
   end
