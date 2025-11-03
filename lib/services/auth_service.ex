@@ -1,19 +1,25 @@
 defmodule ProyectoFinalPrg3.Services.AuthService do
   @moduledoc """
-  Módulo encargado de la autenticación y gestión de sesiones de los participantes en el sistema de hackathon.
+  Servicio responsable de la **autenticación y gestión de sesiones** de los participantes
+  dentro del sistema de hackathon.
 
-  Provee funciones para:
-  - Registrar y autenticar usuarios.
-  - Validar credenciales y sesiones activas.
-  - Generar y revocar tokens de acceso.
-  - Recuperar información del participante autenticado.
+  Este módulo forma parte de la capa de servicios y coordina las operaciones de:
+  - Registro de nuevos participantes.
+  - Autenticación mediante correo y contraseña.
+  - Validación y gestión de sesiones activas.
+  - Generación, validación y revocación de tokens de acceso.
+  - Control de roles y permisos de usuario.
 
-  Este servicio coordina la autenticación entre la capa de negocio y los adaptadores
-  de seguridad (`TokenManager`, `SessionManager`, `EncryptionAdapter`).
+  Se comunica con los adaptadores:
+  - `TokenManager` → Generación y validación de tokens.
+  - `SessionManager` → Manejo de sesiones activas.
+  - `EncryptionAdapter` → Cifrado y verificación de contraseñas.
+  - `ParticipantStore` → Persistencia de los datos de usuario.
 
-  Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
-  Fecha de creación: 2025-10-25
-  Licencia: GNU GPLv3
+  ---
+  **Autores:** Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez
+  **Fecha de creación:** 2025-10-27
+  **Licencia:** GNU GPLv3
   """
 
   alias ProyectoFinalPrg3.Domain.Participant
@@ -26,9 +32,10 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
 
   @doc """
   Registra un nuevo participante en el sistema.
-  Cifra su contraseña antes de almacenarla.
+
+  Cifra la contraseña, inicializa los atributos por defecto y guarda el usuario en la persistencia.
   """
-  def registrar_participante(nombre, correo, contrasena, rol \\ "participante") do
+  def registrar_participante(nombre, correo, username, contrasena, rol \\ "participante", experiencia \\ "") do
     case ParticipantStore.buscar_por_correo(correo) do
       nil ->
         hashed = EncryptionAdapter.cifrar(contrasena)
@@ -37,13 +44,21 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
           id: UUID.uuid4(),
           nombre: nombre,
           correo: correo,
-          contrasena: hashed,
+          username: username,
           rol: rol,
           equipo_id: nil,
-          sesion_activa: false
+          experiencia: experiencia,
+          fecha_registro: DateTime.utc_now(),
+          estado: :pendiente,
+          ultima_conexion: nil,
+          mensajes: [],
+          canales_asignados: [],
+          token_sesion: nil,
+          perfil_url: nil
         }
 
-        ParticipantStore.guardar_participante(participante)
+        # Se almacena el hash de la contraseña en un campo auxiliar dentro del store
+        ParticipantStore.guardar_participante(Map.put(participante, :contrasena, hashed))
         {:ok, participante}
 
       _existente ->
@@ -52,20 +67,35 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
   end
 
   @doc """
-  Autentica un participante verificando su correo y contraseña.
-  Si las credenciales son válidas, genera un token de sesión y marca al usuario como activo.
+  Autentica a un participante verificando sus credenciales.
+
+  Si el correo y la contraseña son válidos:
+  - Genera un token JWT (u otro tipo de token según `TokenManager`).
+  - Registra la sesión activa en el `SessionManager`.
+  - Actualiza el estado y la última conexión del participante.
+
+  Retorna el participante autenticado junto con su token.
   """
   def autenticar(correo, contrasena) do
     case ParticipantStore.buscar_por_correo(correo) do
       nil ->
         {:error, :usuario_no_encontrado}
 
-      %Participant{} = p ->
-        if EncryptionAdapter.verificar(contrasena, p.contrasena) do
-          with {:ok, token} <- TokenManager.generar_token(p.id),
-               :ok <- SessionManager.activar_sesion(p.id, token) do
-            ParticipantStore.actualizar_estado(p.id, true)
-            {:ok, %{participante: p, token: token}}
+      %Participant{} = participante ->
+        # Verificar la contraseña cifrada (usando campo `contrasena` en almacenamiento)
+        if EncryptionAdapter.verificar(contrasena, participante.contrasena || "") do
+          with {:ok, token} <- TokenManager.generar_token(participante.id),
+               :ok <- SessionManager.activar_sesion(participante.id, token) do
+            actualizado = %{
+              participante
+              | estado: :activo,
+                ultima_conexion: DateTime.utc_now(),
+                token_sesion: token
+            }
+
+            ParticipantStore.guardar_participante(actualizado)
+            registrar_evento_autenticacion(participante.id, :inicio_sesion)
+            {:ok, %{participante: actualizado, token: token}}
           else
             _ -> {:error, :error_en_sesion}
           end
@@ -76,12 +106,21 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
   end
 
   @doc """
-  Cierra la sesión activa de un participante.
+  Cierra la sesión activa de un participante, revocando su token y actualizando su estado.
   """
   def cerrar_sesion(id_participante) do
     SessionManager.revocar_sesion(id_participante)
-    ParticipantStore.actualizar_estado(id_participante, false)
-    {:ok, :sesion_cerrada}
+
+    case ParticipantStore.obtener_participante(id_participante) do
+      nil ->
+        {:error, :no_encontrado}
+
+      participante ->
+        actualizado = %{participante | estado: :desconectado, token_sesion: nil}
+        ParticipantStore.guardar_participante(actualizado)
+        registrar_evento_autenticacion(id_participante, :sesion_cerrada)
+        {:ok, :sesion_cerrada}
+    end
   end
 
   # ============================================================
@@ -93,7 +132,7 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
   """
   def validar_token(token) do
     case TokenManager.validar_token(token) do
-      {:ok, id} -> obtener_participante(id)
+      {:ok, id_participante} -> obtener_participante(id_participante)
       {:error, _} -> {:error, :token_invalido}
     end
   end
@@ -109,7 +148,7 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
   end
 
   @doc """
-  Verifica si un participante tiene una sesión activa válida.
+  Verifica si un token de sesión está actualmente activo.
   """
   def sesion_activa?(token) do
     case SessionManager.validar_sesion(token) do
@@ -119,7 +158,7 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
   end
 
   @doc """
-  Verifica si el participante autenticado tiene permisos de administrador o mentor.
+  Verifica si un participante tiene permisos entre una lista de roles permitidos.
   """
   def es_autorizado?(id_participante, roles_permitidos) when is_list(roles_permitidos) do
     with {:ok, participante} <- obtener_participante(id_participante) do
@@ -130,11 +169,11 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
   end
 
   # ============================================================
-  # FUNCIONES INTERNAS
+  # FUNCIONES AUXILIARES Y DE LOGGING
   # ============================================================
 
   @doc false
   defp registrar_evento_autenticacion(id, evento) do
-    IO.puts("[Auth] Evento: #{evento} | Usuario: #{id} | Fecha: #{DateTime.utc_now()}")
+    IO.puts("[AuthService] Evento: #{evento} | Usuario: #{id} | Fecha: #{DateTime.utc_now()}")
   end
 end
