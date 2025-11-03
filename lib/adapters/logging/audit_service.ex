@@ -19,8 +19,6 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.AuditService do
   Fecha: 2025-10-27
   Licencia: GNU GPLv3
   """
-
-  alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
   @log_file "logs/event_log.csv"
 
   # ============================================================
