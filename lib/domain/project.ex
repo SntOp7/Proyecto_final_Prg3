@@ -1,4 +1,4 @@
-defmodule Proyecto_final_Prg3.Domain.Project do
+defmodule ProyectofinalPrg3.Domain.Project do
 
   @moduledoc """
   Define la estructura y comportamiento del **proyecto** dentro del dominio del sistema de hackathon.

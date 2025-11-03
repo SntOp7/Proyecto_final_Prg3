@@ -1,11 +1,13 @@
 defmodule ProyectoFinalPrg3.Adapters.Persistence.FeedbackStore do
   @moduledoc """
-  Módulo encargado de la persistencia de retroalimentaciones (feedbacks) del sistema.
-  Permite registrar, listar, actualizar y eliminar retroalimentaciones, garantizando
-  la trazabilidad de los comentarios emitidos por los mentores.
+  Adaptador de persistencia encargado de almacenar y recuperar las retroalimentaciones (feedbacks)
+  del sistema de hackathon.
 
-  Este módulo actúa como adaptador de persistencia dentro de la arquitectura hexagonal,
-  utilizando archivos CSV ubicados en `data/feedbacks.csv`.
+  Permite registrar, listar, filtrar, actualizar y eliminar retroalimentaciones asociadas a proyectos
+  o equipos, garantizando la trazabilidad de los comentarios emitidos por mentores.
+
+  Este módulo actúa como capa de persistencia dentro de la arquitectura hexagonal,
+  utilizando almacenamiento en archivos CSV ubicados en `data/feedbacks.csv`.
 
   Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
   Fecha de creación: 2025-10-27
@@ -14,7 +16,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.FeedbackStore do
 
   alias ProyectoFinalPrg3.Domain.Feedback
 
-  @ruta_archivo Path.join([File.cwd!(), "data", "feedback.csv"])
+  @data_path Path.join([File.cwd!(), "data", "feedbacks.csv"])
   @headers "id,mentor_id,proyecto_id,equipo_id,avance_id,contenido,fecha_creacion,nivel,visibilidad,estado\n"
 
   # ============================================================
@@ -23,7 +25,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.FeedbackStore do
 
   @doc """
   Guarda o actualiza un feedback en el archivo CSV.
-  Si el feedback ya existe, se reemplaza su información.
+  Si el feedback ya existe (por `id`), se reemplaza su información.
   """
   def guardar_feedback(%Feedback{} = feedback) do
     feedbacks =
@@ -36,7 +38,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.FeedbackStore do
   end
 
   @doc """
-  Obtiene un feedback por su ID.
+  Obtiene un feedback a partir de su identificador único.
   """
   def obtener_feedback(id) do
     case Enum.find(listar_feedbacks(), &(&1.id == id)) do
@@ -47,20 +49,23 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.FeedbackStore do
 
   @doc """
   Lista todos los feedbacks registrados en el sistema.
+  Retorna una lista de estructuras `%Feedback{}`.
   """
   def listar_feedbacks do
     if File.exists?(@data_path) do
       File.stream!(@data_path)
-      |> Stream.drop(1)
+      |> Stream.drop(1) # Saltar encabezado CSV
       |> Stream.map(&parse_csv_line/1)
       |> Enum.to_list()
     else
       []
     end
+  rescue
+    _ -> []
   end
 
   @doc """
-  Elimina un feedback a partir de su identificador.
+  Elimina un feedback del archivo CSV a partir de su ID.
   """
   def eliminar_feedback(id) do
     feedbacks_filtrados =
@@ -76,7 +81,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.FeedbackStore do
   # ============================================================
 
   @doc """
-  Lista los feedback asociados a un mentor específico.
+  Lista los feedback emitidos por un mentor específico.
   """
   def listar_por_mentor(id_mentor) do
     listar_feedbacks()
@@ -112,7 +117,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.FeedbackStore do
   # FUNCIONES PRIVADAS DE SERIALIZACIÓN Y DESERIALIZACIÓN
   # ============================================================
 
-  # Convierte una línea CSV a estructura %Feedback{}
+  # Convierte una línea CSV en una estructura %Feedback{}
   defp parse_csv_line(line) do
     [
       id,
@@ -144,7 +149,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.FeedbackStore do
     }
   end
 
-  # Convierte una lista de feedbacks en texto CSV y lo guarda en archivo
+  # Convierte lista de feedbacks a formato CSV y guarda el archivo
   defp escribir_feedbacks(feedbacks) do
     contenido =
       feedbacks
@@ -152,10 +157,10 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.FeedbackStore do
       |> Enum.join("\n")
 
     File.mkdir_p!("data")
-    File.write!(@data_path, @headers <> contenido)
+    File.write!(@data_path, @headers <> contenido <> "\n")
   end
 
-  # Convierte un feedback a una línea CSV
+  # Convierte una estructura %Feedback{} a una línea CSV
   defp to_csv_line(%Feedback{} = f) do
     [
       f.id,

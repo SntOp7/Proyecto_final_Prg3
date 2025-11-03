@@ -1,4 +1,4 @@
-defmodule Proyecto_final_Prg3.Domain.Message do
+defmodule ProyectofinalPrg3.Domain.Message do
   @moduledoc """
   ## Módulo: `Proyecto_final_Prg3.Domain.Message`
 
