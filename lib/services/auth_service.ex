@@ -1,30 +1,25 @@
 defmodule ProyectoFinalPrg3.Services.AuthService do
   @moduledoc """
-  Servicio responsable de la **autenticación y gestión de sesiones** de los participantes
-  dentro del sistema de hackathon.
+  Servicio responsable de la **autenticación, sesiones y control de acceso**
+  de los participantes dentro del sistema de hackathon.
 
-  Este módulo forma parte de la capa de servicios y coordina las operaciones de:
-  - Registro de nuevos participantes.
-  - Autenticación mediante correo y contraseña.
-  - Validación y gestión de sesiones activas.
-  - Generación, validación y revocación de tokens de acceso.
-  - Control de roles y permisos de usuario.
-
-  Se comunica con los adaptadores:
-  - `TokenManager` → Generación y validación de tokens.
-  - `SessionManager` → Manejo de sesiones activas.
-  - `EncryptionAdapter` → Cifrado y verificación de contraseñas.
-  - `ParticipantStore` → Persistencia de los datos de usuario.
+  Este módulo coordina las operaciones de:
+  - Registro y autenticación de participantes.
+  - Validación de tokens y sesiones activas.
+  - Integración con `PermissionService` para verificación de permisos.
+  - Registro de eventos de acceso.
 
   ---
   **Autores:** Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez
-  **Fecha de creación:** 2025-10-27
+  **Fecha:** 2025-10-27
   **Licencia:** GNU GPLv3
   """
 
   alias ProyectoFinalPrg3.Domain.Participant
   alias ProyectoFinalPrg3.Adapters.Security.{TokenManager, SessionManager, EncryptionAdapter}
   alias ProyectoFinalPrg3.Adapters.Persistence.ParticipantStore
+  alias ProyectoFinalPrg3.Services.PermissionService
+  alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
 
   # ============================================================
   # REGISTRO Y AUTENTICACIÓN
@@ -33,7 +28,7 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
   @doc """
   Registra un nuevo participante en el sistema.
 
-  Cifra la contraseña, inicializa los atributos por defecto y guarda el usuario en la persistencia.
+  Cifra la contraseña, inicializa los valores por defecto y guarda el usuario.
   """
   def registrar_participante(nombre, correo, username, contrasena, rol \\ "participante", experiencia \\ "") do
     case ParticipantStore.buscar_por_correo(correo) do
@@ -58,8 +53,8 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
           perfil_url: nil
         }
 
-        # Se almacena el hash de la contraseña en un campo auxiliar dentro del store
-        ParticipantStore.guardar_participante(Map.put(participante, :contrasena, hashed))
+        ParticipantStore.guardar_participante(participante)
+        LoggerService.registrar_evento("Usuario registrado", %{correo: correo, rol: rol})
         {:ok, participante}
 
       _existente ->
@@ -68,14 +63,9 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
   end
 
   @doc """
-  Autentica a un participante verificando sus credenciales.
+  Autentica a un participante verificando su correo y contraseña.
 
-  Si el correo y la contraseña son válidos:
-  - Genera un token JWT (u otro tipo de token según `TokenManager`).
-  - Registra la sesión activa en el `SessionManager`.
-  - Actualiza el estado y la última conexión del participante.
-
-  Retorna el participante autenticado junto con su token.
+  Si las credenciales son válidas, genera un token y activa la sesión.
   """
   def autenticar(correo, contrasena) do
     case ParticipantStore.buscar_por_correo(correo) do
@@ -83,7 +73,6 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
         {:error, :usuario_no_encontrado}
 
       %Participant{} = participante ->
-        # Verificar la contraseña cifrada (usando campo `contrasena` en almacenamiento)
         if EncryptionAdapter.verificar(contrasena, participante.contrasena || "") do
           with {:ok, token} <- TokenManager.generar_token(participante.id),
                :ok <- SessionManager.activar_sesion(participante.id, token) do
@@ -95,7 +84,7 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
             }
 
             ParticipantStore.guardar_participante(actualizado)
-            registrar_evento_autenticacion(participante.id, :inicio_sesion)
+            LoggerService.registrar_evento("Inicio de sesión", %{usuario: correo, rol: participante.rol})
             {:ok, %{participante: actualizado, token: token}}
           else
             _ -> {:error, :error_en_sesion}
@@ -119,13 +108,13 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
       participante ->
         actualizado = %{participante | estado: :desconectado, token_sesion: nil}
         ParticipantStore.guardar_participante(actualizado)
-        registrar_evento_autenticacion(id_participante, :sesion_cerrada)
+        LoggerService.registrar_evento("Sesión cerrada", %{usuario: id_participante})
         {:ok, :sesion_cerrada}
     end
   end
 
   # ============================================================
-  # VALIDACIÓN Y CONSULTA
+  # VALIDACIÓN Y PERMISOS
   # ============================================================
 
   @doc """
@@ -139,7 +128,7 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
   end
 
   @doc """
-  Recupera la información de un participante autenticado por su ID.
+  Obtiene los datos de un participante por su ID.
   """
   def obtener_participante(id_participante) do
     case ParticipantStore.obtener_participante(id_participante) do
@@ -149,32 +138,33 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
   end
 
   @doc """
-  Verifica si un token de sesión está actualmente activo.
+  Valida si un participante tiene permiso para realizar una acción específica.
+
+  Este método delega la verificación al `PermissionService`.
+  """
+  def tiene_permiso?(id_participante, accion) when is_atom(accion) do
+    case PermissionService.autorizado?(id_participante, accion) do
+      true ->
+        LoggerService.registrar_evento("Permiso concedido", %{usuario: id_participante, accion: accion})
+        true
+
+      false ->
+        LoggerService.registrar_evento("Acceso denegado", %{usuario: id_participante, accion: accion})
+        false
+    end
+  end
+
+  # ============================================================
+  # UTILIDADES
+  # ============================================================
+
+  @doc """
+  Verifica si un token de sesión está activo.
   """
   def sesion_activa?(token) do
     case SessionManager.validar_sesion(token) do
       {:ok, _id} -> true
       _ -> false
     end
-  end
-
-  @doc """
-  Verifica si un participante tiene permisos entre una lista de roles permitidos.
-  """
-  def es_autorizado?(id_participante, roles_permitidos) when is_list(roles_permitidos) do
-    with {:ok, participante} <- obtener_participante(id_participante) do
-      participante.rol in roles_permitidos
-    else
-      _ -> false
-    end
-  end
-
-  # ============================================================
-  # FUNCIONES AUXILIARES Y DE LOGGING
-  # ============================================================
-
-  @doc false
-  defp registrar_evento_autenticacion(id, evento) do
-    IO.puts("[AuthService] Evento: #{evento} | Usuario: #{id} | Fecha: #{DateTime.utc_now()}")
   end
 end
