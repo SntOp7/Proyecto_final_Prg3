@@ -25,6 +25,7 @@ defmodule ProyectoFinalPrg3.MixProject do
       {:phoenix_pubsub, "~> 2.1"},   # Comunicación PubSub
       {:ex_doc, "~> 0.31", only: :dev, runtime: false},  # Documentación
       {:ex_unit_notifier, "~> 1.2", only: :test},        # Notificaciones de test
+      {:mox, "~> 1.1", only: :test},                     # Mocking en tests
       {:excoveralls, "~> 0.17", only: :test},            # Cobertura de test
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false}, # Linter
       {:dialyxir, "~> 1.4", only: [:dev], runtime: false}      # Analizador de tipos
