@@ -62,8 +62,6 @@ defmodule ProyectoFinalPrg3.Adapters.Security.TokenManager do
   # FUNCIÓN DE VALIDACIÓN DE TOKEN
   # ============================================================
 
-  def validar_token(_), do: {:error, :token_invalido}
-
   @doc """
   Valida un token verificando su integridad y firma.
 
@@ -88,4 +86,6 @@ defmodule ProyectoFinalPrg3.Adapters.Security.TokenManager do
       _ -> {:error, :token_invalido}
     end
   end
+
+  def validar_token(_), do: {:error, :token_invalido}
 end
