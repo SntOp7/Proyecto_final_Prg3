@@ -112,9 +112,12 @@ defmodule ProyectoFinalPrg3.Services.CategoryService do
     - `{:error, :no_encontrada}` en caso contrario.
   """
   def obtener_categoria(id_categoria) do
-    case CategoryStore.obtener_categoria(id_categoria) do
-      nil -> {:error, :no_encontrada}
-      categoria -> {:ok, categoria}
+    categoria = CategoryStore.obtener_categoria(id_categoria)
+
+    if categoria do
+      {:ok, categoria}
+    else
+      {:error, :no_encontrada}
     end
   end
 
@@ -187,7 +190,11 @@ defmodule ProyectoFinalPrg3.Services.CategoryService do
   """
   def remover_proyecto(id_categoria, id_proyecto) do
     with {:ok, categoria} <- obtener_categoria(id_categoria) do
-      actualizada = %{categoria | proyectos: Enum.reject(categoria.proyectos, &(&1 == id_proyecto))}
+      actualizada = %{
+        categoria
+        | proyectos: Enum.reject(categoria.proyectos, &(&1 == id_proyecto))
+      }
+
       CategoryStore.guardar_categoria(actualizada)
       BroadcastService.notificar(:proyecto_removido_categoria, actualizada)
       {:ok, actualizada}
