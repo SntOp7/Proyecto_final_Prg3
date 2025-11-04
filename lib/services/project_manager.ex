@@ -47,7 +47,6 @@ defmodule ProyectoFinalPrg3.Services.ProjectManager do
         ProjectStore.guardar_proyecto(proyecto)
         BroadcastService.notificar(:proyecto_creado, proyecto)
 
-        # Asociar al equipo si existe
         if equipo_id do
           case TeamManager.obtener_por_id(equipo_id) do
             {:ok, equipo} ->
@@ -58,8 +57,15 @@ defmodule ProyectoFinalPrg3.Services.ProjectManager do
           end
         end
 
-        # Asociar a la categoría si existe
         if categoria, do: CategoryService.agregar_proyecto(categoria, proyecto.id)
+
+        ProyectoFinalPrg3.Services.MetricsService.registrar_evento(:proyecto_creado, %{
+          id: proyecto.id,
+          nombre: proyecto.nombre,
+          categoria: categoria,
+          equipo_id: equipo_id,
+          creador_id: id_usuario
+        })
 
         {:ok, proyecto}
       end
@@ -159,18 +165,68 @@ defmodule ProyectoFinalPrg3.Services.ProjectManager do
   # FUNCIONES DE AVANCES, FEEDBACK Y ARCHIVO (SIN CAMBIOS)
   # ============================================================
 
-  def registrar_avance(nombre_proyecto, %Progress{} = avance),
-    do: actualizar_lista(nombre_proyecto, :avances, avance, ProgressStore, :avance_registrado)
+  @doc """
+  Registra un nuevo avance dentro de un proyecto y lo guarda tanto en ProjectStore como en ProgressStore.
+  """
+  def registrar_avance(nombre_proyecto, %Progress{} = avance) do
+    with {:ok, proyecto} <- obtener_proyecto(nombre_proyecto) do
+      actualizado = %{
+        proyecto
+        | avances: proyecto.avances ++ [avance],
+          fecha_actualizacion: DateTime.utc_now()
+      }
 
-  def registrar_retroalimentacion(nombre_proyecto, feedback),
-    do:
-      actualizar_lista(
-        nombre_proyecto,
-        :retroalimentaciones,
-        feedback,
-        FeedbackStore,
-        :retroalimentacion_registrada
-      )
+      ProgressStore.guardar_avance(avance)
+      ProjectStore.guardar_proyecto(actualizado)
+
+      BroadcastService.notificar(:avance_registrado, %{
+        proyecto: nombre_proyecto,
+        avance: avance.id
+      })
+
+      ProyectoFinalPrg3.Services.MetricsService.registrar_evento(:avance_registrado, %{
+        proyecto_id: proyecto.id,
+        avance_id: avance.id,
+        nombre_proyecto: nombre_proyecto
+      })
+
+      {:ok, actualizado}
+    else
+      {:error, razon} -> {:error, razon}
+    end
+  end
+
+  @doc """
+  Registra una nueva retroalimentación para un proyecto.
+  Guarda solo el ID de la retroalimentación en el proyecto para evitar duplicación de datos.
+  """
+  def registrar_retroalimentacion(nombre_proyecto, feedback) do
+    with {:ok, proyecto} <- obtener_proyecto(nombre_proyecto) do
+      actualizado = %{
+        proyecto
+        | retroalimentaciones: [feedback.id | proyecto.retroalimentaciones],
+          fecha_actualizacion: DateTime.utc_now()
+      }
+
+      FeedbackStore.guardar_feedback(feedback)
+      ProjectStore.guardar_proyecto(actualizado)
+
+      BroadcastService.notificar(:retroalimentacion_registrada, %{
+        proyecto: nombre_proyecto,
+        feedback: feedback.id
+      })
+
+      ProyectoFinalPrg3.Services.MetricsService.registrar_evento(:retroalimentacion_registrada, %{
+        proyecto_id: proyecto.id,
+        feedback_id: feedback.id,
+        nombre_proyecto: nombre_proyecto
+      })
+
+      {:ok, actualizado}
+    else
+      {:error, razon} -> {:error, razon}
+    end
+  end
 
   @doc """
   Archiva un proyecto (requiere permiso :archivar_proyecto).
@@ -209,4 +265,5 @@ defmodule ProyectoFinalPrg3.Services.ProjectManager do
       {:error, razon} -> {:error, razon}
     end
   end
+
 end
