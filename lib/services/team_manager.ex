@@ -55,6 +55,14 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
 
           TeamStore.guardar_equipo(equipo)
           BroadcastService.notificar(:equipo_creado, equipo)
+
+          # 🔹 MÉTRICAS EN TIEMPO REAL
+          ProyectoFinalPrg3.Services.MetricsService.registrar_evento(:equipo_creado, %{
+            equipo_id: equipo.id,
+            nombre: equipo.nombre,
+            categoria: categoria
+          })
+
           {:ok, equipo}
 
         _existente ->
@@ -92,6 +100,13 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
       ParticipantManager.actualizar_equipo(participante.id, equipo.id)
       BroadcastService.notificar(:equipo_actualizado, equipo_actualizado)
 
+      # 🔹 REGISTRO EN MÉTRICAS
+      ProyectoFinalPrg3.Services.MetricsService.registrar_evento(:participante_agregado, %{
+        equipo_id: equipo.id,
+        participante_id: participante.id,
+        nombre_equipo: equipo.nombre
+      })
+
       {:ok, equipo_actualizado}
     else
       true -> {:error, :ya_en_equipo}
@@ -99,9 +114,6 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
     end
   end
 
-  @doc """
-  Permite que un participante autenticado se una a un equipo existente.
-  """
   def unirse_a_equipo(nombre_equipo, id_participante) do
     with {:ok, usuario} <- AuthService.obtener_participante(id_participante),
          {:ok, equipo} <- obtener_equipo(nombre_equipo),
@@ -112,6 +124,13 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
       TeamStore.guardar_equipo(equipo_actualizado)
       ParticipantManager.actualizar_equipo(usuario.id, equipo.id)
       BroadcastService.notificar(:miembro_unido, equipo_actualizado)
+
+      # 🔹 REGISTRO EN MÉTRICAS
+      ProyectoFinalPrg3.Services.MetricsService.registrar_evento(:miembro_unido, %{
+        equipo_id: equipo.id,
+        participante_id: usuario.id,
+        nombre_equipo: equipo.nombre
+      })
 
       {:ok, equipo_actualizado}
     else
@@ -152,6 +171,13 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
         equipo_actualizado = %{equipo | estado: :inactivo}
         TeamStore.guardar_equipo(equipo_actualizado)
         BroadcastService.notificar(:equipo_disuelto, equipo_actualizado)
+
+        # 🔹 REGISTRO EN MÉTRICAS
+        ProyectoFinalPrg3.Services.MetricsService.registrar_evento(:equipo_disuelto, %{
+          equipo_id: equipo.id,
+          nombre_equipo: equipo.nombre
+        })
+
         {:ok, :equipo_disuelto}
       else
         {:error, razon} -> {:error, razon}
