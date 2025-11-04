@@ -18,6 +18,7 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
 
   alias ProyectoFinalPrg3.Adapters.Network.{PubSubAdapter, ChannelManager, NodeManager}
   alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
+  alias ProyectoFinalPrg3.Services.MetricsService
 
   # ============================================================
   # DIFUSIÓN DE EVENTOS
@@ -35,6 +36,8 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
 
     # Log local (historial del sistema)
     LoggerService.registrar_evento("Difusión: #{evento}", mensaje)
+
+    MetricsService.registrar_evento(:error_sistema, %{contexto: evento, detalle: mensaje})
 
     # Difusión segura hacia red y nodos
     safe_broadcast(fn ->
@@ -135,6 +138,8 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
   def notificar_error(contexto, detalle) do
     mensaje = construir_mensaje(:error, :error_sistema, %{contexto: contexto, detalle: detalle})
     LoggerService.registrar_evento("ERROR", mensaje)
+    MetricsService.registrar_evento(:error_sistema, %{contexto: contexto, detalle: detalle})
+
 
     safe_broadcast(fn ->
       PubSubAdapter.publicar(:error_sistema, mensaje)
