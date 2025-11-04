@@ -75,55 +75,69 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
   Si las credenciales son válidas, genera un token y activa la sesión.
   """
   def autenticar(correo, contrasena) do
-    case ParticipantStore.buscar_por_correo(correo) do
-      nil ->
-        {:error, :usuario_no_encontrado}
+  case ParticipantStore.buscar_por_correo(correo) do
+    nil ->
+      {:error, :usuario_no_encontrado}
 
-      %Participant{} = participante ->
-        if EncryptionAdapter.verificar(contrasena, participante.contrasena || "") do
-          with {:ok, token} <- TokenManager.generar_token(participante.id),
-               :ok <- SessionManager.activar_sesion(participante.id, token) do
-            actualizado = %{
-              participante
-              | estado: :activo,
-                ultima_conexion: DateTime.utc_now(),
-                token_sesion: token
-            }
+    %Participant{} = participante ->
+      if EncryptionAdapter.verificar(contrasena, participante.contrasena || "") do
+        with {:ok, token} <- TokenManager.generar_token(participante.id),
+             :ok <- SessionManager.activar_sesion(participante.id, token) do
+          actualizado = %{
+            participante
+            | estado: :activo,
+              ultima_conexion: DateTime.utc_now(),
+              token_sesion: token
+          }
 
-            ParticipantStore.guardar_participante(actualizado)
+          ParticipantStore.guardar_participante(actualizado)
 
-            LoggerService.registrar_evento("Inicio de sesión", %{
-              usuario: correo,
-              rol: participante.rol
-            })
+          LoggerService.registrar_evento("Inicio de sesión", %{
+            usuario: correo,
+            rol: participante.rol
+          })
 
-            {:ok, %{participante: actualizado, token: token}}
-          else
-            _ -> {:error, :error_en_sesion}
-          end
+          ProyectoFinalPrg3.Services.MetricsService.registrar_evento(:inicio_sesion, %{
+            usuario_id: participante.id,
+            correo: correo,
+            rol: participante.rol
+          })
+
+          {:ok, %{participante: actualizado, token: token}}
         else
-          {:error, :contrasena_invalida}
+          _ -> {:error, :error_en_sesion}
         end
-    end
+      else
+        {:error, :contrasena_invalida}
+      end
   end
+end
 
   @doc """
   Cierra la sesión activa de un participante, revocando su token y actualizando su estado.
   """
   def cerrar_sesion(id_participante) do
-    SessionManager.revocar_sesion(id_participante)
+  SessionManager.revocar_sesion(id_participante)
 
-    case ParticipantStore.obtener_participante(id_participante) do
-      nil ->
-        {:error, :no_encontrado}
+  case ParticipantStore.obtener_participante(id_participante) do
+    nil ->
+      {:error, :no_encontrado}
 
-      participante ->
-        actualizado = %{participante | estado: :desconectado, token_sesion: nil}
-        ParticipantStore.guardar_participante(actualizado)
-        LoggerService.registrar_evento("Sesión cerrada", %{usuario: id_participante})
-        {:ok, :sesion_cerrada}
-    end
+    participante ->
+      actualizado = %{participante | estado: :desconectado, token_sesion: nil}
+      ParticipantStore.guardar_participante(actualizado)
+
+      LoggerService.registrar_evento("Sesión cerrada", %{usuario: id_participante})
+
+      # 🔹 REGISTRO EN MÉTRICAS
+      ProyectoFinalPrg3.Services.MetricsService.registrar_evento(:cierre_sesion, %{
+        usuario_id: id_participante,
+        rol: participante.rol
+      })
+
+      {:ok, :sesion_cerrada}
   end
+end
 
   # ============================================================
   # CONSULTA DE PARTICIPANTES
