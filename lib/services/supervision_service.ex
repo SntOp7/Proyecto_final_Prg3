@@ -31,6 +31,7 @@ defmodule ProyectoFinalPrg3.Services.SupervisionManager do
 
   alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
   alias ProyectoFinalPrg3.Services.BroadcastService
+  alias ProyectoFinalPrg3.Services.MetricsService
 
   @agent_name __MODULE__
 
@@ -46,6 +47,7 @@ defmodule ProyectoFinalPrg3.Services.SupervisionManager do
       {:ok, _pid} = Agent.start_link(fn -> %{} end, name: @agent_name)
       LoggerService.registrar_evento("SupervisionManager iniciado", %{estado: :ok})
     end
+
     :ok
   end
 
@@ -57,7 +59,12 @@ defmodule ProyectoFinalPrg3.Services.SupervisionManager do
   def registrar_proceso(nombre, modulo) when is_atom(nombre) and is_atom(modulo) do
     iniciar()
     Agent.update(@agent_name, &Map.put(&1, nombre, modulo))
-    LoggerService.registrar_evento("Proceso registrado para supervisión", %{nombre: nombre, modulo: modulo})
+
+    LoggerService.registrar_evento("Proceso registrado para supervisión", %{
+      nombre: nombre,
+      modulo: modulo
+    })
+
     :ok
   end
 
@@ -68,7 +75,6 @@ defmodule ProyectoFinalPrg3.Services.SupervisionManager do
     iniciar()
     Agent.get(@agent_name, & &1)
   end
-
 
   # ============================================================
   # SUPERVISIÓN ACTIVA
@@ -84,6 +90,7 @@ defmodule ProyectoFinalPrg3.Services.SupervisionManager do
   """
   def verificar_estado(nombre) when is_atom(nombre) do
     iniciar()
+
     case Agent.get(@agent_name, &Map.get(&1, nombre)) do
       nil ->
         {:error, :no_registrado}
@@ -105,6 +112,7 @@ defmodule ProyectoFinalPrg3.Services.SupervisionManager do
   def verificar_todos do
     iniciar()
     procesos = listar_procesos()
+
     resultados =
       for {nombre, _modulo} <- procesos, into: [] do
         case verificar_estado(nombre) do
@@ -126,14 +134,37 @@ defmodule ProyectoFinalPrg3.Services.SupervisionManager do
   defp reiniciar_proceso(nombre, modulo) do
     try do
       apply(modulo, :inicializar_supervision, [])
-      BroadcastService.notificar(:proceso_reiniciado, %{nombre: nombre, modulo: modulo})
       LoggerService.registrar_evento("Proceso reiniciado correctamente", %{nombre: nombre})
+
+      MetricsService.registrar_evento(:proceso_reiniciado, %{
+        proceso: nombre,
+        modulo: modulo
+      })
+
+      BroadcastService.notificar(:proceso_reiniciado, %{
+        nombre: nombre,
+        modulo: modulo
+      })
+
+      {:ok, :reiniciado}
     rescue
       error ->
         LoggerService.registrar_evento("Error al reiniciar proceso", %{
           nombre: nombre,
           error: Exception.message(error)
         })
+
+        MetricsService.registrar_evento(:error_reinicio, %{
+          proceso: nombre,
+          error: Exception.message(error)
+        })
+
+        BroadcastService.notificar_error(
+          "SupervisionManager",
+          "Error al reiniciar proceso #{inspect(nombre)}: #{Exception.message(error)}"
+        )
+
+        {:error, :fallo_reinicio}
     end
   end
 
