@@ -7,6 +7,11 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.FeedbackStoreTest do
   @data_dir Path.join([File.cwd!(), "data"])
   @csv_file Path.join(@data_dir, "feedback.csv")
 
+  # Encabezado REAL del FeedbackStore, definido localmente
+  @encabezado """
+  id,mentor_id,proyecto_id,equipo_id,avance_id,contenido,fecha_creacion,nivel,visibilidad,estado
+  """
+
   # ============================================================
   # CONFIGURACIÓN DE ENTORNO AISLADO DE PRUEBAS
   # ============================================================
@@ -15,8 +20,8 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.FeedbackStoreTest do
     File.rm_rf!(@data_dir)
     File.mkdir_p!(@data_dir)
 
-    # Crear archivo vacío con encabezado obligatorio
-    File.write!(@csv_file, FeedbackStore.@headers)
+    # Crear archivo con encabezado válido
+    File.write!(@csv_file, @encabezado)
 
     :ok
   end
@@ -86,7 +91,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.FeedbackStoreTest do
 
   describe "listar_feedbacks/0" do
     test "retorna lista vacía si el archivo no tiene contenido" do
-      File.write!(@csv_file, FeedbackStore.@headers)
+      File.write!(@csv_file, @encabezado)
       assert FeedbackStore.listar_feedbacks() == []
     end
 

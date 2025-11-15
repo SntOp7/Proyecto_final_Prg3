@@ -6,9 +6,13 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.TeamStoreTest do
 
   @ruta "data/equipos.csv"
 
+  @encabezado_correcto
+  "id,nombre,descripcion,categoria,id_proyecto,id_mentor,participantes,fecha_creacion,estado,canal_chat_id,puntaje,historial\n"
+
   setup do
     File.rm_rf!("data")
     File.mkdir_p!("data")
+    File.write!(@ruta, @encabezado_correcto)
     :ok
   end
 
@@ -69,7 +73,6 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.TeamStoreTest do
       TeamStore.guardar_equipo(e2)
 
       contenido = File.read!(@ruta)
-
       refute contenido =~ "Versión 1"
       assert contenido =~ "Versión 2"
     end
@@ -102,7 +105,6 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.TeamStoreTest do
 
     test "retorna el equipo por nombre", %{equipo: e} do
       encontrado = TeamStore.obtener_equipo("CodeWarriors")
-
       assert encontrado.id == e.id
       assert encontrado.nombre == "CodeWarriors"
     end
@@ -177,7 +179,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.TeamStoreTest do
       fecha = DateTime.utc_now() |> DateTime.to_iso8601()
 
       linea =
-        "T4,Test,Desc,Cat,P1,M1,U1;U2,#{fecha},activo,C1,100,Evento1|Evento2"
+        "T4,Test,Desc,Cat,P1,M1,U1;U2,#{fecha},activo,C1,100,detalle1|detalle2"
 
       equipo = :erlang.apply(TeamStore, :parse_csv_line, [linea])
 
@@ -186,7 +188,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.TeamStoreTest do
       assert equipo.estado == :activo
       assert equipo.participantes == ["U1", "U2"]
       assert length(equipo.historial) == 2
-      assert Enum.all?(equipo.historial, fn h -> Map.has_key?(h, :detalle) end)
+      assert Enum.map(equipo.historial, & &1.detalle) == ["detalle1", "detalle2"]
     end
 
     test "to_csv_line convierte un Team en línea CSV correctamente" do
@@ -202,7 +204,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.TeamStoreTest do
         estado: :activo,
         canal_chat_id: "C9",
         puntaje: 50,
-        historial: [%{detalle: "Inicio", timestamp: nil}]
+        historial: [%{detalle: "Inicio"}]
       }
 
       csv = :erlang.apply(TeamStore, :to_csv_line, [eq])
@@ -210,6 +212,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.TeamStoreTest do
       assert csv =~ "CSVTeam"
       assert csv =~ "activo"
       assert csv =~ "X1;X2"
+      assert csv =~ "Inicio"
     end
 
     test "sanitize reemplaza caracteres problemáticos" do
@@ -228,7 +231,6 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.TeamStoreTest do
       parseado = :erlang.apply(TeamStore, :parse_historial, [serializado])
 
       assert length(parseado) == 2
-      assert Enum.all?(parseado, fn h -> is_map(h) end)
       assert Enum.map(parseado, & &1.detalle) == ["Test1", "Test2"]
     end
   end

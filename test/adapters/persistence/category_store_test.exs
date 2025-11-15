@@ -4,26 +4,26 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.CategoryStoreTest do
   alias ProyectoFinalPrg3.Adapters.Persistence.CategoryStore
   alias ProyectoFinalPrg3.Domain.Category
 
-  @data_path Path.join([File.cwd!(), "data"])
-  @file Path.join(@data_path, "categorias.csv")
+  @encabezado "id,nombre,descripcion,proyectos,fecha_creacion,creador_id,activo\n"
 
   # ------------------------------------------------------------
   # CONFIGURACIÓN DEL ENTORNO DE PRUEBAS
   # ------------------------------------------------------------
 
   setup do
-    # Garantizar carpeta data limpia
-    File.rm_rf!(@data_path)
-    File.mkdir_p!(@data_path)
+    data_path = Path.join(File.cwd!(), "data")
+    file = Path.join(data_path, "categorias.csv")
 
-    # Crear archivo con encabezado
-    File.write!(@file, "id,nombre,descripcion,proyectos,fecha_creacion,creador_id,activo\n")
+    File.rm_rf!(data_path)
+    File.mkdir_p!(data_path)
 
-    :ok
+    File.write!(file, @encabezado)
+
+    {:ok, file: file}
   end
 
   # ------------------------------------------------------------
-  # UTILIDADES PARA FABRICAR CATEGORÍAS
+  # UTILIDADES
   # ------------------------------------------------------------
 
   defp categoria_base(attrs \\ %{}) do
@@ -39,26 +39,26 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.CategoryStoreTest do
   end
 
   # ------------------------------------------------------------
-  # TEST: guardar_categoria/1
+  # guardar_categoria/1
   # ------------------------------------------------------------
 
   describe "guardar_categoria/1" do
-    test "guarda una categoría nueva en el CSV" do
+    test "guarda una categoría nueva en el CSV", %{file: file} do
       categoria = categoria_base()
 
       assert {:ok, ^categoria} = CategoryStore.guardar_categoria(categoria)
 
-      contenido = File.read!(@file)
-      assert String.contains?(contenido, categoria.nombre)
-      assert String.contains?(contenido, categoria.descripcion)
+      contenido = File.read!(file)
+      assert contenido =~ categoria.nombre
+      assert contenido =~ categoria.descripcion
     end
 
-    test "si la categoría ya existe, la reemplaza por la nueva versión" do
-      categoria1 = categoria_base(descripcion: "Original")
-      categoria2 = categoria_base(descripcion: "Actualizada")
+    test "si la categoría ya existe, la reemplaza", %{file: _file} do
+      c1 = categoria_base(descripcion: "Original")
+      c2 = categoria_base(descripcion: "Actualizada")
 
-      CategoryStore.guardar_categoria(categoria1)
-      CategoryStore.guardar_categoria(categoria2)
+      CategoryStore.guardar_categoria(c1)
+      CategoryStore.guardar_categoria(c2)
 
       categorias = CategoryStore.listar_categorias()
       assert length(categorias) == 1
@@ -67,11 +67,11 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.CategoryStoreTest do
   end
 
   # ------------------------------------------------------------
-  # TEST: obtener_categoria/1
+  # obtener_categoria/1
   # ------------------------------------------------------------
 
   describe "obtener_categoria/1" do
-    test "retorna {:ok, categoria} si existe una con ese id" do
+    test "retorna {:ok, categoria} si existe", %{file: _file} do
       categoria = categoria_base()
       CategoryStore.guardar_categoria(categoria)
 
@@ -80,22 +80,21 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.CategoryStoreTest do
       assert encontrada.nombre == categoria.nombre
     end
 
-    test "retorna nil si no existe la categoría" do
-      assert nil == CategoryStore.obtener_categoria("inexistente")
+    test "retorna nil si no existe" do
+      assert CategoryStore.obtener_categoria("x999") == nil
     end
   end
 
   # ------------------------------------------------------------
-  # TEST: listar_categorias/0
+  # listar_categorias/0
   # ------------------------------------------------------------
 
   describe "listar_categorias/0" do
-    test "retorna lista vacía si el archivo está vacío" do
-      categorias = CategoryStore.listar_categorias()
-      assert categorias == []
+    test "retorna lista vacía si el archivo sólo contiene encabezado", %{file: _file} do
+      assert CategoryStore.listar_categorias() == []
     end
 
-    test "lista todas las categorías registradas" do
+    test "lista todas las categorías registradas", %{file: _file} do
       c1 = categoria_base(id: "c1", nombre: "Backend")
       c2 = categoria_base(id: "c2", nombre: "Frontend")
 
@@ -111,11 +110,11 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.CategoryStoreTest do
   end
 
   # ------------------------------------------------------------
-  # TEST: eliminar_categoria/1
+  # eliminar_categoria/1
   # ------------------------------------------------------------
 
   describe "eliminar_categoria/1" do
-    test "elimina una categoría existente por su nombre" do
+    test "elimina una categoría existente por nombre", %{file: _file} do
       categoria = categoria_base(nombre: "Videojuegos")
       CategoryStore.guardar_categoria(categoria)
 
@@ -125,7 +124,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.CategoryStoreTest do
       refute Enum.any?(categorias, &(&1.nombre == "Videojuegos"))
     end
 
-    test "si no existe la categoría, no afecta el archivo" do
+    test "si no existe, no altera el archivo", %{file: _file} do
       c1 = categoria_base(nombre: "Salud")
       CategoryStore.guardar_categoria(c1)
 
@@ -138,18 +137,19 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.CategoryStoreTest do
   end
 
   # ------------------------------------------------------------
-  # TEST: serialización y parsing
+  # PARSEO Y SERIALIZACIÓN
   # ------------------------------------------------------------
 
   describe "serialización y parsing interno" do
-    test "las categorías se guardan y cargan con todos los campos iguales" do
-      original = categoria_base(
-        id: "test001",
-        nombre: "Seguridad",
-        descripcion: "Criptografía y protocolos",
-        proyectos: ["p1", "p2", "p3"],
-        activo: true
-      )
+    test "las categorías se guardan y cargan iguales", %{file: _file} do
+      original =
+        categoria_base(
+          id: "test001",
+          nombre: "Seguridad",
+          descripcion: "Criptografía",
+          proyectos: ["p1", "p2", "p3"],
+          activo: true
+        )
 
       CategoryStore.guardar_categoria(original)
 
@@ -160,21 +160,19 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.CategoryStoreTest do
       assert cargada.descripcion == original.descripcion
       assert cargada.proyectos == original.proyectos
       assert cargada.creador_id == original.creador_id
-      assert cargada.activo == true
+      assert cargada.activo == original.activo
     end
 
-    test "parsea correctamente fechas válidas y sustituye inválidas por utc_now()" do
-      # Insertar manualmente una línea corrupta
-      contenido = """
-      id,nombre,descripcion,proyectos,fecha_creacion,creador_id,activo
-      c10,Cat,Desc,p1;p2,fecha_x,user1,true
-      """
+    test "parsea correctamente fechas inválidas sustituyéndolas por utc_now()", %{file: file} do
+      contenido =
+        @encabezado <>
+        "c10,Cat,Desc,p1;p2,fecha_x,user1,true\n"
 
-      File.write!(@file, contenido)
+      File.write!(file, contenido)
 
       [categoria] = CategoryStore.listar_categorias()
 
-      assert is_struct(categoria.fecha_creacion, DateTime)
+      assert %DateTime{} = categoria.fecha_creacion
     end
   end
 end

@@ -3,17 +3,19 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.PersistenceManagerTest do
 
   alias ProyectoFinalPrg3.Adapters.Persistence.PersistenceManager
 
-  # Se mockea el LoggerService para evitar escrituras reales
-  import Mox
-  setup :set_mox_global
+  #
+  # Desactivamos llamadas reales al LoggerService
+  # Reemplazándolo con un módulo temporal mínimo.
+  #
+  defmodule FakeLogger do
+    def registrar_evento(_, _), do: :ok
+  end
 
   setup do
-    File.rm_rf!("data")
-    Mox.stub_with(
-      ProyectoFinalPrg3.Adapters.Logging.LoggerService.Mock,
-      ProyectoFinalPrg3.Adapters.Logging.LoggerService
-    )
+    # Sobrescribimos LoggerService en tiempo de prueba
+    Application.put_env(:proyecto_final_prg3, :logger_service, FakeLogger)
 
+    File.rm_rf!("data")
     :ok
   end
 
@@ -35,7 +37,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.PersistenceManagerTest do
   ]
 
   # ============================================================
-  # 1. inicializar/0
+  # inicializar/0
   # ============================================================
 
   describe "inicializar/0" do
@@ -48,12 +50,13 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.PersistenceManagerTest do
     test "crea todos los archivos CSV con encabezados correctos" do
       PersistenceManager.inicializar()
 
-      Enum.each(@csv_files, fn {nombre_archivo, encabezado} ->
-        ruta = Path.join(["data", nombre_archivo])
+      Enum.each(@csv_files, fn {archivo, encabezado} ->
+        ruta = Path.join(["data", archivo])
         assert File.exists?(ruta)
 
         primera_linea =
-          File.stream!(ruta)
+          ruta
+          |> File.stream!()
           |> Enum.take(1)
           |> hd()
           |> String.trim()
@@ -64,7 +67,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.PersistenceManagerTest do
   end
 
   # ============================================================
-  # 2. verificar_integridad/0
+  # verificar_integridad/0
   # ============================================================
 
   describe "verificar_integridad/0" do
@@ -75,17 +78,16 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.PersistenceManagerTest do
 
     test "no modifica archivos válidos" do
       contenido_original =
-        Enum.map(@csv_files, fn {nombre, _} ->
-          ruta = Path.join(["data", nombre])
-          {nombre, File.read!(ruta)}
+        Enum.map(@csv_files, fn {archivo, _} ->
+          ruta = Path.join(["data", archivo])
+          {archivo, File.read!(ruta)}
         end)
 
       PersistenceManager.verificar_integridad()
 
-      Enum.each(contenido_original, fn {nombre, contenido_prev} ->
-        ruta = Path.join(["data", nombre])
-        contenido_post = File.read!(ruta)
-        assert contenido_prev == contenido_post
+      Enum.each(contenido_original, fn {archivo, contenido_prev} ->
+        ruta = Path.join(["data", archivo])
+        assert File.read!(ruta) == contenido_prev
       end)
     end
 
@@ -93,13 +95,13 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.PersistenceManagerTest do
       {archivo, encabezado_correcto} = hd(@csv_files)
       ruta = Path.join(["data", archivo])
 
-      # Sobrescribe archivo con encabezado inválido
-      File.write!(ruta, "ENCABEZADO_MALO\nfila1\fila2\n")
+      File.write!(ruta, "ENCABEZADO_MALO\nlinea1\nlinea2\n")
 
       PersistenceManager.verificar_integridad()
 
       primera_linea =
-        File.stream!(ruta)
+        ruta
+        |> File.stream!()
         |> Enum.take(1)
         |> hd()
         |> String.trim()
@@ -108,56 +110,47 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.PersistenceManagerTest do
     end
 
     test "recrea archivos faltantes" do
-      {archivo, encabezado_esperado} = Enum.at(@csv_files, 2)
-
+      {archivo, encabezado_correcto} = Enum.at(@csv_files, 3)
       ruta = Path.join(["data", archivo])
-      File.rm!(ruta)
 
+      File.rm!(ruta)
       refute File.exists?(ruta)
 
       PersistenceManager.verificar_integridad()
-
       assert File.exists?(ruta)
 
       primera_linea =
-        File.stream!(ruta)
+        ruta
+        |> File.stream!()
         |> Enum.take(1)
         |> hd()
         |> String.trim()
 
-      assert primera_linea == encabezado_esperado
+      assert primera_linea == encabezado_correcto
     end
   end
 
   # ============================================================
-  # 3. Funcionamiento privado: encabezado_incorrecto?/2
+  # encabezado_incorrecto?/2 — función privada
   # ============================================================
 
-  describe "encabezado_incorrecto?/2 (privada)" do
+  describe "encabezado_incorrecto?/2" do
     test "detecta encabezado incorrecto" do
       {archivo, encabezado_correcto} = hd(@csv_files)
       ruta = Path.join(["data", archivo])
 
-      File.write!(ruta, "BAD HEADER\ncontenido\n")
+      File.write!(ruta, "BAD_HEADER\ncuerpo\n")
 
-      assert :erlang.apply(
-               PersistenceManager,
-               :encabezado_incorrecto?,
-               [ruta, encabezado_correcto]
-             )
+      assert :erlang.apply(PersistenceManager, :encabezado_incorrecto?, [ruta, encabezado_correcto])
     end
 
     test "acepta encabezado correcto" do
       {archivo, encabezado_correcto} = hd(@csv_files)
       ruta = Path.join(["data", archivo])
 
-      File.write!(ruta, encabezado_correcto <> "\nresto\n")
+      File.write!(ruta, encabezado_correcto <> "\ncontenido\n")
 
-      refute :erlang.apply(
-               PersistenceManager,
-               :encabezado_incorrecto?,
-               [ruta, encabezado_correcto]
-             )
+      refute :erlang.apply(PersistenceManager, :encabezado_incorrecto?, [ruta, encabezado_correcto])
     end
   end
 end

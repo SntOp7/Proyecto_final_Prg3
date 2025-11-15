@@ -6,23 +6,29 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.MentorStoreTest do
 
   @csv_file "data/mentores.csv"
 
-  @encabezado "id,nombre,correo,especialidad,biografia,equipos_asignados,disponibilidad,canal_mentoria_id,fecha_registro,retroalimentaciones,rol,activo"
+  @encabezado """
+  id,nombre,correo,especialidad,biografia,equipos_asignados,disponibilidad,canal_mentoria_id,fecha_registro,retroalimentaciones,rol,activo
+  """
 
   setup do
     File.rm_rf!("data")
     File.mkdir_p!("data")
-
-    File.write!(@csv_file, @encabezado <> "\n")
+    File.write!(@csv_file, @encabezado)
     :ok
   end
 
+  # ======================================================
+  #   TEST listar_mentores/0
+  # ======================================================
   describe "listar_mentores/0" do
     test "retorna lista vacía si el archivo está vacío" do
-      # El archivo ya está creado con solo encabezado
       assert MentorStore.listar_mentores() == []
     end
   end
 
+  # ======================================================
+  #   TEST guardar_mentor/1
+  # ======================================================
   describe "guardar_mentor/1" do
     test "guarda un mentor correctamente" do
       mentor = %Mentor{
@@ -43,8 +49,10 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.MentorStoreTest do
       assert {:ok, _} = MentorStore.guardar_mentor(mentor)
 
       contenido = File.read!(@csv_file)
+
       assert String.contains?(contenido, "Carlos Mentor")
       assert String.contains?(contenido, "Backend")
+      assert String.contains?(contenido, "mentor@mail.com")
     end
   end
 end

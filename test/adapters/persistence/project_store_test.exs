@@ -6,15 +6,24 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProjectStoreTest do
 
   @ruta Path.join(["data", "proyectos.csv"])
 
+  # Encabezado EXACTO utilizado por ProjectStore
+  @encabezado_correcto
+  "id,nombre,descripcion,categoria,estado,fecha_creacion,fecha_actualizacion,equipo_id,mentor_id,avances,retroalimentaciones,repositorio_url,puntaje,visibilidad,tags\n"
+
+  # --------------------------------------------------------------
+  # ENTORNO DE PRUEBAS
+  # --------------------------------------------------------------
+
   setup do
     File.rm_rf!("data")
     File.mkdir_p!("data")
+    File.write!(@ruta, @encabezado_correcto)
     :ok
   end
 
-  # ============================================================
+  # --------------------------------------------------------------
   # GUARDAR PROYECTO
-  # ============================================================
+  # --------------------------------------------------------------
 
   describe "guardar_proyecto/1" do
     test "guarda correctamente un nuevo proyecto" do
@@ -89,9 +98,9 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProjectStoreTest do
     end
   end
 
-  # ============================================================
+  # --------------------------------------------------------------
   # OBTENER PROYECTOS
-  # ============================================================
+  # --------------------------------------------------------------
 
   describe "obtener_proyecto/1 y obtener_por_id/1" do
     setup do
@@ -124,7 +133,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProjectStoreTest do
       assert encontrado.nombre == "GreenTech"
     end
 
-    test "retorna el proyecto por id", %{proyecto: p} do
+    test "retorna el proyecto por id", %{proyecto: _p} do
       encontrado = ProjectStore.obtener_por_id("P3")
       assert encontrado.nombre == "GreenTech"
     end
@@ -134,13 +143,13 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProjectStoreTest do
     end
   end
 
-  # ============================================================
-  # LISTAR PROYECTOS
-  # ============================================================
+  # --------------------------------------------------------------
+  # LISTAR
+  # --------------------------------------------------------------
 
   describe "listar_proyectos/0" do
     test "retorna lista vacía si no existe archivo" do
-      File.rm_rf!("data")
+      File.rm!(@ruta)
       assert ProjectStore.listar_proyectos() == []
     end
 
@@ -170,9 +179,9 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProjectStoreTest do
     end
   end
 
-  # ============================================================
-  # ELIMINAR PROYECTOS
-  # ============================================================
+  # --------------------------------------------------------------
+  # ELIMINAR
+  # --------------------------------------------------------------
 
   describe "eliminar_proyecto/1" do
     test "elimina el proyecto correctamente" do
@@ -195,7 +204,6 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProjectStoreTest do
       }
 
       ProjectStore.guardar_proyecto(p)
-
       :ok = ProjectStore.eliminar_proyecto("Borrar")
 
       lista = ProjectStore.listar_proyectos()
@@ -203,9 +211,9 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProjectStoreTest do
     end
   end
 
-  # ============================================================
+  # --------------------------------------------------------------
   # FUNCIONES PRIVADAS
-  # ============================================================
+  # --------------------------------------------------------------
 
   describe "funciones privadas" do
     test "mapear_a_struct convierte datos CSV en struct Project" do
@@ -239,7 +247,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProjectStoreTest do
       assert p.tags == ["tag1", "tag2"]
     end
 
-    test "escape_csv produce un string seguro" do
+    test "escape_csv asegura comillas y sanitización" do
       result = :erlang.apply(ProjectStore, :escape_csv, ["Hola, \"Mundo\""])
       assert result |> String.starts_with?("\"")
       assert result |> String.ends_with?("\"")
@@ -254,7 +262,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProjectStoreTest do
       assert %DateTime{} = :erlang.apply(ProjectStore, :parse_datetime, [dt])
     end
 
-    test "nilify convierte string vacío a nil" do
+    test "nilify convierte string vacío en nil" do
       assert :erlang.apply(ProjectStore, :nilify, [""]) == nil
       assert :erlang.apply(ProjectStore, :nilify, ["valor"]) == "valor"
     end

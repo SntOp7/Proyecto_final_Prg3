@@ -6,34 +6,40 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ParticipantStoreTest do
 
   @csv_file "data/participantes.csv"
 
+  @encabezado """
+  id,nombre,correo,username,rol,equipo_id,experiencia,fecha_registro,estado,ultima_conexion,mensajes,canales_asignados,token_sesion,perfil_url
+  """
+
   setup do
+    # Reiniciar carpeta data/
     File.rm_rf!("data")
     File.mkdir_p!("data")
 
-    encabezado =
-      "id,nombre,correo,username,rol,equipo_id,experiencia,fecha_registro,estado,ultima_conexion,mensajes,canales_asignados,token_sesion,perfil_url"
+    # Crear archivo con encabezado válido
+    File.write!(@csv_file, @encabezado)
 
-    File.write!(@csv_file, encabezado <> "\n")
     :ok
   end
 
+  # -------------------------------------------------------------
+  #   TEST listar_participantes/0
+  # -------------------------------------------------------------
   describe "listar_participantes/0" do
     test "retorna lista vacía cuando no hay participantes" do
       File.rm_rf!("data")
       File.mkdir_p!("data")
-
-      encabezado =
-        "id,nombre,correo,username,rol,equipo_id,experiencia,fecha_registro,estado,ultima_conexion,mensajes,canales_asignados,token_sesion,perfil_url"
-
-      File.write!(@csv_file, encabezado <> "\n")
+      File.write!(@csv_file, @encabezado)
 
       assert ParticipantStore.listar_participantes() == []
     end
   end
 
+  # -------------------------------------------------------------
+  #   TEST guardar_participante/1
+  # -------------------------------------------------------------
   describe "guardar_participante/1" do
     test "guarda correctamente un participante" do
-      p = %Participant{
+      participante = %Participant{
         id: "U1",
         nombre: "Carlos",
         correo: "carlos@mail.com",
@@ -50,11 +56,13 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ParticipantStoreTest do
         perfil_url: nil
       }
 
-      assert {:ok, _} = ParticipantStore.guardar_participante(p)
+      assert {:ok, _} = ParticipantStore.guardar_participante(participante)
 
       contenido = File.read!(@csv_file)
+
       assert String.contains?(contenido, "Carlos")
       assert String.contains?(contenido, "carlitos")
+      assert String.contains?(contenido, "carlos@mail.com")
     end
   end
 end
