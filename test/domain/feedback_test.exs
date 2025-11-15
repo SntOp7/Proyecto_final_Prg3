@@ -1,4 +1,4 @@
-defmodule Proyecto_final_Prg3.Test.Domain.FeedbackTest do
+defmodule ProyectofinalPrg3.Test.Domain.FeedbackTest do
   use ExUnit.Case, async: true
   alias Proyecto_final_Prg3.Domain.Feedback
 
