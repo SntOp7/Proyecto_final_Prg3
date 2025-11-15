@@ -130,37 +130,53 @@ defmodule ProyectoFinalPrg3.Adapters.Network.NodeManager do
   Esta función es segura y NO genera errores si el nodo ya estaba iniciado.
   """
   def inicializar_nodo do
-    # Asignar cookie para comunicación entre nodos
-    cookie = :proyecto_final_cookie
-    Node.set_cookie(Node.self(), cookie)
+    case Node.alive?() do
+      true ->
+        # Nodo ya tiene nombre, solo asignar cookie.
+        Node.set_cookie(Node.self(), :proyecto_final_cookie)
 
-    # Si no existe nombre (es :nonode@nohost), se intenta iniciar
-    case Node.self() do
-      :nonode@nohost ->
-        iniciar_nodo_con_nombre()
+        LoggerService.registrar_evento("Nodo distribuido inicializado", %{
+          nodo: Node.self()
+        })
 
-      _ ->
         :ok
+
+      false ->
+        # Nodo local sin nombre: inicializarlo correctamente.
+        iniciar_nodo_con_nombre(nodo_generado())
     end
   end
 
-  defp iniciar_nodo_con_nombre do
-    hostname =
-      :inet.gethostname()
-      |> elem(1)
-      |> List.to_string()
+  # Asigna un nombre real al nodo
+  defp iniciar_nodo_con_nombre(nombre_atomico) when is_atom(nombre_atomico) do
+    case Node.start(nombre_atomico) do
+      {:ok, _} ->
+        Node.set_cookie(nombre_atomico, :proyecto_final_cookie)
 
-    nodo = :"proyecto_final@#{hostname}"
+        LoggerService.registrar_evento("Nodo local iniciado", %{
+          nodo: nombre_atomico
+        })
 
-    case :net_kernel.start([nodo, :shortnames]) do
-      {:ok, _pid} ->
-        LoggerService.registrar_evento("Nodo iniciado", %{nodo: nodo})
         :ok
 
-      {:error, _} = err ->
-        LoggerService.registrar_evento("No se pudo iniciar nodo", %{error: inspect(err)})
-        err
+      {:error, razon} ->
+        LoggerService.registrar_evento("No se pudo iniciar nodo", %{
+          error: inspect(razon)
+        })
+
+        {:error, razon}
     end
+  end
+
+  # Genera un nombre único basado en timestamp y hostname
+  defp nodo_generado do
+    host =
+      case :inet.gethostname() do
+        {:ok, h} -> to_string(h)
+        _ -> "localhost"
+      end
+
+    :"proyecto_final_#{System.system_time(:millisecond)}@#{host}"
   end
 
   # ============================================================
