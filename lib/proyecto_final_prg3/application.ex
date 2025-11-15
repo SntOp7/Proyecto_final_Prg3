@@ -15,19 +15,10 @@ defmodule ProyectoFinalPrg3.Application do
     Logger.info("🚀 Iniciando aplicación ProyectoFinalPrg3...")
 
     children = [
-      # Servicio PubSub (comunicación interna entre módulos)
       {Phoenix.PubSub, name: ProyectoFinalPrg3.PubSub},
-
-      # Ejemplo: procesos o supervisores internos
-      # {ProyectoFinalPrg3.Services.BroadcastService, []},
-      # {ProyectoFinalPrg3.Services.LoggingService, []},
-      # {ProyectoFinalPrg3.Services.AuditService, []},
-
-      # Ejemplo: registro global o manejador de equipos
-      # {ProyectoFinalPrg3.Services.TeamManager, []}
+      ProyectoFinalPrg3.Services.InitialBootService
     ]
 
-    # Estrategia de reinicio de los procesos supervisados
     opts = [strategy: :one_for_one, name: ProyectoFinalPrg3.Supervisor]
     Supervisor.start_link(children, opts)
   end
