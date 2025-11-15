@@ -212,7 +212,7 @@ defmodule ProyectoFinalPrg3.Services.MetricsService do
 Registra este servicio en el `SupervisionManager` para permitir supervisión y reinicio automático.
 """
 def registrar_supervision do
-  ProyectoFinalPrg3.Services.SupervisionManager.registrar_proceso(:metrics_service, __MODULE__)
+  ProyectoFinalPrg3.Services.SupervisionService.registrar_proceso(:metrics_service, __MODULE__)
 end
 
 @doc """
