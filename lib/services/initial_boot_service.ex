@@ -8,7 +8,7 @@ defmodule ProyectoFinalPrg3.Services.InitialBootService do
 
   alias ProyectoFinalPrg3.Adapters.Logging.{LoggerService, AuditService}
   alias ProyectoFinalPrg3.Adapters.Network.{NodeManager, PubSubAdapter}
-  alias ProyectoFinalPrg3.Adapters.Persistence.{Repository, Datastore}
+  alias ProyectoFinalPrg3.Adapters.Persistence.PersistenceManager
 
   # -------------------------
   # INIT
@@ -43,8 +43,7 @@ defmodule ProyectoFinalPrg3.Services.InitialBootService do
     LoggerService.registrar_evento("Servicios de red inicializados", %{})
 
     # Persistencia
-    Repository.inicializar()
-    Datastore.verificar_integridad()
+    PersistenceManager.inicializar()
 
     LoggerService.registrar_evento("Repositorios cargados", %{})
 
