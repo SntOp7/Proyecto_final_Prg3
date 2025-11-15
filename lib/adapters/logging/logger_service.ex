@@ -89,14 +89,29 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
     end)
   end
 
-  defp mostrar_en_consola(%{tipo: :error} = e),
-    do: IO.puts(:red, "[ERROR] #{e.timestamp} | #{e.mensaje}")
+  defp mostrar_en_consola(%{tipo: :error} = e) do
+    IO.puts(
+      IO.ANSI.red() <>
+        "[ERROR] #{e.timestamp} | #{e.mensaje}" <>
+        IO.ANSI.reset()
+    )
+  end
 
-  defp mostrar_en_consola(%{tipo: :warning} = e),
-    do: IO.puts(:yellow, "[WARN] #{e.timestamp} | #{e.mensaje}")
+  defp mostrar_en_consola(%{tipo: :warning} = e) do
+    IO.puts(
+      IO.ANSI.yellow() <>
+        "[WARN] #{e.timestamp} | #{e.mensaje}" <>
+        IO.ANSI.reset()
+    )
+  end
 
-  defp mostrar_en_consola(e),
-    do: IO.puts(:cyan, "[INFO] #{e.timestamp} | #{e.mensaje}")
+  defp mostrar_en_consola(e) do
+    IO.puts(
+      IO.ANSI.cyan() <>
+        "[INFO] #{e.timestamp} | #{e.mensaje}" <>
+        IO.ANSI.reset()
+    )
+  end
 
   defp inicializar_csv do
     encabezados = ["id", "timestamp", "nodo", "tipo", "mensaje", "datos"]
