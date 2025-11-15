@@ -1,5 +1,6 @@
 defmodule ProyectoFinalPrg3.Adapters.Persistence.TeamStoreTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
+
   alias ProyectoFinalPrg3.Adapters.Persistence.TeamStore
   alias ProyectoFinalPrg3.Domain.Team
 
@@ -10,6 +11,10 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.TeamStoreTest do
     File.mkdir_p!("data")
     :ok
   end
+
+  # ============================================================
+  # GUARDAR EQUIPO
+  # ============================================================
 
   describe "guardar_equipo/1" do
     test "guarda correctamente un nuevo equipo" do
@@ -28,24 +33,51 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.TeamStoreTest do
         historial: [%{detalle: "Inicio de proyecto", timestamp: nil}]
       }
 
-      assert {:ok, _} = TeamStore.guardar_equipo(equipo)
+      {:ok, _} = TeamStore.guardar_equipo(equipo)
       contenido = File.read!(@ruta)
-      assert String.contains?(contenido, "Innovadores")
-      assert String.contains?(contenido, "Equipo de IA aplicada")
+
+      assert contenido =~ "Innovadores"
+      assert contenido =~ "Equipo de IA aplicada"
     end
 
     test "reemplaza correctamente un equipo existente con el mismo ID" do
-      e1 = %Team{id: "T2", nombre: "Alpha", descripcion: "Versión 1", categoria: "Test", estado: :activo}
-      e2 = %Team{id: "T2", nombre: "Alpha", descripcion: "Versión 2", categoria: "Test", estado: :activo}
+      e1 = %Team{
+        id: "T2",
+        nombre: "Alpha",
+        descripcion: "Versión 1",
+        categoria: "Test",
+        fecha_creacion: DateTime.utc_now(),
+        estado: :activo,
+        participantes: [],
+        puntaje: 0,
+        historial: []
+      }
+
+      e2 = %Team{
+        id: "T2",
+        nombre: "Alpha",
+        descripcion: "Versión 2",
+        categoria: "Test",
+        fecha_creacion: DateTime.utc_now(),
+        estado: :activo,
+        participantes: [],
+        puntaje: 0,
+        historial: []
+      }
 
       TeamStore.guardar_equipo(e1)
       TeamStore.guardar_equipo(e2)
 
       contenido = File.read!(@ruta)
-      refute String.contains?(contenido, "Versión 1")
-      assert String.contains?(contenido, "Versión 2")
+
+      refute contenido =~ "Versión 1"
+      assert contenido =~ "Versión 2"
     end
   end
+
+  # ============================================================
+  # OBTENER EQUIPO
+  # ============================================================
 
   describe "obtener_equipo/1" do
     setup do
@@ -70,6 +102,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.TeamStoreTest do
 
     test "retorna el equipo por nombre", %{equipo: e} do
       encontrado = TeamStore.obtener_equipo("CodeWarriors")
+
       assert encontrado.id == e.id
       assert encontrado.nombre == "CodeWarriors"
     end
@@ -79,6 +112,10 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.TeamStoreTest do
     end
   end
 
+  # ============================================================
+  # LISTAR EQUIPOS
+  # ============================================================
+
   describe "listar_equipos/0" do
     test "retorna lista vacía si el archivo no existe" do
       File.rm_rf!("data")
@@ -86,16 +123,43 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.TeamStoreTest do
     end
 
     test "retorna lista con equipos cargados del CSV" do
-      equipo = %Team{id: "TX", nombre: "DevHackers", descripcion: "Fullstack", categoria: "Software", estado: :activo}
+      equipo = %Team{
+        id: "TX",
+        nombre: "DevHackers",
+        descripcion: "Fullstack",
+        categoria: "Software",
+        fecha_creacion: DateTime.utc_now(),
+        estado: :activo,
+        participantes: [],
+        puntaje: 0,
+        historial: []
+      }
+
       TeamStore.guardar_equipo(equipo)
+
       equipos = TeamStore.listar_equipos()
       assert Enum.any?(equipos, &(&1.nombre == "DevHackers"))
     end
   end
 
+  # ============================================================
+  # ELIMINAR EQUIPO
+  # ============================================================
+
   describe "eliminar_equipo/1" do
     test "elimina el equipo por nombre correctamente" do
-      e = %Team{id: "DEL", nombre: "Eliminar", descripcion: "Prueba", categoria: "QA", estado: :activo}
+      e = %Team{
+        id: "DEL",
+        nombre: "Eliminar",
+        descripcion: "Prueba",
+        categoria: "QA",
+        fecha_creacion: DateTime.utc_now(),
+        estado: :activo,
+        participantes: [],
+        puntaje: 0,
+        historial: []
+      }
+
       TeamStore.guardar_equipo(e)
       :ok = TeamStore.eliminar_equipo("Eliminar")
 
@@ -104,17 +168,25 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.TeamStoreTest do
     end
   end
 
-  describe "funciones privadas de serialización" do
+  # ============================================================
+  # FUNCIONES PRIVADAS DE SERIALIZACIÓN
+  # ============================================================
+
+  describe "funciones privadas" do
     test "parse_csv_line convierte una línea CSV a Team correctamente" do
       fecha = DateTime.utc_now() |> DateTime.to_iso8601()
-      linea = "T4,Test,Desc,Cat,P1,M1,U1;U2,#{fecha},activo,C1,100,Evento1|Evento2"
+
+      linea =
+        "T4,Test,Desc,Cat,P1,M1,U1;U2,#{fecha},activo,C1,100,Evento1|Evento2"
 
       equipo = :erlang.apply(TeamStore, :parse_csv_line, [linea])
+
       assert equipo.id == "T4"
       assert equipo.nombre == "Test"
       assert equipo.estado == :activo
-      assert Enum.member?(equipo.participantes, "U1")
-      assert Enum.count(equipo.historial) == 2
+      assert equipo.participantes == ["U1", "U2"]
+      assert length(equipo.historial) == 2
+      assert Enum.all?(equipo.historial, fn h -> Map.has_key?(h, :detalle) end)
     end
 
     test "to_csv_line convierte un Team en línea CSV correctamente" do
@@ -134,8 +206,10 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.TeamStoreTest do
       }
 
       csv = :erlang.apply(TeamStore, :to_csv_line, [eq])
-      assert String.contains?(csv, "CSVTeam")
-      assert String.contains?(csv, "activo")
+
+      assert csv =~ "CSVTeam"
+      assert csv =~ "activo"
+      assert csv =~ "X1;X2"
     end
 
     test "sanitize reemplaza caracteres problemáticos" do
@@ -155,6 +229,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.TeamStoreTest do
 
       assert length(parseado) == 2
       assert Enum.all?(parseado, fn h -> is_map(h) end)
+      assert Enum.map(parseado, & &1.detalle) == ["Test1", "Test2"]
     end
   end
 end

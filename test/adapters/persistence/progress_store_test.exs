@@ -1,134 +1,180 @@
 defmodule ProyectoFinalPrg3.Adapters.Persistence.ProgressStoreTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
+
   alias ProyectoFinalPrg3.Adapters.Persistence.ProgressStore
   alias ProyectoFinalPrg3.Domain.Progress
 
-  @temp_file Path.join(["tmp", "progress_test.csv"])
+  @data_dir Path.join([File.cwd!(), "data"])
+  @csv_path Path.join(@data_dir, "progress.csv")
 
   setup do
-    File.rm_rf!("tmp")
-    File.mkdir_p!("tmp")
-    put_in(Process.get(:progress_store_path), @temp_file)
+    File.rm_rf!(@data_dir)
+    File.mkdir_p!(@data_dir)
+
+    File.write!(@csv_path, ProgressStore.@headers)
+
     :ok
   end
 
-  describe "guardar_avance/1" do
-    test "guarda correctamente un nuevo avance" do
-      avance = %Progress{
-        id: "A1",
-        proyecto_id: "P1",
-        autor_id: "U1",
-        titulo: "Diseño de interfaz",
-        descripcion: "Primer mockup de la UI del sistema",
-        fecha: DateTime.utc_now(),
-        estado: :en_revision,
-        metadatos: %{archivo: "ui.png"}
-      }
+  # ============================================================
+  # UTILIDAD DE CREACIÓN DE AVANCES
+  # ============================================================
 
-      assert ProgressStore.guardar_avance(avance) == :ok
-      contenido = File.read!("data/progress.csv")
-      assert String.contains?(contenido, "Diseño de interfaz")
-      assert String.contains?(contenido, "ui.png")
+  defp avance(attrs \\ %{}) do
+    %Progress{
+      id: Map.get(attrs, :id, "A1"),
+      proyecto_id: Map.get(attrs, :proyecto_id, "P1"),
+      equipo_id: Map.get(attrs, :equipo_id, nil),
+      titulo: Map.get(attrs, :titulo, "Titulo Test"),
+      descripcion: Map.get(attrs, :descripcion, "Descripcion Test"),
+      fecha_registro: Map.get(attrs, :fecha_registro, DateTime.utc_now()),
+      autor_id: Map.get(attrs, :autor_id, "U1"),
+      estado: Map.get(attrs, :estado, "en_revision"),
+      retroalimentacion: Map.get(attrs, :retroalimentacion, "Ninguna"),
+      adjuntos: Map.get(attrs, :adjuntos, ["archivo1.png"]),
+      version: Map.get(attrs, :version, "v1")
+    }
+  end
+
+  # ============================================================
+  # TEST CRUD
+  # ============================================================
+
+  describe "guardar_avance/1" do
+    test "guarda un nuevo avance correctamente" do
+      a = avance(titulo: "Diseño de UI", descripcion: "Primer mockup")
+
+      {:ok, _} = ProgressStore.guardar_avance(a)
+
+      contenido = File.read!(@csv_path)
+      assert contenido =~ "Diseño de UI"
+      assert contenido =~ "Primer mockup"
     end
 
-    test "reemplaza un avance existente si el ID coincide" do
-      a1 = %Progress{id: "A2", proyecto_id: "P1", autor_id: "U1", titulo: "Test 1", descripcion: "x", fecha: DateTime.utc_now(), estado: :completado, metadatos: %{}}
-      a2 = %Progress{id: "A2", proyecto_id: "P1", autor_id: "U1", titulo: "Actualizado", descripcion: "Nueva desc", fecha: DateTime.utc_now(), estado: :en_revision, metadatos: %{}}
+    test "reemplaza un avance existente" do
+      a1 = avance(id: "A10", titulo: "Borrador", descripcion: "v1")
+      a2 = avance(id: "A10", titulo: "Final", descripcion: "v2")
 
       ProgressStore.guardar_avance(a1)
       ProgressStore.guardar_avance(a2)
 
-      contenido = File.read!("data/progress.csv")
-      refute String.contains?(contenido, "Test 1")
-      assert String.contains?(contenido, "Actualizado")
+      contenido = File.read!(@csv_path)
+
+      refute contenido =~ "Borrador"
+      assert contenido =~ "Final"
     end
   end
 
   describe "listar_avances/0" do
-    test "retorna lista vacía si no existe el archivo" do
-      File.rm_rf!("data")
+    test "retorna lista vacía si no existe archivo" do
+      File.rm_rf!(@data_dir)
       assert ProgressStore.listar_avances() == []
     end
 
-    test "retorna todos los avances correctamente" do
-      a1 = %Progress{id: "A3", proyecto_id: "PX", autor_id: "U1", titulo: "Análisis", descripcion: "Se analizó...", fecha: DateTime.utc_now(), estado: :en_progreso, metadatos: %{}}
-      a2 = %Progress{id: "A4", proyecto_id: "PY", autor_id: "U2", titulo: "Diseño", descripcion: "Se diseñó...", fecha: DateTime.utc_now(), estado: :en_revision, metadatos: %{}}
+    test "retorna todos los avances registrados" do
+      a1 = avance(id: "A3", titulo: "Analisis")
+      a2 = avance(id: "A4", titulo: "Diseño")
 
       ProgressStore.guardar_avance(a1)
       ProgressStore.guardar_avance(a2)
 
       lista = ProgressStore.listar_avances()
-      assert length(lista) >= 2
-      assert Enum.any?(lista, &(&1.titulo == "Análisis"))
+      assert length(lista) == 2
+      assert Enum.any?(lista, &(&1.titulo == "Analisis"))
     end
   end
 
   describe "obtener_avance/1" do
-    test "obtiene correctamente un avance existente" do
-      id = "A5"
-      avance = %Progress{id: id, proyecto_id: "P5", autor_id: "U1", titulo: "Backend", descripcion: "Implementación API", fecha: DateTime.utc_now(), estado: :en_progreso, metadatos: %{test: true}}
-      ProgressStore.guardar_avance(avance)
+    test "retorna un avance existente" do
+      a = avance(id: "AX1", titulo: "Backend API")
+      ProgressStore.guardar_avance(a)
 
-      encontrado = ProgressStore.obtener_avance(id)
-      assert encontrado.id == id
-      assert encontrado.titulo == "Backend"
+      {:ok, encontrado} = ProgressStore.obtener_avance("AX1")
+      assert encontrado.titulo == "Backend API"
     end
 
-    test "retorna nil si no existe el avance" do
-      assert ProgressStore.obtener_avance("XYZ") == nil
+    test "retorna error cuando no existe" do
+      assert ProgressStore.obtener_avance("XYZ") == {:error, :no_encontrado}
     end
   end
 
   describe "listar_por_proyecto/1" do
-    test "filtra avances por ID de proyecto" do
-      a1 = %Progress{id: "A6", proyecto_id: "PROJ1", autor_id: "U1", titulo: "Doc", descripcion: "Se escribió doc", fecha: DateTime.utc_now(), estado: :en_revision, metadatos: %{}}
-      a2 = %Progress{id: "A7", proyecto_id: "PROJ2", autor_id: "U1", titulo: "API", descripcion: "Endpoints", fecha: DateTime.utc_now(), estado: :en_revision, metadatos: %{}}
+    test "filtra correctamente por proyecto" do
+      a1 = avance(id: "A6", proyecto_id: "PROJ1")
+      a2 = avance(id: "A7", proyecto_id: "PROJ2")
 
       ProgressStore.guardar_avance(a1)
       ProgressStore.guardar_avance(a2)
 
-      resultado = ProgressStore.listar_por_proyecto("PROJ1")
-      assert Enum.all?(resultado, &(&1.proyecto_id == "PROJ1"))
+      lista = ProgressStore.listar_por_proyecto("PROJ1")
+
+      assert length(lista) == 1
+      assert Enum.all?(lista, &(&1.proyecto_id == "PROJ1"))
     end
   end
 
   describe "eliminar_avance/1" do
-    test "elimina correctamente un avance por ID" do
-      avance = %Progress{id: "DEL1", proyecto_id: "PX", autor_id: "U1", titulo: "Eliminar", descripcion: "x", fecha: DateTime.utc_now(), estado: :en_revision, metadatos: %{}}
-      ProgressStore.guardar_avance(avance)
-      assert :ok = ProgressStore.eliminar_avance("DEL1")
+    test "elimina correctamente un avance" do
+      a = avance(id: "DEL1")
+      ProgressStore.guardar_avance(a)
+
+      :ok = ProgressStore.eliminar_avance("DEL1")
 
       lista = ProgressStore.listar_avances()
-      refute Enum.any?(lista, fn a -> a.id == "DEL1" end)
+      refute Enum.any?(lista, &(&1.id == "DEL1"))
     end
   end
 
-  describe "funciones privadas de serialización" do
-    test "serializar_avance convierte un struct a línea CSV" do
-      avance = %Progress{id: "PX1", proyecto_id: "P", autor_id: "U", titulo: "Título", descripcion: "Descripción", fecha: DateTime.utc_now(), estado: :en_progreso, metadatos: %{x: 1}}
-      csv = :erlang.apply(ProgressStore, :serializar_avance, [avance])
-      assert String.contains?(csv, "Título")
-      assert String.contains?(csv, "x")
+  # ============================================================
+  # TEST DE SERIALIZACIÓN / PARSEO
+  # ============================================================
+
+  describe "serializar_avance/parsear_linea" do
+    test "serializar_avance genera una línea CSV válida" do
+      a = avance(titulo: "Título X", adjuntos: ["a.png", "b.png"])
+      csv = :erlang.apply(ProgressStore, :serializar_avance, [a])
+
+      assert csv =~ "Título X"
+      assert csv =~ "a.png|b.png"
     end
 
-    test "parsear_linea convierte línea CSV en estructura Progress" do
+    test "parsear_linea reconstruye correctamente un struct Progress" do
       fecha = DateTime.utc_now() |> DateTime.to_iso8601()
-      json = Jason.encode!(%{archivo: "test.txt"})
-      linea = "1,PROJX,USER1,Titulo,Descripcion,#{fecha},en_revision,#{json}"
+      linea =
+        "1,PROJ1,EQ1,Titulo,Descripcion,#{fecha},AUTORX,en_revision,Retro,adj1|adj2,v1"
 
-      result = :erlang.apply(ProgressStore, :parsear_linea, [linea])
-      assert result.id == "1"
-      assert result.estado == :en_revision
-      assert result.metadatos["archivo"] == "test.txt"
+      p = :erlang.apply(ProgressStore, :parsear_linea, [linea])
+
+      assert p.id == "1"
+      assert p.proyecto_id == "PROJ1"
+      assert p.equipo_id == "EQ1"
+      assert p.estado == "en_revision"
+      assert p.adjuntos == ["adj1", "adj2"]
+      assert p.version == "v1"
+    end
+  end
+
+  describe "funciones auxiliares" do
+    test "limpiar elimina comas y saltos de línea" do
+      result = :erlang.apply(ProgressStore, :limpiar, ["Texto, con\nsaltos"])
+      assert result == "Texto; con saltos"
     end
 
-    test "serialize_json convierte mapa a JSON y viceversa" do
-      mapa = %{a: 1}
-      json = :erlang.apply(ProgressStore, :serialize_json, [mapa])
-      assert is_binary(json)
+    test "parse_datetime interpreta DateTime ISO8601" do
+      fecha = DateTime.utc_now() |> DateTime.to_iso8601()
+      dt = :erlang.apply(ProgressStore, :parse_datetime, [fecha])
+      assert %DateTime{} = dt
+    end
 
-      mapa2 = :erlang.apply(ProgressStore, :parse_json, [json])
-      assert mapa2["a"] == 1
+    test "serialize_list concatena lista con |" do
+      lista = ["a", "b", "c"]
+      res = :erlang.apply(ProgressStore, :serialize_list, [lista])
+      assert res == "a|b|c"
+    end
+
+    test "parse_list separa correctamente por |" do
+      res = :erlang.apply(ProgressStore, :parse_list, ["x|y|z"])
+      assert res == ["x", "y", "z"]
     end
   end
 end
