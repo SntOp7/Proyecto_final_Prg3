@@ -145,7 +145,8 @@ defmodule ProyectoFinalPrg3.Test.Services.BroadcastServiceTest do
       expect(PubSubAdapterMock, :publicar, fn _, _ -> raise "Error simulado" end)
 
       result = BroadcastService.notificar(:test_fallo, %{info: "x"}, :warn)
-      assert match?({:ok, _} | {:error, _}, result)
+      assert match?({:ok, _}, result) or match?({:error, _}, result)
+
     end
   end
 end
