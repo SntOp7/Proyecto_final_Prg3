@@ -1,4 +1,4 @@
-defmodule ProyectoFinalPrg3.Services.SupervisionManager do
+defmodule ProyectoFinalPrg3.Services.SupervisionService do
   @moduledoc """
   Servicio responsable de la **supervisión dinámica y recuperación de procesos críticos**
   dentro del sistema de hackathon.
