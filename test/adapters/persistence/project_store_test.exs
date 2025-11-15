@@ -7,8 +7,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProjectStoreTest do
   @ruta Path.join(["data", "proyectos.csv"])
 
   # Encabezado EXACTO utilizado por ProjectStore
-  @encabezado_correcto
-  "id,nombre,descripcion,categoria,estado,fecha_creacion,fecha_actualizacion,equipo_id,mentor_id,avances,retroalimentaciones,repositorio_url,puntaje,visibilidad,tags\n"
+  @encabezado_correcto "id,nombre,descripcion,categoria,estado,fecha_creacion,fecha_actualizacion,equipo_id,mentor_id,avances,retroalimentaciones,repositorio_url,puntaje,visibilidad,tags"
 
   # --------------------------------------------------------------
   # ENTORNO DE PRUEBAS
@@ -17,7 +16,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProjectStoreTest do
   setup do
     File.rm_rf!("data")
     File.mkdir_p!("data")
-    File.write!(@ruta, @encabezado_correcto)
+    File.write!(@ruta, @encabezado_correcto <> "\n")
     :ok
   end
 
@@ -128,12 +127,11 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProjectStoreTest do
 
     test "retorna el proyecto por nombre", %{proyecto: p} do
       encontrado = ProjectStore.obtener_proyecto("GreenTech")
-
       assert encontrado.id == p.id
       assert encontrado.nombre == "GreenTech"
     end
 
-    test "retorna el proyecto por id", %{proyecto: _p} do
+    test "retorna el proyecto por id" do
       encontrado = ProjectStore.obtener_por_id("P3")
       assert encontrado.nombre == "GreenTech"
     end
