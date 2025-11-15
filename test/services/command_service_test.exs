@@ -1,21 +1,19 @@
 defmodule ProyectoFinalPrg3.Test.Services.CommandServiceTest do
   use ExUnit.Case, async: true
+
   import Mox
+  import ExUnit.CaptureIO          # ← NECESARIO PARA capture_io/1
 
   alias ProyectoFinalPrg3.Services.CommandService
 
+  @moduletag :capture_log          # ← EVITA WARNINGS DE LOGGER
+
   @moduledoc """
   Pruebas unitarias para `CommandService`.
-
-  Se validan los principales comportamientos del servicio de comandos CLI:
-  - Ejecución y respuesta de comandos reconocidos.
-  - Manejo de errores y casos no reconocidos.
-  - Interacción con servicios dependientes (`TeamManager`, `ProjectManager`, `ChatService`, etc.).
-  - Registro de eventos en `LoggerService`.
-
-  Todas las dependencias externas son simuladas mediante Mox.
   """
 
+  # Permite usar Mox en modo global y validar mocks.
+  setup :set_mox_global
   setup :verify_on_exit!
 
   # ============================================================
@@ -24,7 +22,9 @@ defmodule ProyectoFinalPrg3.Test.Services.CommandServiceTest do
 
   describe "ejecutar_comando/2 - comando no reconocido" do
     test "devuelve error cuando el comando no existe" do
-      assert {:error, mensaje} = CommandService.ejecutar_comando(%{service: :desconocido}, [])
+      assert {:error, mensaje} =
+               CommandService.ejecutar_comando(%{service: :desconocido}, [])
+
       assert String.contains?(mensaje, "Comando no reconocido")
     end
   end
@@ -41,7 +41,10 @@ defmodule ProyectoFinalPrg3.Test.Services.CommandServiceTest do
       expect(LoggerServiceMock, :registrar_evento, fn "Comando ejecutado", _ -> :ok end)
 
       {:ok, resultado} =
-        CommandService.ejecutar_comando(%{service: :command_service, action: :listar_equipos}, [])
+        CommandService.ejecutar_comando(
+          %{service: :command_service, action: :listar_equipos},
+          []
+        )
 
       assert length(resultado) == 2
       assert Enum.any?(resultado, &(&1.nombre == "Team Alpha"))
@@ -58,11 +61,18 @@ defmodule ProyectoFinalPrg3.Test.Services.CommandServiceTest do
       proyecto = %{id: "proj-123", nombre: "SmartHub"}
 
       expect(TeamManagerMock, :obtener_equipo, fn "TeamX" -> {:ok, equipo} end)
-      expect(ProjectManagerMock, :obtener_proyecto_por_id, fn "proj-123" -> {:ok, proyecto} end)
+
+      expect(ProjectManagerMock, :obtener_proyecto_por_id, fn "proj-123" ->
+        {:ok, proyecto}
+      end)
+
       expect(LoggerServiceMock, :registrar_evento, fn "Comando ejecutado", _ -> :ok end)
 
       {:ok, resultado} =
-        CommandService.ejecutar_comando(%{service: :command_service, action: :mostrar_proyecto}, ["TeamX"])
+        CommandService.ejecutar_comando(
+          %{service: :command_service, action: :mostrar_proyecto},
+          ["TeamX"]
+        )
 
       assert resultado.nombre == "SmartHub"
     end
@@ -71,7 +81,10 @@ defmodule ProyectoFinalPrg3.Test.Services.CommandServiceTest do
       expect(TeamManagerMock, :obtener_equipo, fn _ -> {:error, :no_encontrado} end)
 
       assert {:error, mensaje} =
-               CommandService.ejecutar_comando(%{service: :command_service, action: :mostrar_proyecto}, ["TeamX"])
+               CommandService.ejecutar_comando(
+                 %{service: :command_service, action: :mostrar_proyecto},
+                 ["TeamX"]
+               )
 
       assert mensaje == "No se encontró el equipo o proyecto indicado."
     end
@@ -87,21 +100,34 @@ defmodule ProyectoFinalPrg3.Test.Services.CommandServiceTest do
       equipo = %{nombre: "Team Phoenix"}
 
       expect(SessionManagerMock, :obtener_participante_actual, fn -> participante_id end)
-      expect(TeamManagerMock, :unirse_a_equipo, fn "Team Phoenix", "user-123" -> {:ok, equipo} end)
+
+      expect(TeamManagerMock, :unirse_a_equipo, fn "Team Phoenix", "user-123" ->
+        {:ok, equipo}
+      end)
+
       expect(LoggerServiceMock, :registrar_evento, fn "Comando ejecutado", _ -> :ok end)
 
       {:ok, mensaje} =
-        CommandService.ejecutar_comando(%{service: :command_service, action: :unirse_a_equipo}, ["Team Phoenix"])
+        CommandService.ejecutar_comando(
+          %{service: :command_service, action: :unirse_a_equipo},
+          ["Team Phoenix"]
+        )
 
       assert mensaje =~ "Te uniste exitosamente"
     end
 
     test "retorna error si ya pertenece al equipo" do
       expect(SessionManagerMock, :obtener_participante_actual, fn -> "user-001" end)
-      expect(TeamManagerMock, :unirse_a_equipo, fn _, _ -> {:error, :ya_es_miembro} end)
+
+      expect(TeamManagerMock, :unirse_a_equipo, fn _, _ ->
+        {:error, :ya_es_miembro}
+      end)
 
       assert {:error, msg} =
-               CommandService.ejecutar_comando(%{service: :command_service, action: :unirse_a_equipo}, ["Team Alpha"])
+               CommandService.ejecutar_comando(
+                 %{service: :command_service, action: :unirse_a_equipo},
+                 ["Team Alpha"]
+               )
 
       assert msg == "Ya perteneces a este equipo."
     end
@@ -111,7 +137,10 @@ defmodule ProyectoFinalPrg3.Test.Services.CommandServiceTest do
       expect(TeamManagerMock, :unirse_a_equipo, fn _, _ -> {:error, :no_encontrado} end)
 
       assert {:error, msg} =
-               CommandService.ejecutar_comando(%{service: :command_service, action: :unirse_a_equipo}, ["Team Ghost"])
+               CommandService.ejecutar_comando(
+                 %{service: :command_service, action: :unirse_a_equipo},
+                 ["Team Ghost"]
+               )
 
       assert msg == "No se encontró el equipo indicado."
     end
@@ -124,10 +153,14 @@ defmodule ProyectoFinalPrg3.Test.Services.CommandServiceTest do
   describe "ingresar_chat_equipo/2" do
     test "permite ingresar correctamente al chat del equipo" do
       expect(ChatServiceMock, :ingresar_chat_equipo, fn "TeamX" -> :ok end)
+
       expect(LoggerServiceMock, :registrar_evento, fn "Comando ejecutado", _ -> :ok end)
 
       {:ok, mensaje} =
-        CommandService.ejecutar_comando(%{service: :command_service, action: :ingresar_chat_equipo}, ["TeamX"])
+        CommandService.ejecutar_comando(
+          %{service: :command_service, action: :ingresar_chat_equipo},
+          ["TeamX"]
+        )
 
       assert mensaje =~ "Has ingresado al chat del equipo TeamX"
     end
@@ -146,10 +179,16 @@ defmodule ProyectoFinalPrg3.Test.Services.CommandServiceTest do
 
       expect(CommandRegistryMock, :all, fn -> comandos end)
 
-      capture_io(fn ->
-        assert {:ok, :help_mostrado} =
-                 CommandService.ejecutar_comando(%{service: :command_service, action: :mostrar_ayuda}, [])
-      end)
+      salida =
+        capture_io(fn ->
+          assert {:ok, :help_mostrado} =
+                   CommandService.ejecutar_comando(
+                     %{service: :command_service, action: :mostrar_ayuda},
+                     []
+                   )
+        end)
+
+      assert salida =~ "comandos"
     end
   end
 end
