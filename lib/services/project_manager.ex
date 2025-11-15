@@ -249,21 +249,5 @@ defmodule ProyectoFinalPrg3.Services.ProjectManager do
   # ============================================================
 
   defp existe_proyecto?(nombre), do: ProjectStore.obtener_proyecto(nombre) != nil
-
-  defp actualizar_lista(nombre, campo, item, store_mod, evento) do
-    with {:ok, proyecto} <- obtener_proyecto(nombre) do
-      actualizado =
-        proyecto
-        |> Map.update!(campo, fn lista -> [item | lista] end)
-        |> Map.put(:fecha_actualizacion, DateTime.utc_now())
-
-      store_mod.guardar_feedback(item)
-      ProjectStore.guardar_proyecto(actualizado)
-      BroadcastService.notificar(evento, %{proyecto: nombre, item: item.id})
-      {:ok, actualizado}
-    else
-      {:error, razon} -> {:error, razon}
-    end
-  end
-
+  
 end
