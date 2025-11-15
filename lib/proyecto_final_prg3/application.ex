@@ -14,10 +14,17 @@ defmodule ProyectoFinalPrg3.Application do
   def start(_type, _args) do
     Logger.info("🚀 Iniciando aplicación ProyectoFinalPrg3...")
 
-    children = [
-      {Phoenix.PubSub, name: ProyectoFinalPrg3.PubSub},
-      ProyectoFinalPrg3.Services.InitialBootService
-    ]
+    children =
+      case Mix.env() do
+        :test ->
+          []
+
+        _ ->
+          [
+            {Phoenix.PubSub, name: ProyectoFinalPrg3.PubSub},
+            ProyectoFinalPrg3.Services.InitialBootService
+          ]
+      end
 
     opts = [strategy: :one_for_one, name: ProyectoFinalPrg3.Supervisor]
     Supervisor.start_link(children, opts)
