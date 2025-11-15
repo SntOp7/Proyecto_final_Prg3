@@ -1,95 +1,121 @@
 defmodule ProyectoFinalPrg3.Adapters.Network.PubSubAdapter do
   @moduledoc """
-  Adaptador PubSub (envoltorio) usado por BroadcastService.
+  Adaptador envoltorio para Phoenix.PubSub utilizado por BroadcastService
+  y por InitialBootService durante el arranque del sistema.
 
-  - Si `Phoenix.PubSub` está disponible, delega en él usando el nombre
-    `ProyectoFinalPrg3.PubSub`.
-  - Si no está disponible, realiza operaciones seguras (no-op) para evitar
-    errores durante compilación/ejecución en entornos donde no se dispone de Phoenix.
+  Funciones clave usadas por otros módulos:
+    - inicializar/0
+    - publicar/2
+    - suscribir/1
+    - desuscribir/1
+
+  Este adaptador es *fail-safe*: si Phoenix.PubSub no está disponible,
+  todas las operaciones se degradan a no-op seguro.
   """
 
   require Logger
 
   @pubsub_name ProyectoFinalPrg3.PubSub
 
+  # ============================================================
+  # INIT — Usado por InitialBootService
+  # ============================================================
   @doc """
-  Publica `mensaje` en el tópico derivado de `evento` (atom o string).
+  Inicializa el sistema PubSub si Phoenix.PubSub está disponible.
+
+  Es llamada desde:
+    - InitialBootService
+    - BroadcastService (en casos de reinicio)
+
+  Si Phoenix no está instalado, solo registra en debug.
   """
-  @spec publicar(atom() | String.t(), any()) :: :ok | {:error, any()}
+  def inicializar do
+    cond do
+      Code.ensure_loaded?(Phoenix.PubSub) ->
+        case start_pubsub() do
+          {:ok, _pid} ->
+            Logger.debug("PubSubAdapter: Phoenix.PubSub inicializado correctamente.")
+            :ok
+
+          {:error, {:already_started, _pid}} ->
+            Logger.debug("PubSubAdapter: Phoenix.PubSub ya estaba inicializado.")
+            :ok
+
+          {:error, reason} ->
+            Logger.error("PubSubAdapter: error inicializando PubSub: #{inspect(reason)}")
+            {:error, reason}
+        end
+
+      true ->
+        Logger.debug("PubSubAdapter: Phoenix.PubSub no está disponible — inicializar/0 es no-op.")
+        :ok
+    end
+  end
+
+
+  defp start_pubsub do
+    Phoenix.PubSub.PG2.start_link(name: @pubsub_name)
+  end
+
+  # ============================================================
+  # PUBLICAR
+  # ============================================================
+  @doc """
+  Publica un mensaje en un tópico.
+
+  Si Phoenix no está disponible, es un no-op seguro.
+  """
   def publicar(evento, mensaje) do
     topic = topic_for(evento)
 
     cond do
       Code.ensure_loaded?(Phoenix.PubSub) ->
-        try do
-          Phoenix.PubSub.broadcast(@pubsub_name, topic, mensaje)
-          :ok
-        rescue
-          err ->
-            Logger.debug("PubSubAdapter publicar error: #{inspect(err)}")
-            {:error, err}
-        end
+        Phoenix.PubSub.broadcast(@pubsub_name, topic, mensaje)
+        :ok
 
       true ->
-        # Phoenix.PubSub no disponible: no-op pero loguea en debug para visibilidad
-        Logger.debug("PubSubAdapter: Phoenix.PubSub no cargado — publicar/2 es no-op (topic: #{topic}).")
+        Logger.debug("PubSubAdapter NO-OP (sin Phoenix): publicar #{inspect(topic)}.")
         :ok
     end
   end
 
-  @doc """
-  Suscribe `pid` al tópico del `evento`. Si no se provee pid, usa `self()`.
-  """
-  @spec suscribir(atom() | String.t(), pid() | nil) :: {:ok, :subscribed} | {:error, any()} | :ok
-  def suscribir(evento, pid \\ self()) do
+  # ============================================================
+  # SUSCRIBIR
+  # ============================================================
+  def suscribir(evento, _pid \\ self()) do
     topic = topic_for(evento)
 
     cond do
       Code.ensure_loaded?(Phoenix.PubSub) ->
-        try do
-          Phoenix.PubSub.subscribe(@pubsub_name, topic)
-          Logger.debug("PubSubAdapter: suscrito a #{topic} (pid #{inspect(pid)})")
-          {:ok, :subscribed}
-        rescue
-          err ->
-            Logger.debug("PubSubAdapter suscribir error: #{inspect(err)}")
-            {:error, err}
-        end
+        Phoenix.PubSub.subscribe(@pubsub_name, topic)
+        {:ok, :subscribed}
 
       true ->
-        Logger.debug("PubSubAdapter: Phoenix.PubSub no cargado — suscribir/2 es no-op (topic: #{topic}).")
+        Logger.debug("PubSubAdapter NO-OP: suscribir #{inspect(topic)}.")
         :ok
     end
   end
 
-  @doc """
-  Cancela la suscripción del `pid` al tópico del `evento`.
-  """
-  @spec desuscribir(atom() | String.t(), pid() | nil) :: {:ok, :unsubscribed} | {:error, any()} | :ok
-  def desuscribir(evento, pid \\ self()) do
+  # ============================================================
+  # DESUSCRIBIR
+  # ============================================================
+  def desuscribir(evento, _pid \\ self()) do
     topic = topic_for(evento)
 
     cond do
       Code.ensure_loaded?(Phoenix.PubSub) ->
-        try do
-          Phoenix.PubSub.unsubscribe(@pubsub_name, topic)
-          Logger.debug("PubSubAdapter: desuscrito de #{topic} (pid #{inspect(pid)})")
-          {:ok, :unsubscribed}
-        rescue
-          err ->
-            Logger.debug("PubSubAdapter desuscribir error: #{inspect(err)}")
-            {:error, err}
-        end
+        Phoenix.PubSub.unsubscribe(@pubsub_name, topic)
+        {:ok, :unsubscribed}
 
       true ->
-        Logger.debug("PubSubAdapter: Phoenix.PubSub no cargado — desuscribir/2 es no-op (topic: #{topic}).")
+        Logger.debug("PubSubAdapter NO-OP: desuscribir #{inspect(topic)}.")
         :ok
     end
   end
 
-  # ---------------------------------------------------------
-  # Helpers
-  # ---------------------------------------------------------
+  # ============================================================
+  # HELPERS
+  # ============================================================
   defp topic_for(evento) when is_atom(evento), do: Atom.to_string(evento)
   defp topic_for(evento) when is_binary(evento), do: evento
 end
