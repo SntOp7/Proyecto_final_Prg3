@@ -39,6 +39,7 @@
                         'Elixir.ProyectoFinalPrg3.Services.CategoryService',
                         'Elixir.ProyectoFinalPrg3.Services.ChatService',
                         'Elixir.ProyectoFinalPrg3.Services.CommandService',
+                        'Elixir.ProyectoFinalPrg3.Services.InitialBootService',
                         'Elixir.ProyectoFinalPrg3.Services.MatchingService',
                         'Elixir.ProyectoFinalPrg3.Services.MentorManager',
                         'Elixir.ProyectoFinalPrg3.Services.MetricsService',
