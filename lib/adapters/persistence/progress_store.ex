@@ -16,7 +16,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProgressStore do
 
   alias ProyectoFinalPrg3.Domain.Progress
 
-  @data_path Path.join([File.cwd!(), "data", "progress.csv"])
+  @ruta_archivo Path.join([File.cwd!(), "data", "progress.csv"])
   @headers "id,proyecto_id,equipo_id,titulo,descripcion,fecha_registro,autor_id,estado,retroalimentacion,adjuntos,version\n"
 
   # ============================================================
@@ -41,8 +41,8 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProgressStore do
   Retorna una lista con todos los avances registrados.
   """
   def listar_avances do
-    if File.exists?(@data_path) do
-      File.stream!(@data_path)
+    if File.exists?(@ruta_archivo) do
+      File.stream!(@ruta_archivo)
       |> Stream.drop(1) # Saltar encabezado
       |> Stream.map(&String.trim/1)
       |> Stream.reject(&(&1 == ""))
@@ -97,7 +97,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProgressStore do
       |> Enum.map(&serializar_avance/1)
       |> Enum.join("\n")
 
-    File.write!(@data_path, @headers <> contenido <> "\n")
+    File.write!(@ruta_archivo, @headers <> contenido <> "\n")
   end
 
   @doc false

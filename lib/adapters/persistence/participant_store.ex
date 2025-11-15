@@ -13,7 +13,6 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ParticipantStore do
   alias ProyectoFinalPrg3.Domain.Participant
 
   @ruta_archivo Path.join([File.cwd!(), "data", "participantes.csv"])
-
   @headers "id,nombre,correo,username,rol,equipo_id,experiencia,fecha_registro,estado,ultima_conexion,mensajes,canales_asignados,token_sesion,perfil_url\n"
 
   # ============================================================

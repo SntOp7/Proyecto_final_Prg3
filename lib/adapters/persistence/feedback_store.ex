@@ -16,7 +16,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.FeedbackStore do
 
   alias ProyectoFinalPrg3.Domain.Feedback
 
-  @data_path Path.join([File.cwd!(), "data", "feedbacks.csv"])
+  @ruta_archivo Path.join([File.cwd!(), "data", "feedback.csv"])
   @headers "id,mentor_id,proyecto_id,equipo_id,avance_id,contenido,fecha_creacion,nivel,visibilidad,estado\n"
 
   # ============================================================
@@ -52,8 +52,8 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.FeedbackStore do
   Retorna una lista de estructuras `%Feedback{}`.
   """
   def listar_feedbacks do
-    if File.exists?(@data_path) do
-      File.stream!(@data_path)
+    if File.exists?(@ruta_archivo) do
+      File.stream!(@ruta_archivo)
       |> Stream.drop(1) # Saltar encabezado CSV
       |> Stream.map(&parse_csv_line/1)
       |> Enum.to_list()
@@ -157,7 +157,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.FeedbackStore do
       |> Enum.join("\n")
 
     File.mkdir_p!("data")
-    File.write!(@data_path, @headers <> contenido <> "\n")
+    File.write!(@ruta_archivo, @headers <> contenido <> "\n")
   end
 
   # Convierte una estructura %Feedback{} a una línea CSV

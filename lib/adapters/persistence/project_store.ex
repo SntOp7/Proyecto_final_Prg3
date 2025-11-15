@@ -14,7 +14,8 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProjectStore do
   """
 
   alias ProyectoFinalPrg3.Domain.Project
-  @ruta_archivo "data/projects.csv"
+  
+  @ruta_archivo Path.join([File.cwd!(), "data", "proyectos.csv"])
 
   # ============================================================
   # API PÚBLICA
