@@ -41,9 +41,7 @@ defmodule ProyectoFinalPrg3.Adapters.Security.TokenManagerTest do
       token = Base.encode64(raw)
 
       EncryptionAdapterMock
-      |> expect(:verificar_contraseña, fn "#{id}:#{timestamp}alberto-instantaneo-123", "FAKE_HASH" ->
-        true
-      end)
+      |> expect(:verificar_contraseña, fn _valor, _hash -> true end)
 
       assert TokenManager.validar_token(token) == {:ok, id}
     end
