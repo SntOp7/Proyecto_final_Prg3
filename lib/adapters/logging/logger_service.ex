@@ -130,7 +130,7 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
   Registra este servicio dentro del `SupervisionManager` para monitoreo continuo.
   """
   def registrar_supervision do
-    ProyectoFinalPrg3.Services.SupervisionManager.registrar_proceso(:logger_service, __MODULE__)
+    ProyectoFinalPrg3.Services.SupervisionService.registrar_proceso(:logger_service, __MODULE__)
   end
 
   @doc """
