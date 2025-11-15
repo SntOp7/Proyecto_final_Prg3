@@ -140,7 +140,6 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
     LoggerService.registrar_evento("ERROR", mensaje)
     MetricsService.registrar_evento(:error_sistema, %{contexto: contexto, detalle: detalle})
 
-
     safe_broadcast(fn ->
       PubSubAdapter.publicar(:error_sistema, mensaje)
       ChannelManager.broadcast(:error_sistema, mensaje)
@@ -186,7 +185,7 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
   Registra el servicio de broadcast dentro del `SupervisionManager` para monitoreo.
   """
   def registrar_supervision do
-    ProyectoFinalPrg3.Services.SupervisionManager.registrar_proceso(
+    ProyectoFinalPrg3.Services.SupervisionService.registrar_proceso(
       :broadcast_service,
       __MODULE__
     )
@@ -196,7 +195,9 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
   Inicializa el servicio de broadcast. Si no existe el sistema PubSub, lo arranca nuevamente.
   """
   def inicializar_supervision do
-    :ok = Phoenix.PubSub.start_link(name: ProyectoFinalPrg3.PubSub)
+    {:ok, _pid} =
+      Phoenix.PubSub.PG2.start_link(name: ProyectoFinalPrg3.PubSub)
+
     LoggerService.registrar_evento("BroadcastService reiniciado", %{estado: :ok})
     :ok
   end
