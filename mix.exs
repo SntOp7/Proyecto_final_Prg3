@@ -14,7 +14,7 @@ defmodule ProyectoFinalPrg3.MixProject do
   def application do
     [
       mod: {ProyectoFinalPrg3.Application, []},
-      extra_applications: [:logger, :runtime_tools]
+      extra_applications: [:logger]
     ]
   end
 
