@@ -1,0 +1,13 @@
+{application,ex_unit_notifier,
+             [{modules,['Elixir.ExUnitNotifier',
+                        'Elixir.ExUnitNotifier.Counter',
+                        'Elixir.ExUnitNotifier.MessageFormatter',
+                        'Elixir.ExUnitNotifier.Notifiers.NotifySend',
+                        'Elixir.ExUnitNotifier.Notifiers.TerminalNotifier',
+                        'Elixir.ExUnitNotifier.Notifiers.TerminalTitle',
+                        'Elixir.ExUnitNotifier.Notifiers.TmuxNotifier']},
+              {optional_applications,[]},
+              {applications,[kernel,stdlib,elixir,logger]},
+              {description,"ex_unit_notifier"},
+              {registered,[]},
+              {vsn,"1.3.1"}]}.

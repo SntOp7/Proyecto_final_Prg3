@@ -121,63 +121,23 @@ defmodule ProyectoFinalPrg3.Adapters.Network.NodeManager do
   # INICIALIZACIÓN DEL NODO LOCAL
   # ============================================================
 
-  @doc """
-  Inicializa el nodo local en caso de que no esté iniciado.
-
-  - Asigna el cookie de comunicación distribuida
-  - Inicia un nodo con nombre si el proyecto no fue iniciado con --sname o --name
-
-  Esta función es segura y NO genera errores si el nodo ya estaba iniciado.
-  """
-  def inicializar_nodo do
-    case Node.alive?() do
-      true ->
-        # Nodo ya tiene nombre, solo asignar cookie.
-        Node.set_cookie(Node.self(), :proyecto_final_cookie)
-
-        LoggerService.registrar_evento("Nodo distribuido inicializado", %{
-          nodo: Node.self()
-        })
-
-        :ok
-
-      false ->
-        # Nodo local sin nombre: inicializarlo correctamente.
-        iniciar_nodo_con_nombre(nodo_generado())
-    end
-  end
-
   # Asigna un nombre real al nodo
-  defp iniciar_nodo_con_nombre(nombre_atomico) when is_atom(nombre_atomico) do
-    case Node.start(nombre_atomico) do
-      {:ok, _} ->
-        Node.set_cookie(nombre_atomico, :proyecto_final_cookie)
 
-        LoggerService.registrar_evento("Nodo local iniciado", %{
-          nodo: nombre_atomico
-        })
-
-        :ok
-
-      {:error, razon} ->
-        LoggerService.registrar_evento("No se pudo iniciar nodo", %{
-          error: inspect(razon)
-        })
-
-        {:error, razon}
-    end
-  end
-
-  # Genera un nombre único basado en timestamp y hostname
-  defp nodo_generado do
-    host =
-      case :inet.gethostname() do
-        {:ok, h} -> to_string(h)
-        _ -> "localhost"
-      end
-
-    :"proyecto_final_#{System.system_time(:millisecond)}@#{host}"
-  end
+  # defp iniciar_nodo_con_nombre(nombre_atomico) when is_atom(nombre_atomico) do
+  #  case Node.start(nombre_atomico) do
+  #    {:ok, _} ->
+  #      Node.set_cookie(nombre_atomico, :proyecto_final_cookie)
+  #      LoggerService.registrar_evento("Nodo local iniciado", %{nodo: nombre_atomico})
+  #      :ok
+  #
+  #     {:error, razon} ->
+  #      LoggerService.registrar_evento("No se pudo iniciar nodo distribuido", %{
+  #       razon: inspect(razon)
+  #    })
+  #
+  #       :ok
+  #  end
+  # end
 
   # ============================================================
   # CONEXIÓN A NODOS DEL CLÚSTER

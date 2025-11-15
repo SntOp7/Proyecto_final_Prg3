@@ -7,7 +7,6 @@ defmodule ProyectoFinalPrg3.Services.InitialBootService do
   use GenServer
 
   alias ProyectoFinalPrg3.Adapters.Logging.{LoggerService, AuditService}
-  alias ProyectoFinalPrg3.Adapters.Network.{NodeManager, PubSubAdapter}
   alias ProyectoFinalPrg3.Adapters.Persistence.PersistenceManager
 
   # -------------------------
@@ -29,22 +28,12 @@ defmodule ProyectoFinalPrg3.Services.InitialBootService do
   defp inicializar_sistema do
     IO.puts("\n🚀 Iniciando sistema ProyectoFinalPrg3...\n")
 
-    # Crear directorios
-    Enum.each(["data", "logs"], &File.mkdir_p!/1)
-
     # Logging
     LoggerService.limpiar_logs()
     LoggerService.registrar_evento("Inicio del sistema de hackathon", %{})
 
-    # Redes
-    NodeManager.inicializar_nodo()
-    PubSubAdapter.inicializar()
-
-    LoggerService.registrar_evento("Servicios de red inicializados", %{})
-
     # Persistencia
     PersistenceManager.inicializar()
-
     LoggerService.registrar_evento("Repositorios cargados", %{})
 
     AuditService.exportar_a_txt("logs/audit_start_report.txt")
