@@ -1,6 +1,6 @@
-defmodule ProyectofinalPrg3.Test.Domain.MessageTest do
+defmodule ProyectoFinalPrg3.Test.Domain.MessageTest do
   use ExUnit.Case, async: true
-  alias ProyectofinalPrg3.Domain.Message
+  alias ProyectoFinalPrg3.Domain.Message
 
   @moduledoc """
   Pruebas unitarias del dominio `Message`.

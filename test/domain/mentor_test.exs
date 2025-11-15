@@ -1,6 +1,6 @@
-defmodule ProyectofinalPrg3.Test.Domain.MentorTest do
+defmodule ProyectoFinalPrg3.Test.Domain.MentorTest do
   use ExUnit.Case, async: true
-  alias ProyectofinalPrg3.Domain.Mentor
+  alias ProyectoFinalPrg3.Domain.Mentor
 
   @moduledoc """
   Pruebas unitarias del dominio `Mentor`.

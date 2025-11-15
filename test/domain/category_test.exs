@@ -1,6 +1,6 @@
-defmodule ProyectofinalPrg3.Test.Domain.CategoryTest do
+defmodule ProyectoFinalPrg3.Test.Domain.CategoryTest do
   use ExUnit.Case, async: true
-  alias ProyectofinalPrg3.Domain.Category
+  alias ProyectoFinalPrg3.Domain.Category
 
   @moduledoc """
   Pruebas unitarias del dominio `Category`.
