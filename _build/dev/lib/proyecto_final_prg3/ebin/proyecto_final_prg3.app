@@ -16,6 +16,7 @@
                         'Elixir.ProyectoFinalPrg3.Adapters.Persistence.FeedbackStore',
                         'Elixir.ProyectoFinalPrg3.Adapters.Persistence.MentorStore',
                         'Elixir.ProyectoFinalPrg3.Adapters.Persistence.ParticipantStore',
+                        'Elixir.ProyectoFinalPrg3.Adapters.Persistence.PersistenceManager',
                         'Elixir.ProyectoFinalPrg3.Adapters.Persistence.ProgressStore',
                         'Elixir.ProyectoFinalPrg3.Adapters.Persistence.ProjectStore',
                         'Elixir.ProyectoFinalPrg3.Adapters.Persistence.TeamStore',
