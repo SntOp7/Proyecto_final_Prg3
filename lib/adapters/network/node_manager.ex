@@ -116,4 +116,78 @@ defmodule ProyectoFinalPrg3.Adapters.Network.NodeManager do
       distribuido?: Node.list() != []
     }
   end
+
+  # ============================================================
+  # INICIALIZACIÓN DEL NODO LOCAL
+  # ============================================================
+
+  @doc """
+  Inicializa el nodo local en caso de que no esté iniciado.
+
+  - Asigna el cookie de comunicación distribuida
+  - Inicia un nodo con nombre si el proyecto no fue iniciado con --sname o --name
+
+  Esta función es segura y NO genera errores si el nodo ya estaba iniciado.
+  """
+  def inicializar_nodo do
+    # Asignar cookie para comunicación entre nodos
+    cookie = :proyecto_final_cookie
+    Node.set_cookie(Node.self(), cookie)
+
+    # Si no existe nombre (es :nonode@nohost), se intenta iniciar
+    case Node.self() do
+      :nonode@nohost ->
+        iniciar_nodo_con_nombre()
+
+      _ ->
+        :ok
+    end
+  end
+
+  defp iniciar_nodo_con_nombre do
+    hostname =
+      :inet.gethostname()
+      |> elem(1)
+      |> List.to_string()
+
+    nodo = :"proyecto_final@#{hostname}"
+
+    case :net_kernel.start([nodo, :shortnames]) do
+      {:ok, _pid} ->
+        LoggerService.registrar_evento("Nodo iniciado", %{nodo: nodo})
+        :ok
+
+      {:error, _} = err ->
+        LoggerService.registrar_evento("No se pudo iniciar nodo", %{error: inspect(err)})
+        err
+    end
+  end
+
+  # ============================================================
+  # CONEXIÓN A NODOS DEL CLÚSTER
+  # ============================================================
+
+  @doc """
+  Intenta conectarse a los nodos configurados en `config/config.exs`.
+
+  Si no existen nodos o están apagados, simplemente se registran logs.
+  """
+  def conectarse_a_nodos do
+    nodos = Application.get_env(:proyecto_final_prg3, :nodos, [])
+
+    Enum.each(nodos, fn nodo ->
+      case Node.connect(nodo) do
+        true ->
+          LoggerService.registrar_evento("Conectado a nodo", %{nodo: nodo})
+
+        false ->
+          LoggerService.registrar_evento("No se pudo conectar al nodo", %{
+            nodo: nodo,
+            estado: :rechazado
+          })
+      end
+    end)
+
+    :ok
+  end
 end
