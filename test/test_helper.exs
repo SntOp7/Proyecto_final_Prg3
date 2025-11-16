@@ -1,55 +1,27 @@
 ExUnit.start()
-ExUnit.configure(exclude: [:skip])
+Mox.defmock(ProyectoFinalPrg3.MockCommandRegistry, for: ProyectoFinalPrg3.Adapters.CLI.CommandRegistryBehaviour)
 
-# ============================================================
-#  🔹 Registro global de Mox
-# ============================================================
-# Los tests de tu proyecto usan Mox en modo global para evitar
-# conflictos con procesos y tests async.
-# ============================================================
+# ============================
+# Persistencia
+# ============================
+Mox.defmock(ProyectoFinalPrg3.MockParticipantStore,  for: ProyectoFinalPrg3.Adapters.Persistence.ParticipantStoreBehaviour)
+Mox.defmock(ProyectoFinalPrg3.MockProjectStore,      for: ProyectoFinalPrg3.Adapters.Persistence.ProjectStoreBehaviour)
+Mox.defmock(ProyectoFinalPrg3.MockCategoryStore,     for: ProyectoFinalPrg3.Adapters.Persistence.CategoryStoreBehaviour)
+Mox.defmock(ProyectoFinalPrg3.MockFeedbackStore,     for: ProyectoFinalPrg3.Adapters.Persistence.FeedbackStoreBehaviour)
+Mox.defmock(ProyectoFinalPrg3.MockProgressStore,     for: ProyectoFinalPrg3.Adapters.Persistence.ProgressStoreBehaviour)
 
-Mox.set_mox_global()
-Mox.defmock(
-  ProyectoFinalPrg3.Mocks.CommandRegistryMock,
-  for: ProyectoFinalPrg3.Adapters.CLI.CommandRegistryBehaviour
-)
+# ============================
+# Seguridad / Autenticación
+# ============================
+Mox.defmock(ProyectoFinalPrg3.MockTokenManager,      for: ProyectoFinalPrg3.Adapters.Security.TokenManagerBehaviour)
+Mox.defmock(ProyectoFinalPrg3.MockSessionManager,    for: ProyectoFinalPrg3.Adapters.Security.SessionManagerBehaviour)
+Mox.defmock(ProyectoFinalPrg3.MockEncryptionAdapter, for: ProyectoFinalPrg3.Adapters.Security.EncryptionAdapterBehaviour)
 
-# ------------------------------------------------------------
-# Si tu proyecto tiene otros behaviours mockeables, regístralos
-# aquí siguiendo el mismo patrón:
-Mox.defmock(CommandParserMock,
-  for: ProyectoFinalPrg3.Behaviours.CommandParserBehaviour
-)
+# ============================
+# Servicios
+# ============================
+Mox.defmock(ProyectoFinalPrg3.MockLoggerService,     for: ProyectoFinalPrg3.Adapters.Logging.LoggerServiceBehaviour)
+Mox.defmock(ProyectoFinalPrg3.MockAuthService,       for: ProyectoFinalPrg3.Services.AuthServiceBehaviour)
 
-#
-Mox.defmock(ProyectoFinalPrg3.Mocks.LoggerServiceMock,
-for: ProyectoFinalPrg3.Adapters.Logging.LoggerServiceBehaviour)
-#
-Mox.defmock(ProyectoFinalPrg3.Mocks.AuthServiceMock,
- for: ProyectoFinalPrg3.Services.AuthServiceBehaviour)
-#
-Mox.defmock(ProyectoFinalPrg3.Mocks.PermissionAdapterMock,
-for: ProyectoFinalPrg3.Adapters.Security.PermissionAdapterBehaviour)
-
-Mox.defmock(LoggerServiceMock,
-  for: ProyectoFinalPrg3.Adapters.Logging.LoggerServiceBehaviour
-)
-
-Mox.defmock(AuthServiceMock,
-  for: ProyectoFinalPrg3.Services.AuthServiceBehaviour
-)
-
-Mox.defmock(PermissionAdapterMock,
-  for: ProyectoFinalPrg3.Adapters.Security.PermissionAdapterBehaviour
-)
-
-
-
-# ------------------------------------------------------------
-
-# ============================================================
-#  🔹 Configuración recomendada para evitar conflictos
-# ============================================================
-
-# Permite usar Mox en pruebas asincrónicas (solo si se usa stub_with)
-Application.put_env(:mox, :verify_on_exit!, true)
+# Permitir que los mocks reciban llamadas asíncronas si usas Task o GenServer
+Application.put_env(:mox, :global, true)

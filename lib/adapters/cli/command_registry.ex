@@ -29,6 +29,8 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRegistry do
   Licencia: GNU GPLv3
   """
 
+  @behaviour ProyectoFinalPrg3.Adapters.CLI.CommandRegistryBehaviour
+
   @commands %{
     "/teams" => %{
       description: "Listar equipos registrados",

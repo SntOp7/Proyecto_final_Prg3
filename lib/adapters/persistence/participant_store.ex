@@ -10,6 +10,8 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ParticipantStore do
   Licencia: GNU GPLv3
   """
 
+  @behaviour ProyectoFinalPrg3.Adapters.Persistence.ParticipantStoreBehaviour
+
   alias ProyectoFinalPrg3.Domain.Participant
 
   @ruta_archivo Path.join([File.cwd!(), "data", "participantes.csv"])
