@@ -1,88 +1,186 @@
 defmodule ProyectoFinalPrg3.Services.CommandService do
   @moduledoc """
-  Servicio encargado de la ejecución de comandos provenientes de la interfaz CLI.
-
-  Este módulo actúa como el **intérprete central** del sistema de comandos,
-  orquestando llamadas a los servicios de dominio correspondientes según la acción solicitada.
-
-  ## Flujo general
-  1. `CommandExecutor` recibe la instrucción desde la CLI.
-  2. `CommandService` interpreta el comando (`service` + `action`).
-  3. Se ejecuta el servicio correspondiente (`TeamManager`, `ChatService`, etc.).
-  4. Se devuelve el resultado o mensaje al usuario.
-
-  ## Comandos disponibles
-  - `listar_equipos` → lista todos los equipos.
-  - `mostrar_proyecto` → muestra el proyecto asociado a un equipo.
-  - `unirse_a_equipo` → permite a un participante unirse a un equipo existente.
-  - `ingresar_chat_equipo` → ingresa al canal de chat del equipo.
-  - `mostrar_ayuda` → muestra los comandos disponibles.
-
-  Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
-  Fecha de creación: 2025-10-27
-  Licencia: GNU GPLv3
+  Intérprete central de comandos CLI.
   """
 
-  alias ProyectoFinalPrg3.Services.{TeamManager, ProjectManager, ChatService}
+  alias ProyectoFinalPrg3.Services.{
+    AuthService,
+    TeamManager,
+    ProjectManager,
+    ChatService,
+    MentorManager,
+    ParticipantManager,
+    PermissionService
+  }
+
   alias ProyectoFinalPrg3.Adapters.Security.SessionManager
   alias ProyectoFinalPrg3.Adapters.CLI.CommandRegistry
 
-  @spec ejecutar_comando(map(), list()) :: {:ok, any()} | {:error, String.t()}
+  # ===================================================================
+  # PÚBLICOS
+  # ===================================================================
 
-  # ============================================================
-  # COMANDOS CORRECTOS (según CommandRegistry)
-  # ============================================================
+  # /register <nombre> <rol>
+  def ejecutar_comando(%{service: :auth_service, action: :register}, %{nombre: nombre, correo: correo, rol: rol}) do
+    case rol do
+      "participante" ->
+        ParticipantManager.registrar_participante(nombre, correo, 0, rol, 0)
 
-  # /teams
-  def ejecutar_comando(%{service: :team_manager, action: :list_teams}, _args) do
-    equipos = TeamManager.listar_equipos()
-    {:ok, equipos}
-  end
+      "mentor" ->
+        MentorManager.registrar_mentor(nombre, correo, "mentor", rol, "")
 
-  # /project <equipo>
-  def ejecutar_comando(%{service: :project_manager, action: :show_project}, [nombre_equipo]) do
-    with {:ok, equipo} <- TeamManager.obtener_equipo(nombre_equipo),
-         {:ok, proyecto} <- ProjectManager.obtener_proyecto_por_id(equipo.id_proyecto) do
-      {:ok, proyecto}
-    else
-      _ -> {:error, "No se encontró el equipo o proyecto indicado."}
+      _ ->
+        "Rol no permitido"
     end
   end
 
-  # /join <equipo>
-  def ejecutar_comando(%{service: :team_manager, action: :join_team}, [nombre_equipo]) do
-    id = SessionManager.obtener_participante_actual()
-
-    case TeamManager.unirse_a_equipo(nombre_equipo, id) do
-      {:ok, equipo} -> {:ok, "Te uniste al equipo #{equipo.nombre}"}
-      {:error, :ya_es_miembro} -> {:error, "Ya perteneces a este equipo."}
-      {:error, :no_encontrado} -> {:error, "Equipo no encontrado."}
-    end
-  end
-
-  # /chat <equipo>
-  def ejecutar_comando(%{service: :chat_manager, action: :open_chat}, [nombre_equipo]) do
-    ChatService.ingresar_chat_equipo(nombre_equipo)
-    {:ok, "Ingresaste al chat del equipo #{nombre_equipo}"}
+  # /login <id_usuario>
+  def ejecutar_comando(%{service: :auth_service, action: :login}, [correo, contrasenia]) do
+    AuthService.autenticar(correo, contrasenia)
+    {:ok, "Sesión iniciada correctamente."}
   end
 
   # /help
   def ejecutar_comando(%{service: :command_service, action: :show_help}, _args) do
+    usuario =
+      case SessionManager.obtener_participante_actual() do
+        {:ok, u} -> u
+        _ -> nil
+      end
+
     comandos =
       CommandRegistry.all()
+      |> Enum.filter(fn {_cmd, info} ->
+        comando_visible?(usuario, info)
+      end)
       |> Enum.map(fn {cmd, info} ->
-        "#{cmd} → #{info.description}"
+        """
+        #{cmd}
+          → #{info.description}
+          Uso: #{Map.get(info, :usage, "No especificado")}
+        """
       end)
       |> Enum.join("\n")
 
     {:ok, "Comandos disponibles:\n" <> comandos}
   end
 
-  # ============================================================
+  # ===================================================================
+  # SESIÓN ACTIVA
+  # ===================================================================
+
+  # /logout
+  def ejecutar_comando(%{service: :auth_service, action: :logout}, _args) do
+    usuario =
+      case SessionManager.obtener_participante_actual() do
+        {:ok, u} -> u
+        _ -> nil
+      end
+
+    AuthService.cerrar_sesion(usuario.id)
+    {:ok, "Sesión cerrada correctamente."}
+  end
+
+  # ===================================================================
+  # PARTICIPANTE
+  # ===================================================================
+
+  # /teams
+  def ejecutar_comando(%{service: :team_manager, action: :list_teams}, _args) do
+    {:ok, TeamManager.listar_equipos()}
+  end
+
+  # /project <equipo>
+  def ejecutar_comando(%{service: :project_manager, action: :show_project}, [equipo]) do
+    with {:ok, eq} <- TeamManager.obtener_equipo(equipo),
+         {:ok, proyecto} <- ProjectManager.obtener_proyecto_por_id(eq.id_proyecto) do
+      {:ok, proyecto}
+    else
+      _ -> {:error, "Equipo o proyecto no encontrado."}
+    end
+  end
+
+  # /join <equipo>
+  def ejecutar_comando(%{service: :team_manager, action: :join_team}, [equipo]) do
+    {:ok, user} = SessionManager.obtener_participante_actual()
+
+    case TeamManager.unirse_a_equipo(equipo, user) do
+      {:ok, eq} -> {:ok, "Te uniste al equipo #{eq.nombre}"}
+      {:error, :ya_es_miembro} -> {:error, "Ya perteneces a este equipo."}
+      {:error, :no_encontrado} -> {:error, "Equipo no encontrado."}
+    end
+  end
+
+  # /create_team <nombre> <categoria> <descripcion>
+  def ejecutar_comando(%{service: :team_manager, action: :create_team}, %{nombre: n, categoria: c, descripcion: d}) do
+    TeamManager.crear_equipo(n , c, d)
+    {:ok, "Equipo creado correctamente."}
+  end
+
+  # /chat <equipo>
+  def ejecutar_comando(%{service: :chat_manager, action: :open_chat}, [equipo]) do
+    ChatService.ingresar_chat_equipo(equipo)
+    {:ok, "Ingresaste al chat del equipo #{equipo}"}
+  end
+
+  # ===================================================================
+  # MENTOR
+  # ===================================================================
+
+  # /feedback <equipo> <mensaje>
+  def ejecutar_comando(%{service: :mentor_manager, action: :feedback}, [equipo | mensaje]) do
+    mensaje = Enum.join(mensaje, " ")
+    MentorManager.registrar_feedback(equipo, mensaje)
+    {:ok, "Feedback enviado a #{equipo}"}
+  end
+
+  # ===================================================================
+  # ADMIN
+  # ===================================================================
+
+  # /assign_mentor <equipo> <id_mentor>
+  def ejecutar_comando(%{service: :admin_manager, action: :assign_mentor}, [equipo, id]) do
+    MentorManager.asignar_a_equipo(id, equipo)
+    {:ok, "Mentor asignado a #{equipo}"}
+  end
+
+  # /delete_team <equipo>
+  def ejecutar_comando(%{service: :admin_manager, action: :delete_team}, [equipo]) do
+    TeamManager.disolver_equipo(equipo)
+    {:ok, "Equipo eliminado correctamente."}
+  end
+
+  # /delete_user <id>
+  def ejecutar_comando(%{service: :admin_manager, action: :delete_user}, [id]) do
+    ParticipantManager.eliminar_participante(id)
+    {:ok, "Usuario eliminado correctamente."}
+  end
+
+  # ===================================================================
   # DEFAULT
-  # ============================================================
+  # ===================================================================
 
   def ejecutar_comando(_, _) do
-    {:error, "Comando no reconocido o uso incorrecto. Usa /help para ver los comandos disponibles."}
+    {:error, "Comando no reconocido o argumentos incorrectos. Usa /help."}
+  end
+
+  # ============================================================
+  # FILTRO DE VISIBILIDAD SEGÚN ROL
+  # ============================================================
+
+  defp comando_visible?(nil, %{required_permission: nil}) do
+    true
+  end
+
+  defp comando_visible?(nil, %{required_permission: _perm}) do
+    false
+  end
+
+  defp comando_visible?(_usuario, %{required_permission: nil}) do
+    true
+  end
+
+  defp comando_visible?(usuario, %{required_permission: permiso}) do
+    PermissionService.autorizado?(usuario.id, permiso)
   end
 end
