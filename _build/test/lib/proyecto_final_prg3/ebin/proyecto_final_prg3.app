@@ -2,6 +2,7 @@
              [{modules,['Elixir.ProyectoFinalPrg3.Adapters.CLI.CommandExecutor',
                         'Elixir.ProyectoFinalPrg3.Adapters.CLI.CommandParser',
                         'Elixir.ProyectoFinalPrg3.Adapters.CLI.CommandRegistry',
+                        'Elixir.ProyectoFinalPrg3.Adapters.CLI.CommandRegistryBehaviour',
                         'Elixir.ProyectoFinalPrg3.Adapters.CLI.CommandRouter',
                         'Elixir.ProyectoFinalPrg3.Adapters.Logging.AuditService',
                         'Elixir.ProyectoFinalPrg3.Adapters.Logging.LoggerService',
