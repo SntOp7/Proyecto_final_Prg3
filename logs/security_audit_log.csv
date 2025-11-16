@@ -1,0 +1,2 @@
+id,timestamp,accion,usuario,rol,ip,estado,detalles
+fadd0f68-0b96-4985-b8f8-aff48006e227,2025-11-16T05:20:23.713000Z,Test,desconocido,no_definido,no_disponible,error,"{'mensaje':'Falla crítica','estado':'error'}"

@@ -13,6 +13,7 @@
                         'Elixir.ProyectoFinalPrg3.Adapters.Network.MentorshipChannel',
                         'Elixir.ProyectoFinalPrg3.Adapters.Network.MessageBroadcast',
                         'Elixir.ProyectoFinalPrg3.Adapters.Network.NodeManager',
+                        'Elixir.ProyectoFinalPrg3.Adapters.Network.NodeManagerBehaviour',
                         'Elixir.ProyectoFinalPrg3.Adapters.Network.PubSubAdapter',
                         'Elixir.ProyectoFinalPrg3.Adapters.Persistence.CategoryStore',
                         'Elixir.ProyectoFinalPrg3.Adapters.Persistence.CategoryStoreBehaviour',

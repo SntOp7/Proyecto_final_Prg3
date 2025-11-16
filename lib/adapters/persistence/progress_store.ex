@@ -89,7 +89,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProgressStore do
   # ============================================================
 
   @doc false
-  defp persistir_lista(lista) do
+  def persistir_lista(lista) do
     File.mkdir_p!("data")
 
     contenido =
@@ -101,7 +101,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProgressStore do
   end
 
   @doc false
-  defp serializar_avance(%Progress{} = avance) do
+  def serializar_avance(%Progress{} = avance) do
     [
       avance.id,
       avance.proyecto_id || "",
@@ -119,7 +119,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProgressStore do
   end
 
   @doc false
-  defp parsear_linea(linea) do
+  def parsear_linea(linea) do
     [
       id,
       proyecto_id,
@@ -154,22 +154,22 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProgressStore do
   # FUNCIONES AUXILIARES
   # ============================================================
 
-  defp limpiar(nil), do: ""
-  defp limpiar(texto) do
+  def limpiar(nil), do: ""
+  def limpiar(texto) do
     texto
     |> String.replace(",", ";")
     |> String.replace("\n", " ")
   end
 
-  defp parse_blank(""), do: nil
-  defp parse_blank(valor), do: valor
+  def parse_blank(""), do: nil
+  def parse_blank(valor), do: valor
 
-  defp serialize_datetime(nil), do: ""
-  defp serialize_datetime(%DateTime{} = dt), do: DateTime.to_iso8601(dt)
-  defp serialize_datetime(%NaiveDateTime{} = dt), do: NaiveDateTime.to_string(dt)
+  def serialize_datetime(nil), do: ""
+  def serialize_datetime(%DateTime{} = dt), do: DateTime.to_iso8601(dt)
+  def serialize_datetime(%NaiveDateTime{} = dt), do: NaiveDateTime.to_string(dt)
 
-  defp parse_datetime(""), do: nil
-  defp parse_datetime(str) do
+  def parse_datetime(""), do: nil
+  def parse_datetime(str) do
     cond do
       String.contains?(str, "T") ->
         case DateTime.from_iso8601(str) do
@@ -185,9 +185,9 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProgressStore do
     end
   end
 
-  defp serialize_list(nil), do: ""
-  defp serialize_list(lista) when is_list(lista), do: Enum.join(lista, "|")
+  def serialize_list(nil), do: ""
+  def serialize_list(lista) when is_list(lista), do: Enum.join(lista, "|")
 
-  defp parse_list(""), do: []
-  defp parse_list(cadena), do: String.split(cadena, "|")
+  def parse_list(""), do: []
+  def parse_list(cadena), do: String.split(cadena, "|")
 end
