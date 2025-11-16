@@ -3,7 +3,7 @@ defmodule ProyectoFinalPrg3.Services.PermissionService do
   Servicio de permisos basado en roles para determinar qué comandos puede ejecutar un usuario.
   """
 
-  alias ProyectoFinalPrg3.Services.AuthService
+  alias ProyectoFinalPrg3.Services.ParticipantManager
   alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
 
   @permissions %{
@@ -39,7 +39,7 @@ defmodule ProyectoFinalPrg3.Services.PermissionService do
   Verifica si un usuario tiene permiso para ejecutar una acción.
   """
   def autorizado?(id_usuario, accion) do
-    with {:ok, user} <- AuthService.obtener_participante(id_usuario),
+    with {:ok, user} <- ParticipantManager.obtener_participante(id_usuario),
          rol when not is_nil(rol) <- user.rol,
          permisos <- Map.get(@permissions, rol, []) do
 
