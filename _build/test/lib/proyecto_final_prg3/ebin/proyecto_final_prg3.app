@@ -50,6 +50,7 @@
                         'Elixir.ProyectoFinalPrg3.Services.AuthServiceBehaviour',
                         'Elixir.ProyectoFinalPrg3.Services.BenchmarkService',
                         'Elixir.ProyectoFinalPrg3.Services.BroadcastService',
+                        'Elixir.ProyectoFinalPrg3.Services.BroadcastServiceBehaviour',
                         'Elixir.ProyectoFinalPrg3.Services.CategoryService',
                         'Elixir.ProyectoFinalPrg3.Services.ChatService',
                         'Elixir.ProyectoFinalPrg3.Services.CommandService',
