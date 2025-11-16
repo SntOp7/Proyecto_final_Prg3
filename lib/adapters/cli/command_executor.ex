@@ -19,7 +19,7 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandExecutor do
   # EJECUCIÓN PRINCIPAL
   # ============================================================
 
-  def execute(info, args) when is_map(info) and is_list(args) do
+  def execute(info, args) when is_map(info) and is_map(args) do
     try do
       @logger_service.registrar_evento("Ejecución CLI", %{comando: info, args: args})
       @command_service.ejecutar_comando(info, args)
