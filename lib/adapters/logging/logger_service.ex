@@ -73,9 +73,24 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
       nodo: Atom.to_string(Node.self()),
       tipo: Map.get(data, :tipo, inferir_tipo(mensaje)),
       mensaje: mensaje,
-      datos: data
+      datos: normalizar_datos(data)   # <---- FIX
     }
   end
+
+  # --- NUEVO FIX: normaliza datos para evitar crashes ---
+  defp normalizar_datos(data) when is_struct(data) do
+    data
+    |> Map.from_struct()
+    |> Map.drop([:contrasena])   # nunca loguear contraseñas
+  end
+
+  defp normalizar_datos(data) when is_map(data) do
+    data
+    |> Map.drop([:contrasena])
+  end
+
+  defp normalizar_datos(data), do: data
+  # -------------------------------------------------------
 
   defp guardar_en_archivo(evento) do
     File.mkdir_p!(@log_dir)
@@ -84,7 +99,7 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
     json =
       if is_binary(evento.datos),
         do: evento.datos,
-        else: Jason.encode!(evento.datos)
+        else: Jason.encode!(evento.datos)   # ← ahora siempre seguro
 
     fila_vals = [
       evento.id,
