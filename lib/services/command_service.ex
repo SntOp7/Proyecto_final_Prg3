@@ -117,6 +117,13 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
     {:ok, "Equipo creado correctamente."}
   end
 
+  # /create_project <nombre> <categoria> <descripcion>
+  def ejecutar_comando(%{service: :team_manager, action: :create_team}, %{nombre: n, descripcion: d, categoria: c, id_equipo: id_equipo}) do
+    usuario = SessionManager.obtener_participante_actual()
+    ProjectManager.crear_proyecto(n, d, c, id_equipo, usuario.id, nil)
+    {:ok, "Proyecto creado correctamente."}
+  end
+
   # /chat <equipo>
   def ejecutar_comando(%{service: :chat_manager, action: :open_chat}, %{equipo: equipo}) do
     ChatService.ingresar_chat_equipo(equipo)
@@ -139,14 +146,14 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
   # ===================================================================
 
   # /assign_mentor <equipo> <id_mentor>
-  def ejecutar_comando(%{service: :admin_manager, action: :assign_mentor}, %{equipo: equipo,id: id}) do
+  def ejecutar_comando(%{service: :admin_manager, action: :assign_mentor}, %{equipo: equipo,id_mentor: id}) do
     MentorManager.asignar_a_equipo(id, equipo)
     {:ok, "Mentor asignado a #{equipo}"}
   end
 
   # /delete_team <equipo>
-  def ejecutar_comando(%{service: :admin_manager, action: :delete_team}, %{equip: equipo}) do
-    TeamManager.disolver_equipo(equipo)
+  def ejecutar_comando(%{service: :admin_manager, action: :delete_team}, %{id_equip: id_equipo}) do
+    TeamManager.disolver_equipo(id_equipo)
     {:ok, "Equipo eliminado correctamente."}
   end
 
