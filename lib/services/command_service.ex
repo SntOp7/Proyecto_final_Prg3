@@ -59,13 +59,15 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
   end
 
   # /login <id_usuario>
-  def ejecutar_comando(%{service: :auth_service, action: :login}, %{
-        correo: correo,
-        contrasenia: contrasenia
-      }) do
-    AuthService.autenticar(correo, contrasenia)
-    {:ok, "Sesión iniciada correctamente."}
+  def ejecutar_comando(%{service: :auth_service, action: :login}, %{correo: correo, contrasenia: contrasenia}) do
+  case AuthService.autenticar(correo, contrasenia) do
+    {:ok, %{participante: _participante, token: _token}} ->
+      {:ok, "Sesión iniciada correctamente."}
+
+    {:error, razon} ->
+      {:error, razon}
   end
+end
 
   # /help
   def ejecutar_comando(%{service: :command_service, action: :show_help}, _args) do
