@@ -10,6 +10,7 @@ defmodule ProyectoFinalPrg3.Services.PermissionService do
     participante: [
       :ver_equipos,
       :ver_proyecto,
+      :crear_proyecto,
       :unirse_equipo,
       :crear_equipo,
       :ver_canales
