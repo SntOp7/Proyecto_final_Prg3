@@ -8,6 +8,7 @@ defmodule ProyectoFinalPrg3.Adapters.Security.SessionManager do
 
   alias ProyectoFinalPrg3.Adapters.Security.TokenManager
   alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
+  alias ProyectoFinalPrg3.Services.ParticipantManager
 
   @table :sesiones_activas
 
@@ -79,9 +80,12 @@ defmodule ProyectoFinalPrg3.Adapters.Security.SessionManager do
   Retorna el primer usuario logueado (si existe).
   """
   def obtener_participante_actual do
-    case :ets.tab2list(@table) do
-      [{id_usuario, _token, _ts} | _] -> id_usuario
-      _ -> nil
+    with [{id_usuario, _token, _ts} | _] <- :ets.tab2list(@table),
+         {:ok, participante} <- ParticipantManager.obtener_participante(id_usuario) do
+      {:ok, participante}
+    else
+      [] -> {:error, :no_sesion_activa}
+      {:error, razon} -> {:error, razon}
     end
   end
 end
