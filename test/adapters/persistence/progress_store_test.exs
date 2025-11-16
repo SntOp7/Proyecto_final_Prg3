@@ -10,8 +10,8 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProgressStoreTest do
     File.rm_rf!("data")
     File.mkdir_p!("data")
 
-    # Crear archivo vacío con el encabezado oficial del módulo
-    File.write!(@ruta, ProgressStore.@headers)
+    # Crear archivo con encabezados oficiales del módulo
+    File.write!(@ruta, Enum.join(ProgressStore.obtener_headers(), ",") <> "\n")
 
     :ok
   end
@@ -76,7 +76,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProgressStoreTest do
 
   describe "consultas" do
     test "listar_avances/0 retorna vacía si no hay registros" do
-      File.write!(@ruta, ProgressStore.@headers)
+      File.write!(@ruta, Enum.join(ProgressStore.obtener_headers(), ",") <> "\n")
       assert ProgressStore.listar_avances() == []
     end
 
