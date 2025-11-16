@@ -29,6 +29,7 @@ defmodule ProyectoFinalPrg3.Domain.Mentor do
     :id,                  # Identificador único del mentor
     :nombre,              # Nombre completo del mentor
     :correo,              # Correo electrónico de contacto
+    :contrasena,
     :especialidad,        # Área de experiencia (ej: IA, backend, UX/UI, etc.)
     :biografia,           # Descripción breve del perfil del mentor
     :equipos_asignados,   # Lista de IDs o structs de equipos que asesora

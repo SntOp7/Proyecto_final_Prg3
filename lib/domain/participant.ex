@@ -11,7 +11,7 @@ defmodule ProyectoFinalPrg3.Domain.Participant do
     :id,
     :nombre,
     :correo,
-    :username,
+    :contrasena,
     :rol,
     :equipo_id,
     :experiencia,
@@ -21,9 +21,7 @@ defmodule ProyectoFinalPrg3.Domain.Participant do
     :mensajes,
     :canales_asignados,
     :token_sesion,
-    :perfil_url,
-
-    :contrasena     # ← CAMPO NECESARIO PARA AUTH Y TESTS
+    :perfil_url
   ]
 
   @doc """
