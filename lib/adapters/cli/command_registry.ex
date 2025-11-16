@@ -1,99 +1,138 @@
 defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRegistry do
   @moduledoc """
-  Registro centralizado de comandos disponibles en la interfaz de línea de comandos (CLI).
-
-  Define cada comando con su descripción, servicio asociado, acción a ejecutar y, si aplica,
-  el permiso requerido según `PermissionService`.
-
-  Este módulo es utilizado por:
-  - `CommandRouter` → para validar permisos y enrutar comandos.
-  - `CommandExecutor` → para ejecutar la acción correspondiente.
-
-  ## Estructura de un comando
-      "/comando" => %{
-        description: "Descripción del comando",
-        service: :nombre_del_servicio,
-        action: :accion_a_ejecutar,
-        required_permission: :permiso_opcional
-      }
-
-  Si `required_permission` no está definido, el comando se considera público.
-
-  ## Ejemplo
-      iex> CommandRegistry.get("/teams")
-      {:ok, %{description: "Listar equipos", service: :team_manager, action: :list_teams}}
-
-  Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
-  Fecha de creación: 2025-10-26
-  Última modificación: 2025-11-03
-  Licencia: GNU GPLv3
+  Registro centralizado de comandos disponibles en la CLI.
   """
 
   @behaviour ProyectoFinalPrg3.Adapters.CLI.CommandRegistryBehaviour
 
   @commands %{
+    # ============================================================
+    # COMANDOS PÚBLICOS (no requieren sesión)
+    # ============================================================
+
+    "/help" => %{
+      description: "Mostrar comandos disponibles",
+      usage: "/help",
+      service: :command_service,
+      action: :show_help,
+      required_permission: nil
+    },
+
+    "/register" => %{
+      description: "Registrar un nuevo usuario",
+      usage: "/register nombre=Juan correo=juan@gmail.com rol=participante",
+      service: :auth_service,
+      action: :register,
+      required_permission: nil
+    },
+
+    "/login" => %{
+      description: "Iniciar sesión",
+      usage: "/login correo=juan@gmail.com contrasenia=1234",
+      service: :auth_service,
+      action: :login,
+      required_permission: nil
+    },
+
+    # ============================================================
+    # COMANDOS QUE REQUIEREN SESIÓN, PERO NO PERMISOS
+    # ============================================================
+
+    "/logout" => %{
+      description: "Cerrar sesión",
+      usage: "/logout",
+      service: :auth_service,
+      action: :logout,
+      required_permission: nil
+    },
+
+    # ============================================================
+    # COMANDOS PERMITIDOS A PARTICIPANTES
+    # ============================================================
+
     "/teams" => %{
       description: "Listar equipos registrados",
+      usage: "/teams",
       service: :team_manager,
       action: :list_teams,
       required_permission: :ver_equipos
     },
+
     "/project" => %{
-      description: "Mostrar información del proyecto de un equipo",
+      description: "Ver información del proyecto de un equipo",
+      usage: "/project equipo=Titanes",
       service: :project_manager,
       action: :show_project,
-      required_permission: :ver_proyectos
+      required_permission: :ver_proyecto
     },
+
     "/join" => %{
       description: "Unirse a un equipo existente",
+      usage: "/join equipo=Titanes",
       service: :team_manager,
       action: :join_team,
       required_permission: :unirse_equipo
     },
+
+    "/create_team" => %{
+      description: "Crear un equipo nuevo",
+      usage: "/create_team nombre=Titanes categoria=web descripcion=\"Equipo de dev\"",
+      service: :team_manager,
+      action: :create_team,
+      required_permission: :crear_equipo
+    },
+
     "/chat" => %{
-      description: "Entrar al canal de chat de un equipo",
+      description: "Entrar al chat de un equipo",
+      usage: "/chat equipo=Titanes",
       service: :chat_manager,
       action: :open_chat,
       required_permission: :ver_canales
     },
-    "/create_team" => %{
-      description: "Crear un nuevo equipo en el sistema",
-      service: :team_manager,
-      action: :crear_equipo,
-      required_permission: :crear_equipo
+
+    # ============================================================
+    # COMANDOS EXCLUSIVOS PARA MENTORES
+    # ============================================================
+
+    "/feedback" => %{
+      description: "Enviar feedback a un equipo",
+      usage: "/feedback equipo=Titanes mensaje=\"Buen trabajo, pero mejoren documentación\"",
+      service: :mentor_manager,
+      action: :feedback,
+      required_permission: :enviar_feedback
     },
+
+    # ============================================================
+    # COMANDOS EXCLUSIVOS PARA ADMINISTRADORES
+    # ============================================================
+
     "/assign_mentor" => %{
       description: "Asignar un mentor a un equipo",
-      service: :team_manager,
-      action: :asignar_mentor,
+      usage: "/assign_mentor equipo=Titanes id_mentor=MENTOR123",
+      service: :admin_manager,
+      action: :assign_mentor,
       required_permission: :asignar_mentor
     },
-    "/help" => %{
-      description: "Mostrar comandos disponibles y su descripción",
-      service: :command_service,
-      action: :show_help
-      # Sin permiso → público
+
+    "/delete_team" => %{
+      description: "Eliminar un equipo del sistema",
+      usage: "/delete_team equipo=Titanes",
+      service: :admin_manager,
+      action: :delete_team,
+      required_permission: :eliminar_equipo
     }
   }
 
   # ============================================================
-  # FUNCIONES DE ACCESO A COMANDOS
+  # FUNCIONES DE ACCESO
   # ============================================================
 
-  @doc """
-  Retorna el mapa completo de comandos registrados.
-  """
   def all, do: @commands
 
-  @doc """
-  Obtiene la información de un comando específico.
-
-  Retorna `{:ok, info}` si existe, o `{:error, :comando_no_encontrado}` en caso contrario.
-  """
   def get(command) do
     case Map.get(@commands, command) do
       nil -> {:error, :comando_no_encontrado}
-      data -> {:ok, data}
+      info -> {:ok, info}
     end
   end
 end
