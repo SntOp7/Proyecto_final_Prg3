@@ -39,9 +39,6 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRouter do
             else
               {:error, mensaje} ->
                 {:error, mensaje}
-
-              _ ->
-                {:error, "Comando no reconocido. Usa /help para ver las opciones disponibles."}
             end
 
           {:error, _} ->

@@ -24,8 +24,6 @@ defmodule ProyectoFinalPrg3.Adapters.Network.NodeManager do
     • Servicios que requieren coordinación distribuida
   """
 
-  @behaviour ProyectoFinalPrg3.Adapters.Network.NodeManagerBehaviour
-
   alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
 
   # ============================================================
@@ -72,7 +70,6 @@ defmodule ProyectoFinalPrg3.Adapters.Network.NodeManager do
   # 2. ENVÍO A TODOS LOS NODOS
   # ============================================================
 
-  @impl true
   def enviar_a_nodos(evento, mensaje) do
     nodos = Node.list()
 
@@ -89,7 +86,6 @@ defmodule ProyectoFinalPrg3.Adapters.Network.NodeManager do
   # 3. ENVÍO DIRECTO RPC
   # ============================================================
 
-  @impl true
   def enviar_directo(nodo, payload) do
     if nodo not in Node.list() do
       LoggerService.registrar_evento("Nodo no conectado", %{destino: nodo})
@@ -111,7 +107,6 @@ defmodule ProyectoFinalPrg3.Adapters.Network.NodeManager do
   # 4. RECEPCIÓN DE MENSAJES
   # ============================================================
 
-  @impl true
   def recibir_mensaje({evento, data}) do
     LoggerService.registrar_evento("Mensaje recibido desde nodo remoto", %{
       evento: evento,
@@ -125,7 +120,6 @@ defmodule ProyectoFinalPrg3.Adapters.Network.NodeManager do
   # 5. ESTADO DEL CLUSTER
   # ============================================================
 
-  @impl true
   def estado_cluster do
     nodos = Node.list()
 
@@ -140,7 +134,6 @@ defmodule ProyectoFinalPrg3.Adapters.Network.NodeManager do
   # 6. CONEXIÓN A NODOS CONFIGURADOS
   # ============================================================
 
-  @impl true
   def conectarse_a_nodos do
     nodos = Application.get_env(:proyecto_final_prg3, :nodos, [])
 
