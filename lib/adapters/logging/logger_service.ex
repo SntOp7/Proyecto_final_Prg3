@@ -1,26 +1,7 @@
 defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
   @moduledoc """
-  Servicio central de **logging** del sistema de hackathon colaborativa.
-
-  Este módulo actúa como punto unificado para registrar eventos de operación,
-  notificaciones del sistema, acciones de usuarios y trazas generales.
-
-  **No registra eventos de seguridad crítica**, los cuales se manejan
-  desde `ProyectoFinalPrg3.Adapters.Security.AuditLogger`.
-
-  ## Funcionalidades principales:
-  - Registrar eventos con distintos niveles (`:info`, `:warning`, `:error`).
-  - Guardar logs persistentes en formato CSV.
-  - Mostrar eventos relevantes en la consola.
-  - Servir como fuente para el `AuditService`.
-
-  ## Ejemplo de uso:
-      iex> LoggerService.registrar_evento("Proyecto creado", %{proyecto: "SmartHub"})
-      :ok
-
-  Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
-  Fecha: 2025-10-27
-  Licencia: GNU GPLv3
+  Servicio de logging del sistema. Registra eventos en `logs/event_log.csv`
+  y permite exportarlos a JSON o TXT.
   """
 
   @behaviour ProyectoFinalPrg3.Adapters.Logging.LoggerServiceBehaviour
@@ -32,9 +13,6 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
   # API PÚBLICA
   # ============================================================
 
-  @doc """
-  Registra un evento general con su mensaje y datos asociados.
-  """
   def registrar_evento(mensaje, data \\ %{}) when is_binary(mensaje) do
     evento = construir_evento(mensaje, data)
     guardar_en_archivo(evento)
@@ -42,24 +20,18 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
     :ok
   end
 
-  @doc """
-  Obtiene los últimos `N` eventos registrados (por defecto 20).
-  """
   def obtener_eventos_recientes(limite \\ 20) do
-    if File.exists?(@log_file) do
+    unless File.exists?(@log_file) do
+      []
+    else
       @log_file
       |> File.stream!()
       |> Stream.drop(1)
-      |> CSV.decode!(headers: true)
+      |> Enum.map(&parse_linea_csv/1)
       |> Enum.take(-limite)
-    else
-      []
     end
   end
 
-  @doc """
-  Limpia los logs del sistema.
-  """
   def limpiar_logs do
     File.rm(@log_file)
     File.mkdir_p!(@log_dir)
@@ -68,7 +40,42 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
   end
 
   # ============================================================
-  # FUNCIONES PRIVADAS
+  # EXPORTACIONES
+  # ============================================================
+
+  def exportar_a_json(ruta_salida) do
+    log_path = @log_file
+
+    with true <- File.exists?(log_path),
+         {:ok, contenido} <- File.read(log_path) do
+
+      eventos =
+        contenido
+        |> String.split("\n", trim: true)
+        |> Enum.drop(1)
+        |> Enum.map(&parse_linea_csv/1)
+
+      File.write!(ruta_salida, Jason.encode!(eventos, pretty: true))
+      {:ok, ruta_salida}
+
+    else
+      _ -> {:error, :no_existe_log}
+    end
+  end
+
+  def exportar_a_txt(ruta_salida) do
+    case File.exists?(@log_file) do
+      true ->
+        File.cp!(@log_file, ruta_salida)
+        {:ok, ruta_salida}
+
+      false ->
+        {:error, :no_existe_log}
+    end
+  end
+
+  # ============================================================
+  # PRIVADAS
   # ============================================================
 
   defp construir_evento(mensaje, data) do
@@ -96,11 +103,11 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
   end
 
   defp mostrar_en_consola(%{tipo: :warning} = e) do
-    IO.puts(IO.ANSI.yellow() <> "[WARN] #{e.timestamp} | #{e.mensaje}" <> IO.ANSI.reset())
+    IO.puts(IO.ANSI.yellow() <> "[WARN]  #{e.timestamp} | #{e.mensaje}" <> IO.ANSI.reset())
   end
 
   defp mostrar_en_consola(e) do
-    IO.puts(IO.ANSI.cyan() <> "[INFO] #{e.timestamp} | #{e.mensaje}" <> IO.ANSI.reset())
+    IO.puts(IO.ANSI.cyan() <> "[INFO]  #{e.timestamp} | #{e.mensaje}" <> IO.ANSI.reset())
   end
 
   defp inicializar_csv do
@@ -109,14 +116,53 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
   end
 
   defp evento_a_csv(e) do
-    ([e.id, e.timestamp, e.nodo, to_string(e.tipo), escape_csv(e.mensaje), escape_csv(e.datos)]
-     |> Enum.join(",")) <>
-      "\n"
+    [
+      escape(e.id),
+      escape(e.timestamp),
+      escape(e.nodo),
+      escape(to_string(e.tipo)),
+      escape(e.mensaje),
+      escape(e.datos)
+    ]
+    |> Enum.join(",")
+    |> Kernel.<>("\n")
   end
 
-  defp escape_csv(v) when is_binary(v) do
-    escaped = String.replace(v, "\"", "'")
-    "\"#{escaped}\""
+  # ============================================================
+  # CSV PARSER ROBUSTO
+  # ============================================================
+
+  defp parse_linea_csv(linea) do
+    campos =
+      linea
+      |> String.trim()
+      |> split_csv_line()
+
+    [id, timestamp, nodo, tipo, mensaje, datos_json] = campos
+
+    %{
+      id: id,
+      timestamp: timestamp,
+      nodo: nodo,
+      tipo: tipo,
+      mensaje: mensaje,
+      datos: Jason.decode!(datos_json)
+    }
+  end
+
+  # Manejo correcto de campos entre comillas
+  defp split_csv_line(line) do
+    Regex.scan(~r/"([^"]*)"|([^,]+)/, line)
+    |> Enum.map(fn
+      [_, quoted, _] when quoted != nil -> quoted
+      [_, _, unquoted]                  -> unquoted
+    end)
+  end
+
+  defp escape(v) do
+    v
+    |> String.replace("\"", "'")
+    |> then(&"\"#{&1}\"")
   end
 
   defp inferir_tipo(msg) do
@@ -126,84 +172,4 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
       true -> :info
     end
   end
-
-  # ============================================================
-  # INTEGRACIÓN CON SUPERVISIÓN
-  # ============================================================
-
-  @doc """
-  Registra este servicio dentro del `SupervisionManager` para monitoreo continuo.
-  """
-  def registrar_supervision do
-    ProyectoFinalPrg3.Services.SupervisionService.registrar_proceso(:logger_service, __MODULE__)
-  end
-
-  @doc """
-  Verifica que el servicio de logging esté activo.
-  """
-  def inicializar_supervision do
-    File.mkdir_p!("logs")
-    registrar_evento("LoggerService inicializado", %{estado: :ok})
-    :ok
-  end
-
-  def exportar_a_json(ruta_salida) do
-  log_path = @log_file  # logs/event_log.csv
-
-  with true <- File.exists?(log_path),
-       {:ok, contenido} <- File.read(log_path) do
-
-    eventos =
-      contenido
-      |> String.split("\n", trim: true)
-      |> Enum.drop(1)  # remover encabezados
-      |> Enum.map(&csv_a_mapa/1)
-
-    File.write!(ruta_salida, Jason.encode!(eventos, pretty: true))
-    {:ok, ruta_salida}
-  else
-    _ -> {:error, :no_existe_log}
-  end
-end
-
-
-def exportar_a_txt(ruta_salida) do
-  log_path = @log_file  # logs/event_log.csv
-
-  case File.exists?(log_path) do
-    true ->
-      File.cp!(log_path, ruta_salida)
-      {:ok, ruta_salida}
-
-    false ->
-      {:error, :no_existe_log}
-  end
-end
-
-defp csv_a_mapa(linea) do
-  [id, timestamp, nodo, tipo, mensaje, datos] =
-    linea
-    |> String.split(",", parts: 6)
-    |> Enum.map(&String.trim/1)
-
-  %{
-    id: id,
-    timestamp: timestamp,
-    nodo: nodo,
-    tipo: tipo,
-    mensaje: limpiar_comillas(mensaje),
-    datos: limpiar_comillas(datos) |> Jason.decode!()
-  }
-end
-
-defp limpiar_comillas(v) do
-  v
-  |> String.trim_leading("\"")
-  |> String.trim_trailing("\"")
-end
-
-
-
-
-
 end

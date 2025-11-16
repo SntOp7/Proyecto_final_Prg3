@@ -1,64 +1,99 @@
 ExUnit.start()
-# Mox no se pone en modo global aquí.
+# Mox NO se coloca en modo global, cada test debe usar:
+# setup :verify_on_exit!
+# import Mox
 
+# ============================================================
 # CLI
-Mox.defmock(ProyectoFinalPrg3.MockCommandRegistry,
+# ============================================================
+
+Mox.defmock(
+  ProyectoFinalPrg3.MockCommandRegistry,
   for: ProyectoFinalPrg3.Adapters.CLI.CommandRegistryBehaviour
 )
 
+# ============================================================
 # Persistencia
-Mox.defmock(ProyectoFinalPrg3.MockParticipantStore,
+# ============================================================
+
+Mox.defmock(
+  ProyectoFinalPrg3.MockParticipantStore,
   for: ProyectoFinalPrg3.Adapters.Persistence.ParticipantStoreBehaviour
 )
 
-Mox.defmock(ProyectoFinalPrg3.MockProjectStore,
+Mox.defmock(
+  ProyectoFinalPrg3.MockProjectStore,
   for: ProyectoFinalPrg3.Adapters.Persistence.ProjectStoreBehaviour
 )
 
-Mox.defmock(ProyectoFinalPrg3.MockTeamStore,
+Mox.defmock(
+  ProyectoFinalPrg3.MockTeamStore,
   for: ProyectoFinalPrg3.Adapters.Persistence.TeamStoreBehaviour
 )
 
-Mox.defmock(ProyectoFinalPrg3.MockCategoryStore,
+Mox.defmock(
+  ProyectoFinalPrg3.MockCategoryStore,
   for: ProyectoFinalPrg3.Adapters.Persistence.CategoryStoreBehaviour
 )
 
-
-
-Mox.defmock(ProyectoFinalPrg3.MockFeedbackStore,
+Mox.defmock(
+  ProyectoFinalPrg3.MockFeedbackStore,
   for: ProyectoFinalPrg3.Adapters.Persistence.FeedbackStoreBehaviour
 )
 
-Mox.defmock(ProyectoFinalPrg3.MockProgressStore,
+Mox.defmock(
+  ProyectoFinalPrg3.MockProgressStore,
   for: ProyectoFinalPrg3.Adapters.Persistence.ProgressStoreBehaviour
 )
 
+# ============================================================
 # Seguridad
-Mox.defmock(ProyectoFinalPrg3.MockTokenManager,
+# ============================================================
+
+Mox.defmock(
+  ProyectoFinalPrg3.MockTokenManager,
   for: ProyectoFinalPrg3.Adapters.Security.TokenManagerBehaviour
 )
 
-Mox.defmock(ProyectoFinalPrg3.MockSessionManager,
+Mox.defmock(
+  ProyectoFinalPrg3.MockSessionManager,
   for: ProyectoFinalPrg3.Adapters.Security.SessionManagerBehaviour
 )
 
-Mox.defmock(ProyectoFinalPrg3.MockEncryptionAdapter,
+Mox.defmock(
+  ProyectoFinalPrg3.MockEncryptionAdapter,
   for: ProyectoFinalPrg3.Adapters.Security.EncryptionAdapterBehaviour
 )
 
-Mox.defmock(ProyectoFinalPrg3.MockPermissionAdapter,
+Mox.defmock(
+  ProyectoFinalPrg3.MockPermissionAdapter,
   for: ProyectoFinalPrg3.Adapters.Security.PermissionAdapterBehaviour
 )
 
+# ============================================================
 # Servicios
-Mox.defmock(ProyectoFinalPrg3.MockLoggerService,
+# ============================================================
+
+Mox.defmock(
+  ProyectoFinalPrg3.MockLoggerService,
   for: ProyectoFinalPrg3.Adapters.Logging.LoggerServiceBehaviour
 )
 
-Mox.defmock(ProyectoFinalPrg3.MockAuthService,
+Mox.defmock(
+  ProyectoFinalPrg3.MockAuthService,
   for: ProyectoFinalPrg3.Services.AuthServiceBehaviour
 )
 
-Mox.defmock(ProyectoFinalPrg3.MockBroadcastService,
+Mox.defmock(
+  ProyectoFinalPrg3.MockBroadcastService,
   for: ProyectoFinalPrg3.Services.BroadcastServiceBehaviour
+)
+
+# ============================================================
+# Network / Cluster / Distributed
+# ============================================================
+
+Mox.defmock(
+  ProyectoFinalPrg3.MockNodeManager,
+  for: ProyectoFinalPrg3.Adapters.Network.NodeManagerBehaviour
 )

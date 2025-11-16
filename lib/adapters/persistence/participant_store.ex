@@ -239,4 +239,61 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ParticipantStore do
 end
 
 
+# ============================================================
+# MANEJO DE CONTRASEÑAS CIFRADAS (archivo separado)
+# ============================================================
+
+@pass_file "data/participants_passwords.csv"
+
+@doc """
+Guarda la contraseña cifrada asociada a un correo.
+Si el correo ya existe, la línea se reemplaza.
+"""
+def guardar_contrasena(correo, hash) when is_binary(correo) and is_binary(hash) do
+  File.mkdir_p!("data")
+
+  # Crear archivo si no existe
+  unless File.exists?(@pass_file) do
+    File.write!(@pass_file, "correo,hash\n")
+  end
+
+  contenido =
+    @pass_file
+    |> File.read!()
+    |> String.split("\n", trim: true)
+    |> Enum.drop(1) # quitar encabezado
+    |> Enum.reject(fn linea ->
+      String.starts_with?(linea, "#{correo},")
+    end)
+
+  nuevo = Enum.join(contenido, "\n") <>
+          "\n#{correo},#{hash}\n"
+
+  File.write!(@pass_file, "correo,hash\n" <> nuevo)
+
+  :ok
+end
+
+@doc """
+Obtiene la contraseña cifrada de un usuario por correo.
+Retorna nil si no existe.
+"""
+def obtener_contrasena(correo) when is_binary(correo) do
+  if File.exists?(@pass_file) do
+    @pass_file
+    |> File.stream!()
+    |> Stream.drop(1)
+    |> Enum.find_value(nil, fn linea ->
+      case String.split(linea, ",", parts: 2) do
+        [c, hash] when c == correo -> String.trim(hash)
+        _ -> nil
+      end
+    end)
+  else
+    nil
+  end
+end
+
+
+
 end

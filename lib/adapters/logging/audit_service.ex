@@ -1,84 +1,121 @@
 defmodule ProyectoFinalPrg3.Adapters.Logging.AuditService do
   @moduledoc """
-  Servicio de **auditoría** que permite consultar y exportar los registros generados por `LoggerService`.
-
-  Este módulo no registra nuevos eventos; se encarga de **analizar, filtrar y exportar**
-  los logs del sistema en diferentes formatos.
-
-  ## Funcionalidades principales:
-  - Consultar eventos generales registrados.
-  - Filtrar por tipo, nodo o rango de fechas.
-  - Exportar logs a **JSON** o **TXT**.
-  - Buscar eventos por palabra clave.
-
-  ## Integración:
-  - Depende del archivo `event_log.csv` generado por `LoggerService`.
-  - Puede ser consultado por mentores o administradores para reportes.
-
-  Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
-  Fecha: 2025-10-27
-  Licencia: GNU GPLv3
+  Servicio de auditoría que analiza y exporta los registros
+  generados por LoggerService desde logs/event_log.csv.
   """
+
   @log_file "logs/event_log.csv"
 
   # ============================================================
-  # CONSULTA Y FILTRADO
+  # LECTURA PRINCIPAL DE EVENTOS
   # ============================================================
 
   @doc "Obtiene todos los eventos del sistema."
   def obtener_todos do
-    if File.exists?(@log_file) do
+    unless File.exists?(@log_file) do
+      []
+    else
       @log_file
       |> File.stream!()
       |> Stream.drop(1)
-      |> CSV.decode!(headers: true)
-      |> Enum.map(&parsear_evento/1)
-    else
-      []
+      |> Enum.map(&parse_csv_line/1)
     end
   end
 
-  @doc "Filtra eventos por tipo (`:info`, `:warning`, `:error`, etc.)."
-  def filtrar_por_tipo(tipo), do: obtener_todos() |> Enum.filter(&(&1.tipo == tipo))
+  # ============================================================
+  # PARSEO ROBUSTO DE CSV (compatible con LoggerService)
+  # ============================================================
 
-  @doc "Filtra eventos dentro de un rango de fechas ISO8601."
-  def filtrar_por_rango(fecha_inicio, fecha_fin) do
-    with {:ok, fi, _} <- DateTime.from_iso8601(fecha_inicio),
-         {:ok, ff, _} <- DateTime.from_iso8601(fecha_fin) do
+  defp parse_csv_line(linea) do
+    campos =
+      Regex.scan(~r/"([^"]*)"|([^,]+)/, linea)
+      |> Enum.map(fn
+        [_, quoted, _] when quoted != nil -> quoted
+        [_, _, unquoted]                  -> unquoted
+      end)
+
+    [id, timestamp, nodo, tipo, mensaje, datos_json] = campos
+
+    datos =
+      case Jason.decode(datos_json) do
+        {:ok, mapa} -> mapa
+        _ -> %{}
+      end
+
+    %{
+      id: id,
+      timestamp: timestamp,
+      nodo: nodo,
+      tipo: safe_atom(tipo),
+      mensaje: mensaje,
+      datos: datos
+    }
+  end
+
+
+  defp safe_atom(nil), do: :info
+defp safe_atom(""), do: :info
+
+defp safe_atom(str) when is_binary(str) do
+  try do
+    String.to_existing_atom(str)
+  rescue
+    _ -> :info
+  end
+end
+
+
+
+
+  # ============================================================
+  # FILTROS
+  # ============================================================
+
+  def filtrar_por_tipo(tipo),
+    do: obtener_todos() |> Enum.filter(&(&1.tipo == tipo))
+
+  def filtrar_por_rango(fi_str, ff_str) do
+    with {:ok, fi, _} <- DateTime.from_iso8601(fi_str),
+         {:ok, ff, _} <- DateTime.from_iso8601(ff_str) do
+
       obtener_todos()
       |> Enum.filter(fn evento ->
         case DateTime.from_iso8601(evento.timestamp) do
-          {:ok, fecha_evento, _} ->
-            DateTime.compare(fecha_evento, fi) != :lt and DateTime.compare(fecha_evento, ff) != :gt
+          {:ok, fecha, _} ->
+            DateTime.compare(fecha, fi) != :lt and
+            DateTime.compare(fecha, ff) != :gt
+
           _ -> false
         end
       end)
+
     else
       _ -> {:error, :fechas_invalidas}
     end
   end
 
-  @doc "Busca eventos que contengan un texto en el mensaje o datos."
-  def buscar_por_texto(texto),
-    do: obtener_todos() |> Enum.filter(&(String.contains?(&1.mensaje, texto) or String.contains?(&1.datos, texto)))
+  def buscar_por_texto(texto) do
+    obtener_todos()
+    |> Enum.filter(fn e ->
+      String.contains?(e.mensaje, texto) or
+        Jason.encode!(e.datos) |> String.contains?(texto)
+    end)
+  end
 
-  @doc "Filtra eventos por nombre de nodo."
-  def filtrar_por_nodo(nombre_nodo),
-    do: obtener_todos() |> Enum.filter(&(&1.nodo == nombre_nodo))
+  def filtrar_por_nodo(nodo),
+    do: obtener_todos() |> Enum.filter(&(&1.nodo == nodo))
 
   # ============================================================
-  # EXPORTACIÓN DE LOGS
+  # EXPORTACIONES
   # ============================================================
 
-  @doc "Exporta los registros actuales a un archivo JSON."
   def exportar_a_json(destino \\ "logs/audit_export.json") do
     eventos = obtener_todos()
     File.mkdir_p!("logs")
-    File.write!(destino, Jason.encode!(eventos) |> Jason.Formatter.pretty_print())
+    File.write!(destino, Jason.encode!(eventos, pretty: true))
     {:ok, destino}
   end
 
-  @doc "Exporta los registros actuales a un archivo TXT legible."
   def exportar_a_txt(destino \\ "logs/audit_export.txt") do
     eventos = obtener_todos()
 
@@ -88,8 +125,8 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.AuditService do
         """
         [#{e.timestamp}] (#{e.tipo}) #{e.mensaje}
         Nodo: #{e.nodo}
-        Datos: #{e.datos}
-        ------------------------------
+        Datos: #{Jason.encode!(e.datos)}
+        ----------------------------------------
         """
       end)
       |> Enum.join("\n")
@@ -98,23 +135,4 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.AuditService do
     File.write!(destino, contenido)
     {:ok, destino}
   end
-
-  # ============================================================
-  # FUNCIONES AUXILIARES
-  # ============================================================
-
-  defp parsear_evento(row) do
-    %{
-      id: row["id"],
-      timestamp: row["timestamp"],
-      nodo: row["nodo"],
-      tipo: parse_atom(row["tipo"]),
-      mensaje: row["mensaje"],
-      datos: row["datos"]
-    }
-  end
-
-  defp parse_atom(nil), do: :info
-  defp parse_atom(""), do: :info
-  defp parse_atom(str), do: String.to_atom(str)
 end
