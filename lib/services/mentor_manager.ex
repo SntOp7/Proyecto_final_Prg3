@@ -129,12 +129,20 @@ defmodule ProyectoFinalPrg3.Services.MentorManager do
   end
 
   def asignar_a_equipo(id_mentor, nombre_equipo) do
-    with {:ok, mentor} <- obtener_mentor(id_mentor),
-         {:ok, equipo} <- TeamManager.obtener_equipo(nombre_equipo) do
-      equipo_actualizado = %{equipo | id_mentor: mentor.id}
-      TeamManager.actualizar_equipo(equipo_actualizado)
-      BroadcastService.notificar(:mentor_asignado_equipo, %{mentor: mentor.id, equipo: equipo.id})
-      {:ok, mentor}
+    with {:ok, mentor} <- MentorStore.obtener_por_id(id_mentor),
+         {:ok, _equipo} <- TeamManager.obtener_equipo(nombre_equipo) do
+      case TeamManager.actualizar_datos(nombre_equipo, %{id_mentor: mentor.id}) do
+        {:ok, equipo_actualizado} ->
+          BroadcastService.notificar(:mentor_asignado_equipo, %{
+            mentor_id: mentor.id,
+            equipo_id: equipo_actualizado.id
+          })
+
+          {:ok, equipo_actualizado}
+
+        error ->
+          error
+      end
     else
       {:error, razon} -> {:error, razon}
     end
