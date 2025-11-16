@@ -26,7 +26,7 @@ defmodule ProyectoFinalPrg3.Domain.Progress do
     - `:adjuntos` — Lista de URLs o archivos relacionados.
 
   """
-
+  @derive Jason.Encoder
   defstruct [
     :id,
     :proyecto_id,

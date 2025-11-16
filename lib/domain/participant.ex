@@ -54,7 +54,7 @@ defmodule ProyectoFinalPrg3.Domain.Participant do
   Eliminamos atributos innecesarios como:
   `experiencia`, `fecha_registro`, `token_sesion`, `perfil_url`, etc.
   """
-
+  @derive Jason.Encoder
   # ============================================================
   # DEFINICIÓN DEL STRUCT
   # ============================================================

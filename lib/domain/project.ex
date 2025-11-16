@@ -27,7 +27,7 @@ defmodule ProyectoFinalPrg3.Domain.Project do
   - Los avances NO se guardan en este struct.
   - La retroalimentación y comentarios se manejan por `Progress`.
   """
-
+  @derive Jason.Encoder
   defstruct [
     :id,
     :nombre,

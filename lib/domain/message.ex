@@ -6,13 +6,18 @@ defmodule ProyectoFinalPrg3.Domain.Message do
   requeridos para la comunicación por canales según los requisitos
   del proyecto académico.
   """
-
+  @derive Jason.Encoder
   defstruct [
-    :id,           # Identificador único del mensaje
-    :remitente_id, # ID del participante que envía el mensaje
-    :canal_id,     # ID del canal donde se publica
-    :contenido,    # Texto del mensaje
-    :timestamp     # Fecha y hora de envío
+    # Identificador único del mensaje
+    :id,
+    # ID del participante que envía el mensaje
+    :remitente_id,
+    # ID del canal donde se publica
+    :canal_id,
+    # Texto del mensaje
+    :contenido,
+    # Fecha y hora de envío
+    :timestamp
   ]
 
   @doc """

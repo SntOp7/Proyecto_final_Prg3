@@ -24,7 +24,7 @@ defmodule ProyectoFinalPrg3.Domain.Team do
   - No incluye historial, puntaje ni canal de chat.
   - La mensajería se maneja por BroadcastService, no por el dominio.
   """
-
+  @derive Jason.Encoder
   defstruct [
     :id,
     :nombre,

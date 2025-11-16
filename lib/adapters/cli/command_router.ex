@@ -59,19 +59,18 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRouter do
   defp es_publico?(_), do: false
 
   defp verificar_acceso(command_info) do
-    usuario = SessionManager.obtener_participante_actual()
-
-    cond do
-      es_publico?(command_info) ->
+  if es_publico?(command_info) do
+    :ok
+  else
+    case SessionManager.obtener_participante_actual() do
+      {:ok, _participante} ->
         :ok
 
-      SessionManager.sesion_activa?(usuario.id) ->
-        :ok
-
-      true ->
+      {:error, _} ->
         {:error, "Debes iniciar sesión para ejecutar este comando."}
     end
   end
+end
 
   # ============================================================
   # VERIFICACIÓN DE PERMISOS POR ROL

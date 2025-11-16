@@ -6,14 +6,20 @@ defmodule ProyectoFinalPrg3.Domain.Mentor do
   requeridos por los módulos de autenticación, registro y emisión de
   retroalimentación, según los requisitos del proyecto académico.
   """
-
+  @derive Jason.Encoder
   defstruct [
-    :id,          # Identificador único del mentor
-    :nombre,      # Nombre completo del mentor
-    :correo,      # Correo electrónico
-    :contrasena,  # Contraseña para autenticación
-    :rol,         # Rol (mentor)
-    :especialidad # Área profesional o técnica del mentor
+    # Identificador único del mentor
+    :id,
+    # Nombre completo del mentor
+    :nombre,
+    # Correo electrónico
+    :correo,
+    # Contraseña para autenticación
+    :contrasena,
+    # Rol (mentor)
+    :rol,
+    # Área profesional o técnica del mentor
+    :especialidad
   ]
 
   @doc """

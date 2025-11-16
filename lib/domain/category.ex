@@ -9,10 +9,15 @@ defmodule ProyectoFinalPrg3.Domain.Category do
   necesarios para satisfacer los requisitos del dominio.
   """
 
+  @derive Jason.Encoder
+
   defstruct [
-    :id,          # Identificador único de la categoría
-    :nombre,      # Nombre de la categoría (Educación, Salud, etc.)
-    :descripcion  # Explicación breve del propósito o enfoque
+    # Identificador único de la categoría
+    :id,
+    # Nombre de la categoría (Educación, Salud, etc.)
+    :nombre,
+    # Explicación breve del propósito o enfoque
+    :descripcion
   ]
 
   @doc """

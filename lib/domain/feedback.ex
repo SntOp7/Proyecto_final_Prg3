@@ -5,13 +5,18 @@ defmodule ProyectoFinalPrg3.Domain.Feedback do
   Esta retroalimentación es crucial para guiar a los equipos
   en la mejora de sus propuestas y soluciones.
   """
-
+  @derive Jason.Encoder
   defstruct [
-    :id,             # Identificador único de la retroalimentación
-    :mentor_id,      # ID del mentor que emite el comentario
-    :proyecto_id,    # ID del proyecto al que se dirige la retroalimentación
-    :contenido,      # Texto del comentario
-    :fecha_creacion  # Fecha en que se registró el feedback
+    # Identificador único de la retroalimentación
+    :id,
+    # ID del mentor que emite el comentario
+    :mentor_id,
+    # ID del proyecto al que se dirige la retroalimentación
+    :proyecto_id,
+    # Texto del comentario
+    :contenido,
+    # Fecha en que se registró el feedback
+    :fecha_creacion
   ]
 
   @doc """
