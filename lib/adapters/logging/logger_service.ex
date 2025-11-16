@@ -1,7 +1,12 @@
 defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
   @moduledoc """
-  Servicio de logging del sistema. Registra eventos en `logs/event_log.csv`
-  y permite exportarlos a JSON o TXT.
+  Servicio de logging central del sistema.
+
+  - Registra eventos en logs/event_log.csv
+  - Muestra en consola con colores
+  - Exporta a JSON o TXT
+
+  No realiza filtros ni análisis (eso es trabajo de AuditService).
   """
 
   @log_dir "logs"
@@ -11,7 +16,7 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
   # API PÚBLICA
   # ============================================================
 
-  def registrar_evento(mensaje, data \\ %{}) when is_binary(mensaje) do
+  def registrar_evento(mensaje, data \\ %{}) do
     evento = construir_evento(mensaje, data)
     guardar_en_archivo(evento)
     mostrar_en_consola(evento)
@@ -19,14 +24,15 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
   end
 
   def obtener_eventos_recientes(limite \\ 20) do
-    unless File.exists?(@log_file) do
-      []
-    else
+    if File.exists?(@log_file) do
       @log_file
       |> File.stream!()
       |> Stream.drop(1)
-      |> Enum.map(&parse_linea_csv/1)
+      |> Enum.map(&parse_line/1)
+      |> Enum.filter(&is_map/1)
       |> Enum.take(-limite)
+    else
+      []
     end
   end
 
@@ -34,46 +40,30 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
     File.rm(@log_file)
     File.mkdir_p!(@log_dir)
     inicializar_csv()
-    :ok
   end
 
-  # ============================================================
-  # EXPORTACIONES
-  # ============================================================
-
   def exportar_a_json(ruta_salida) do
-    log_path = @log_file
+    eventos =
+      obtener_eventos_recientes(99999)
 
-    with true <- File.exists?(log_path),
-         {:ok, contenido} <- File.read(log_path) do
-
-      eventos =
-        contenido
-        |> String.split("\n", trim: true)
-        |> Enum.drop(1)
-        |> Enum.map(&parse_linea_csv/1)
-
-      File.write!(ruta_salida, Jason.encode!(eventos, pretty: true))
-      {:ok, ruta_salida}
-
-    else
-      _ -> {:error, :no_existe_log}
-    end
+    File.write!(ruta_salida, Jason.encode!(eventos, pretty: true))
+    {:ok, ruta_salida}
   end
 
   def exportar_a_txt(ruta_salida) do
-    case File.exists?(@log_file) do
-      true ->
-        File.cp!(@log_file, ruta_salida)
-        {:ok, ruta_salida}
+    contenido =
+      obtener_eventos_recientes(99999)
+      |> Enum.map(fn e ->
+        "[#{e.timestamp}] (#{e.tipo}) #{e.mensaje} — #{Jason.encode!(e.datos)}"
+      end)
+      |> Enum.join("\n")
 
-      false ->
-        {:error, :no_existe_log}
-    end
+    File.write!(ruta_salida, contenido)
+    {:ok, ruta_salida}
   end
 
   # ============================================================
-  # PRIVADAS
+  # PRIVADO
   # ============================================================
 
   defp construir_evento(mensaje, data) do
@@ -81,9 +71,9 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
       id: UUID.uuid4(),
       timestamp: DateTime.utc_now() |> DateTime.to_iso8601(),
       nodo: Atom.to_string(Node.self()),
-      mensaje: mensaje,
       tipo: Map.get(data, :tipo, inferir_tipo(mensaje)),
-      datos: Jason.encode!(data)
+      mensaje: mensaje,
+      datos: data
     }
   end
 
@@ -91,82 +81,94 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
     File.mkdir_p!(@log_dir)
     unless File.exists?(@log_file), do: inicializar_csv()
 
-    File.open!(@log_file, [:append], fn file ->
-      IO.write(file, evento_a_csv(evento))
-    end)
-  end
+    json =
+      if is_binary(evento.datos),
+        do: evento.datos,
+        else: Jason.encode!(evento.datos)
 
-  defp mostrar_en_consola(%{tipo: :error} = e) do
-    IO.puts(IO.ANSI.red() <> "[ERROR] #{e.timestamp} | #{e.mensaje}" <> IO.ANSI.reset())
-  end
-
-  defp mostrar_en_consola(%{tipo: :warning} = e) do
-    IO.puts(IO.ANSI.yellow() <> "[WARN]  #{e.timestamp} | #{e.mensaje}" <> IO.ANSI.reset())
-  end
-
-  defp mostrar_en_consola(e) do
-    IO.puts(IO.ANSI.cyan() <> "[INFO]  #{e.timestamp} | #{e.mensaje}" <> IO.ANSI.reset())
-  end
-
-  defp inicializar_csv do
-    encabezados = ["id", "timestamp", "nodo", "tipo", "mensaje", "datos"]
-    File.write!(@log_file, Enum.join(encabezados, ",") <> "\n")
-  end
-
-  defp evento_a_csv(e) do
-    [
-      escape(e.id),
-      escape(e.timestamp),
-      escape(e.nodo),
-      escape(to_string(e.tipo)),
-      escape(e.mensaje),
-      escape(e.datos)
+    fila_vals = [
+      evento.id,
+      evento.timestamp,
+      evento.nodo,
+      evento.tipo,
+      evento.mensaje,
+      json
     ]
-    |> Enum.join(",")
-    |> Kernel.<>("\n")
+
+    linea =
+      fila_vals
+      |> Enum.map(&escape/1)
+      |> Enum.join(",")
+
+    linea = linea <> "\n"
+
+    File.write!(@log_file, linea, [:append])
   end
 
-  # ============================================================
-  # CSV PARSER ROBUSTO
-  # ============================================================
-
-  defp parse_linea_csv(linea) do
+  defp parse_line(linea) do
     campos =
-      linea
-      |> String.trim()
-      |> split_csv_line()
+      Regex.scan(~r/"([^"]*)"|([^,]+)/, linea)
+      |> Enum.map(fn
+        [_, quoted, _] when quoted != nil -> quoted
+        [_, _, normal] -> normal
+      end)
 
-    [id, timestamp, nodo, tipo, mensaje, datos_json] = campos
+    case campos do
+      [id, ts, nodo, tipo, msg, json] ->
+        datos =
+          case Jason.decode(json) do
+            {:ok, map} -> map
+            _ -> %{}
+          end
 
-    %{
-      id: id,
-      timestamp: timestamp,
-      nodo: nodo,
-      tipo: tipo,
-      mensaje: mensaje,
-      datos: Jason.decode!(datos_json)
-    }
-  end
+        %{
+          id: id,
+          timestamp: ts,
+          nodo: nodo,
+          tipo: safe_atom(tipo),
+          mensaje: msg,
+          datos: datos
+        }
 
-  # Manejo correcto de campos entre comillas
-  defp split_csv_line(line) do
-    Regex.scan(~r/"([^"]*)"|([^,]+)/, line)
-    |> Enum.map(fn
-      [_, quoted, _] when quoted != nil -> quoted
-      [_, _, unquoted]                  -> unquoted
-    end)
+      _ ->
+        :invalid
+    end
   end
 
   defp escape(v) do
     v
+    |> to_string()
     |> String.replace("\"", "'")
-    |> then(&"\"#{&1}\"")
+    |> (&("\"" <> &1 <> "\"")).()
   end
+
+  defp safe_atom(v),
+    do:
+      (try do
+         String.to_existing_atom(v)
+       rescue
+         _ ->
+           :info
+       end)
+
+  defp inicializar_csv do
+    encabezado = "id,timestamp,nodo,tipo,mensaje,datos\n"
+    File.write!(@log_file, encabezado)
+  end
+
+  defp mostrar_en_consola(%{tipo: :error} = e),
+    do: IO.puts(IO.ANSI.red() <> "[ERROR] #{e.timestamp} | #{e.mensaje}" <> IO.ANSI.reset())
+
+  defp mostrar_en_consola(%{tipo: :warning} = e),
+    do: IO.puts(IO.ANSI.yellow() <> "[WARN] #{e.timestamp} | #{e.mensaje}" <> IO.ANSI.reset())
+
+  defp mostrar_en_consola(e),
+    do: IO.puts(IO.ANSI.cyan() <> "[INFO] #{e.timestamp} | #{e.mensaje}" <> IO.ANSI.reset())
 
   defp inferir_tipo(msg) do
     cond do
-      String.contains?(msg, ["error", "fallo", "excepción"]) -> :error
-      String.contains?(msg, ["advertencia", "alerta"]) -> :warning
+      Regex.match?(~r/error|fallo/i, msg) -> :error
+      Regex.match?(~r/advertencia|alerta/i, msg) -> :warning
       true -> :info
     end
   end

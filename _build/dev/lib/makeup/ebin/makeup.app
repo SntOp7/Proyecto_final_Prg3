@@ -14,7 +14,7 @@
                         'Elixir.Makeup.Token.Utils.Hierarchy']},
               {optional_applications,[]},
               {applications,[kernel,stdlib,elixir,eex,nimble_parsec]},
-              {description,"Syntax highlighter for source code in the style of Pygments.\n"},
+              {description,"Syntax highlighter for source code in the style of Pygments.\r\n"},
               {registered,[]},
               {vsn,"1.2.1"},
               {mod,{'Elixir.Makeup.Application',[]}}]}.
