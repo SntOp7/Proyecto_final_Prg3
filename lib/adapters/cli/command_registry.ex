@@ -20,7 +20,7 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRegistry do
 
     "/register" => %{
       description: "Registrar un nuevo usuario",
-      usage: "/register nombre=Juan correo=juan@gmail.com rol=participante",
+      usage: "/register nombre=JuanJose correo=juan@gmail.com username=JuanJo123 rol=participante/mentor exp=3",
       service: :auth_service,
       action: :register,
       required_permission: nil
@@ -116,7 +116,7 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRegistry do
 
     "/delete_team" => %{
       description: "Eliminar un equipo del sistema",
-      usage: "/delete_team equipo=Titanes",
+      usage: "/delete_team id_equipo=Titanes",
       service: :admin_manager,
       action: :delete_team,
       required_permission: :eliminar_equipo
