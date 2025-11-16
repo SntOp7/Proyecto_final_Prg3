@@ -10,7 +10,6 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
   alias ProyectoFinalPrg3.Adapters.Security.SessionManager
 
   alias ProyectoFinalPrg3.Services.{
-    AuthService,
     BroadcastService,
     ParticipantManager,
     PermissionService
@@ -23,7 +22,6 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
   def crear_equipo(nombre, categoria, descripcion) do
     with {:ok, usuario} <- SessionManager.obtener_participante_actual(),
          true <- PermissionService.autorizado?(usuario.id, :crear_equipo) do
-
       case TeamStore.obtener_equipo(nombre) do
         nil ->
           equipo =
@@ -32,9 +30,12 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
               nombre,
               descripcion,
               categoria,
-              nil,     # id_proyecto
-              nil,     # id_mentor
-              [],      # participantes
+              # id_proyecto
+              nil,
+              # id_mentor
+              nil,
+              # participantes
+              [],
               DateTime.utc_now(),
               :activo
             )
@@ -47,10 +48,36 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
         _ ->
           {:error, :equipo_ya_existente}
       end
-
     else
       false -> {:error, :permiso_denegado}
       error -> error
+    end
+  end
+
+  def actualizar_datos(nombre_equipo, cambios) when is_map(cambios) do
+    with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
+      # Solo actualiza campos que realmente existen en el struct Team
+      cambios_validos =
+        cambios
+        |> Map.take([
+          :nombre,
+          :descripcion,
+          :categoria,
+          :id_proyecto,
+          :id_mentor,
+          :participantes,
+          :fecha_creacion,
+          :estado
+        ])
+
+      equipo_actualizado = Map.merge(equipo, cambios_validos)
+
+      TeamStore.guardar_equipo(equipo_actualizado)
+      BroadcastService.notificar(:equipo_actualizado, equipo_actualizado)
+
+      {:ok, equipo_actualizado}
+    else
+      {:error, razon} -> {:error, razon}
     end
   end
 
@@ -81,7 +108,6 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
   def agregar_participante(nombre_equipo, %Participant{} = participante) do
     with {:ok, equipo} <- obtener_equipo(nombre_equipo),
          false <- participante_en_equipo?(equipo, participante.id) do
-
       equipo_actualizado = %{
         equipo
         | participantes: [participante.id | equipo.participantes]
@@ -93,7 +119,6 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
       BroadcastService.notificar(:equipo_actualizado, equipo_actualizado)
 
       {:ok, equipo_actualizado}
-
     else
       true -> {:error, :ya_en_equipo}
       error -> error
@@ -101,10 +126,9 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
   end
 
   def unirse_a_equipo(nombre_equipo, participante) do
-    with {:ok, usuario} <- AuthService.obtener_participante(participante.id),
+    with {:ok, usuario} <- ParticipantManager.obtener_participante(participante.id),
          {:ok, equipo} <- obtener_equipo(nombre_equipo),
          false <- participante_en_equipo?(equipo, usuario.id) do
-
       equipo_actualizado = %{
         equipo
         | participantes: [usuario.id | equipo.participantes]
@@ -116,7 +140,6 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
       BroadcastService.notificar(:miembro_unido, equipo_actualizado)
 
       {:ok, equipo_actualizado}
-
     else
       true -> {:error, :ya_es_miembro}
       err -> err
@@ -136,7 +159,6 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
       BroadcastService.notificar(:equipo_actualizado, equipo_actualizado)
 
       {:ok, equipo_actualizado}
-
     else
       err -> err
     end
@@ -150,14 +172,12 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
     with {:ok, usuario} <- SessionManager.obtener_participante_actual(),
          true <- PermissionService.autorizado?(usuario.id, :disolver_equipo),
          {:ok, equipo} <- obtener_equipo(nombre_equipo) do
-
       equipo_actualizado = %{equipo | estado: :inactivo}
 
       TeamStore.guardar_equipo(equipo_actualizado)
       BroadcastService.notificar(:equipo_disuelto, equipo_actualizado)
 
       {:ok, :equipo_disuelto}
-
     else
       false -> {:error, :permiso_denegado}
       err -> err
@@ -172,14 +192,12 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
     with {:ok, usuario} <- SessionManager.obtener_participante_actual(),
          true <- PermissionService.autorizado?(usuario.id, :asignar_mentor),
          {:ok, equipo} <- obtener_equipo(nombre_equipo) do
-
       actualizado = %{equipo | id_mentor: id_mentor}
 
       TeamStore.guardar_equipo(actualizado)
       BroadcastService.notificar(:mentor_asignado, actualizado)
 
       {:ok, actualizado}
-
     else
       false -> {:error, :permiso_denegado}
       err -> err
@@ -194,7 +212,6 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
       BroadcastService.notificar(:proyecto_vinculado, actualizado)
 
       {:ok, actualizado}
-
     else
       err -> err
     end
