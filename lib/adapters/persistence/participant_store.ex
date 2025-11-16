@@ -1,299 +1,134 @@
 defmodule ProyectoFinalPrg3.Adapters.Persistence.ParticipantStore do
   @moduledoc """
-  Módulo encargado de la persistencia de los participantes del sistema en archivos CSV.
-  Administra las operaciones CRUD y convierte los datos entre estructuras `%Participant{}` y texto CSV.
+  Persistencia de participantes alineada al dominio Participant.
 
-  Este adaptador garantiza la independencia entre la capa de negocio y la persistencia.
+  Guarda únicamente los campos definidos en la estructura oficial:
 
-  Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
-  Fecha de creación: 2025-10-27
-  Licencia: GNU GPLv3
+  id, nombre, correo, username, contrasena, rol, equipo_id, estado, mensajes
   """
-
-  @behaviour ProyectoFinalPrg3.Adapters.Persistence.ParticipantStoreBehaviour
 
   alias ProyectoFinalPrg3.Domain.Participant
 
-  @ruta_archivo Path.join([File.cwd!(), "data", "participantes.csv"])
-  @headers "id,nombre,correo,username,rol,equipo_id,experiencia,fecha_registro,estado,ultima_conexion,mensajes,canales_asignados,token_sesion,perfil_url\n"
+  @ruta Path.join([File.cwd!(), "data", "participantes.csv"])
+
+  @headers "id,nombre,correo,username,contrasena,rol,equipo_id,estado,mensajes\n"
 
   # ============================================================
-  # FUNCIONES PRINCIPALES CRUD
+  # CRUD PRINCIPAL
   # ============================================================
 
-  @doc """
-  Guarda o actualiza un participante en el archivo CSV.
-  Si ya existe un participante con el mismo ID, se reemplaza.
-  """
-  def guardar_participante(%Participant{} = participante) do
-    participantes =
+  def guardar_participante(%Participant{} = p) do
+    lista =
       listar_participantes()
-      |> Enum.reject(&(&1.id == participante.id))
-      |> Kernel.++([participante])
+      |> Enum.reject(&(&1.id == p.id))
+      |> Kernel.++([p])
 
-    escribir_participantes(participantes)
-    {:ok, participante}
+    escribir(lista)
+    {:ok, p}
   end
 
-  @doc """
-  Obtiene un participante a partir de su ID.
-  """
   def obtener_participante(id) do
     listar_participantes()
-    |> Enum.find(fn p -> p.id == id end)
+    |> Enum.find(&(&1.id == id))
   end
 
-  @doc """
-  Busca un participante por su correo electrónico.
-  """
   def buscar_por_correo(correo) do
     listar_participantes()
-    |> Enum.find(fn p -> p.correo == correo end)
+    |> Enum.find(&(&1.correo == correo))
   end
 
-  @doc """
-  Lista todos los participantes almacenados.
-  """
+  def eliminar_participante(id) do
+    nuevos =
+      listar_participantes()
+      |> Enum.reject(&(&1.id == id))
+
+    escribir(nuevos)
+    :ok
+  end
+
   def listar_participantes do
-    if File.exists?(@ruta_archivo) do
-      File.stream!(@ruta_archivo)
+    if File.exists?(@ruta) do
+      File.stream!(@ruta)
       |> Stream.drop(1)
-      |> Stream.map(&parse_csv_line/1)
+      |> Stream.map(&parse_line/1)
       |> Enum.to_list()
     else
       []
     end
-  end
-
-  @doc """
-  Elimina un participante por su ID del archivo CSV.
-  """
-  def eliminar_participante(id) do
-    participantes = listar_participantes()
-
-    # Verificamos si existe
-    if Enum.any?(participantes, &(&1.id == id)) do
-      participantes_filtrados =
-        participantes
-        |> Enum.reject(fn p -> p.id == id end)
-
-      escribir_participantes(participantes_filtrados)
-      :ok
-    else
-      {:error, :no_encontrado}
-    end
+  rescue
+    _ -> []
   end
 
   # ============================================================
-  # FUNCIONES DE SERIALIZACIÓN / DESERIALIZACIÓN
+  # SERIALIZACIÓN
   # ============================================================
 
-  defp parse_csv_line(line) do
+  defp parse_line(line) do
     [
       id,
       nombre,
       correo,
       username,
+      contrasena,
       rol,
       equipo_id,
-      experiencia,
-      fecha_str,
-      estado_str,
-      ultima_conexion_str,
-      mensajes_str,
-      canales_str,
-      token,
-      perfil_url
+      estado,
+      mensajes_str
     ] =
       line
       |> String.trim()
-      |> String.split(",", parts: 14)
+      |> String.split(",", parts: 9)
 
     %Participant{
       id: id,
       nombre: nombre,
       correo: correo,
       username: username,
-      rol: rol,
+      contrasena: contrasena,
+      rol: String.to_atom(rol),
       equipo_id: parse_nil(equipo_id),
-      experiencia: experiencia,
-      fecha_registro: parse_datetime(fecha_str),
-      estado: parse_estado(estado_str),
-      ultima_conexion: parse_datetime(ultima_conexion_str),
-      mensajes: parse_json_list(mensajes_str),
-      canales_asignados: parse_list(canales_str),
-      token_sesion: parse_nil(token),
-      perfil_url: parse_nil(perfil_url)
+      estado: String.to_atom(estado),
+      mensajes: parse_mensajes(mensajes_str)
     }
   end
 
-  defp escribir_participantes(participantes) do
+  defp escribir(lista) do
     contenido =
-      participantes
-      |> Enum.map(&to_csv_line/1)
+      lista
+      |> Enum.map(&to_csv/1)
       |> Enum.join("\n")
 
     File.mkdir_p!("data")
-    File.write!(@ruta_archivo, @headers <> contenido)
+    File.write!(@ruta, @headers <> contenido <> "\n")
   end
 
-  defp to_csv_line(%Participant{} = p) do
+  defp to_csv(%Participant{} = p) do
     [
       p.id,
       sanitize(p.nombre),
       p.correo,
       sanitize(p.username),
-      p.rol,
+      p.contrasena,
+      Atom.to_string(p.rol),
       p.equipo_id || "",
-      sanitize(p.experiencia || ""),
-      serialize_datetime(p.fecha_registro),
-      Atom.to_string(p.estado || :activo),
-      serialize_datetime(p.ultima_conexion),
-      serialize_json_list(p.mensajes),
-      serialize_list(p.canales_asignados),
-      p.token_sesion || "",
-      p.perfil_url || ""
+      Atom.to_string(p.estado),
+      serialize_mensajes(p.mensajes)
     ]
     |> Enum.join(",")
   end
 
   # ============================================================
-  # FUNCIONES AUXILIARES DE FORMATEO
+  # UTILIDADES
   # ============================================================
 
-  defp sanitize(texto) when is_binary(texto) do
-    texto
-    |> String.replace(",", ";")
-    |> String.replace("\n", " ")
-  end
+  defp sanitize(text), do: text |> String.replace(",", ";") |> String.replace("\n", " ")
 
   defp parse_nil(""), do: nil
-  defp parse_nil(valor), do: valor
+  defp parse_nil(v), do: v
 
-  defp parse_estado("activo"), do: :activo
-  defp parse_estado("pendiente"), do: :pendiente
-  defp parse_estado("desconectado"), do: :desconectado
-  defp parse_estado(_), do: :activo
+  # mensajes almacenados como texto simple "msg1|msg2|msg3"
+  defp parse_mensajes(""), do: []
+  defp parse_mensajes(str), do: String.split(str, "|")
 
-  # Manejo de fechas y tiempos
-  defp parse_datetime(""), do: nil
-
-  defp parse_datetime(str) do
-    case DateTime.from_iso8601(str) do
-      {:ok, dt, _} -> dt
-      _ -> nil
-    end
-  end
-
-  defp serialize_datetime(nil), do: ""
-  defp serialize_datetime(%DateTime{} = dt), do: DateTime.to_iso8601(dt)
-
-  # Manejo de listas simples (ej. canales)
-  defp parse_list(""), do: []
-  defp parse_list(str), do: String.split(str, ";")
-
-  defp serialize_list(lista) when is_list(lista), do: Enum.join(lista, ";")
-  defp serialize_list(_), do: ""
-
-  # Manejo de listas complejas (mensajes)
-  defp parse_json_list(""), do: []
-
-  defp parse_json_list(str) do
-    str
-    |> String.split("|")
-    |> Enum.map(fn item ->
-      case String.split(item, "~", parts: 2) do
-        [msg, timestamp] -> %{mensaje: msg, timestamp: parse_datetime(timestamp)}
-        [msg] -> %{mensaje: msg, timestamp: nil}
-      end
-    end)
-  end
-
-  defp serialize_json_list(lista) when is_list(lista) do
-    lista
-    |> Enum.map(fn %{mensaje: msg, timestamp: ts} ->
-      "#{sanitize(msg)}~#{serialize_datetime(ts)}"
-    end)
-    |> Enum.join("|")
-  end
-
-  defp serialize_json_list(_), do: ""
-
-  def actualizar_estado(id_participante, nuevo_estado) do
-  participantes = listar_participantes()
-
-  case Enum.find(participantes, &(&1.id == id_participante)) do
-    nil ->
-      {:error, :no_encontrado}
-
-    participante ->
-      actualizado = %{participante | estado: nuevo_estado}
-      nuevos =
-        participantes
-        |> Enum.reject(&(&1.id == id_participante))
-        |> Kernel.++([actualizado])
-
-      escribir_participantes(nuevos)
-      :ok
-  end
-end
-
-
-# ============================================================
-# MANEJO DE CONTRASEÑAS CIFRADAS (archivo separado)
-# ============================================================
-
-@pass_file "data/participants_passwords.csv"
-
-@doc """
-Guarda la contraseña cifrada asociada a un correo.
-Si el correo ya existe, la línea se reemplaza.
-"""
-def guardar_contrasena(correo, hash) when is_binary(correo) and is_binary(hash) do
-  File.mkdir_p!("data")
-
-  # Crear archivo si no existe
-  unless File.exists?(@pass_file) do
-    File.write!(@pass_file, "correo,hash\n")
-  end
-
-  contenido =
-    @pass_file
-    |> File.read!()
-    |> String.split("\n", trim: true)
-    |> Enum.drop(1) # quitar encabezado
-    |> Enum.reject(fn linea ->
-      String.starts_with?(linea, "#{correo},")
-    end)
-
-  nuevo = Enum.join(contenido, "\n") <>
-          "\n#{correo},#{hash}\n"
-
-  File.write!(@pass_file, "correo,hash\n" <> nuevo)
-
-  :ok
-end
-
-@doc """
-Obtiene la contraseña cifrada de un usuario por correo.
-Retorna nil si no existe.
-"""
-def obtener_contrasena(correo) when is_binary(correo) do
-  if File.exists?(@pass_file) do
-    @pass_file
-    |> File.stream!()
-    |> Stream.drop(1)
-    |> Enum.find_value(nil, fn linea ->
-      case String.split(linea, ",", parts: 2) do
-        [c, hash] when c == correo -> String.trim(hash)
-        _ -> nil
-      end
-    end)
-  else
-    nil
-  end
-end
-
-
-
+  defp serialize_mensajes(lista) when is_list(lista), do: Enum.join(lista, "|")
 end
