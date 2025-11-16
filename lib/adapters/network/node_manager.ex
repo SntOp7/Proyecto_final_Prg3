@@ -1,6 +1,28 @@
 defmodule ProyectoFinalPrg3.Adapters.Network.NodeManager do
   @moduledoc """
-  (… igual que tu versión …)
+  Adaptador encargado de gestionar la comunicación entre nodos del cluster BEAM.
+
+  Este módulo permite enviar mensajes a nodos remotos mediante RPC, verificar el
+  estado del cluster y establecer conexiones manuales entre nodos definidos por
+  configuración. Constituye la base para la mensajería distribuida utilizada por
+  `MessageBroadcast`.
+
+  Es utilizado principalmente por:
+
+    - `MessageBroadcast`
+    - `ClusterConfig`
+    - Servicios que requieren coordinación entre nodos
+
+  ## Funciones principales
+    - `enviar_a_nodos/2`: Difunde un mensaje a todos los nodos conectados.
+    - `enviar_directo/2`: Envía un mensaje a un nodo específico mediante RPC.
+    - `recibir_mensaje/1`: Maneja la recepción de mensajes remotos.
+    - `estado_cluster/0`: Retorna el estado actual del cluster.
+    - `conectarse_a_nodos/0`: Conecta a nodos definidos en configuración.
+
+  Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
+  Fecha: 2025-10-27
+  Licencia: GNU GPLv3
   """
 
   @behaviour ProyectoFinalPrg3.Adapters.Network.NodeManagerBehaviour
@@ -28,14 +50,14 @@ defmodule ProyectoFinalPrg3.Adapters.Network.NodeManager do
 
   def enviar_directo(nodo, payload) when is_atom(nodo) do
     if nodo in Node.list() do
-
       respuesta =
         case :rpc.call(nodo, __MODULE__, :recibir_mensaje, [payload]) do
           {:badrpc, razon} ->
             LoggerService.registrar_evento("Error RPC", %{nodo: nodo, razon: inspect(razon)})
             {:error, :rpc_fallo}
 
-          ok -> ok
+          ok ->
+            ok
         end
 
       LoggerService.registrar_evento("Mensaje enviado a nodo", %{
