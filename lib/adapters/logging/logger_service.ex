@@ -146,4 +146,37 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
     registrar_evento("LoggerService inicializado", %{estado: :ok})
     :ok
   end
+
+  def exportar_a_json(ruta_salida) do
+  log_path = Path.join([File.cwd!(), "data", "logs", "eventos.log"])
+
+  with true <- File.exists?(log_path),
+       {:ok, contenido} <- File.read(log_path) do
+    eventos =
+      contenido
+      |> String.split("\n", trim: true)
+      |> Enum.map(&%{evento: &1, timestamp: DateTime.utc_now()})
+
+    json = Jason.encode!(eventos)
+
+    File.write!(ruta_salida, json)
+    {:ok, ruta_salida}
+  else
+    _ -> {:error, :no_existe_log}
+  end
+end
+
+def exportar_a_txt(ruta_salida) do
+  log_path = Path.join([File.cwd!(), "data", "logs", "eventos.log"])
+
+  case File.exists?(log_path) do
+    true ->
+      File.cp!(log_path, ruta_salida)
+      {:ok, ruta_salida}
+
+    false ->
+      {:error, :no_existe_log}
+  end
+end
+
 end

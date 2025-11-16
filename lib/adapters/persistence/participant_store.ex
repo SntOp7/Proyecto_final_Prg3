@@ -218,4 +218,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ParticipantStore do
   end
 
   defp serialize_json_list(_), do: ""
+
+  def actualizar_estado(_id, _estado), do: :ok
+
 end
