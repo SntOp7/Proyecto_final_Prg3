@@ -1,180 +1,143 @@
 defmodule ProyectoFinalPrg3.Adapters.Persistence.TeamStore do
   @moduledoc """
-  Módulo responsable de la persistencia de datos de los equipos en el sistema.
-  Implementa operaciones CRUD sobre un archivo CSV ubicado en la carpeta `data/teams.csv`.
-
-  Este adaptador actúa como interfaz entre la capa de servicios (`TeamManager`)
-  y el almacenamiento físico, asegurando la independencia de la lógica de negocio.
-
-  Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
-  Fecha de creación: 2025-10-25
-  Licencia: GNU GPLv3
+  Persistencia oficial de equipos (Team).
+  Totalmente compatible con el dominio reducido Team.
   """
 
   alias ProyectoFinalPrg3.Domain.Team
 
-  @ruta_archivo Path.join([File.cwd!(), "data", "equipos.csv"])
-  @headers "id,nombre,descripcion,categoria,id_proyecto,id_mentor,participantes,fecha_creacion,estado,canal_chat_id,puntaje,historial\n"
+  @ruta Path.join([File.cwd!(), "data", "equipos.csv"])
 
-  # ============================================================
-  # FUNCIONES PÚBLICAS CRUD
-  # ============================================================
+  @headers "id,nombre,descripcion,categoria,id_proyecto,id_mentor,participantes,fecha_creacion,estado\n"
 
-  @doc """
-  Guarda un equipo nuevo o actualiza uno existente en el archivo CSV.
-  Si el archivo no existe, lo crea automáticamente.
-  """
-  def guardar_equipo(equipo = %Team{}) do
-    equipos = listar_equipos()
+  # -------------------------------------------------------------
+  # CRUD
+  # -------------------------------------------------------------
 
-    equipos_actualizados =
-      equipos
+  def guardar_equipo(%Team{} = equipo) do
+    lista =
+      listar_equipos()
       |> Enum.reject(&(&1.id == equipo.id))
       |> Kernel.++([equipo])
 
-    escribir_equipos(equipos_actualizados)
+    persistir(lista)
     {:ok, equipo}
   end
 
-  @doc """
-  Obtiene un equipo a partir de su nombre.
-  Retorna `nil` si no se encuentra.
-  """
   def obtener_equipo(nombre) do
     listar_equipos()
-    |> Enum.find(fn eq -> eq.nombre == nombre end)
+    |> Enum.find(&(&1.nombre == nombre))
   end
 
   def obtener_equipo_por_id(id) do
     listar_equipos()
-    |> Enum.find(fn eq -> eq.id == id end)
+    |> Enum.find(&(&1.id == id))
   end
 
-  @doc """
-  Lista todos los equipos registrados en el archivo CSV.
-  """
   def listar_equipos do
-    if File.exists?(@ruta_archivo) do
-      File.stream!(@ruta_archivo)
+    if File.exists?(@ruta) do
+      @ruta
+      |> File.stream!()
       |> Stream.drop(1)
-      |> Stream.map(&parse_csv_line/1)
-      |> Enum.to_list()
+      |> Enum.map(&parse_line/1)
     else
       []
     end
   end
 
-  @doc """
-  Elimina un equipo del registro a partir de su nombre.
-  """
   def eliminar_equipo(nombre) do
-    equipos_filtrados =
+    nuevos =
       listar_equipos()
-      |> Enum.reject(fn eq -> eq.nombre == nombre end)
+      |> Enum.reject(&(&1.nombre == nombre))
 
-    escribir_equipos(equipos_filtrados)
+    persistir(nuevos)
     :ok
   end
 
-  # ============================================================
-  # FUNCIONES PRIVADAS DE SERIALIZACIÓN
-  # ============================================================
+  # -------------------------------------------------------------
+  # Serialización
+  # -------------------------------------------------------------
 
-  # Convierte una línea CSV a una estructura %Team{}
-  defp parse_csv_line(line) do
-    [id, nombre, descripcion, categoria, id_proyecto, id_mentor, participantes_str,
-     fecha_str, estado_str, canal_chat_id, puntaje_str, historial_str] =
-      line
-      |> String.trim()
-      |> String.split(",", parts: 12)
+  defp persistir(lista) do
+    File.mkdir_p!("data")
+
+    contenido =
+      lista
+      |> Enum.map(&to_csv/1)
+      |> Enum.join("\n")
+
+    File.write!(@ruta, @headers <> contenido <> "\n")
+  end
+
+  defp to_csv(t) do
+    [
+      t.id,
+      clean(t.nombre),
+      clean(t.descripcion),
+      t.categoria,
+      t.id_proyecto || "",
+      t.id_mentor || "",
+      serialize_list(t.participantes),
+      serialize_dt(t.fecha_creacion),
+      Atom.to_string(t.estado)
+    ]
+    |> Enum.join(",")
+  end
+
+  # -------------------------------------------------------------
+  # Parseo
+  # -------------------------------------------------------------
+
+  defp parse_line(line) do
+    [
+      id,
+      nombre,
+      descripcion,
+      categoria,
+      id_proyecto,
+      id_mentor,
+      participantes,
+      fecha,
+      estado
+    ] = String.split(String.trim(line), ",", parts: 9)
 
     %Team{
       id: id,
       nombre: nombre,
       descripcion: descripcion,
       categoria: categoria,
-      id_proyecto: parse_nil(id_proyecto),
-      id_mentor: parse_nil(id_mentor),
-      participantes: parse_list(participantes_str),
-      fecha_creacion: parse_datetime(fecha_str),
-      estado: parse_estado(estado_str),
-      canal_chat_id: parse_nil(canal_chat_id),
-      puntaje: String.to_integer(puntaje_str),
-      historial: parse_historial(historial_str)
+      id_proyecto: blank(id_proyecto),
+      id_mentor: blank(id_mentor),
+      participantes: parse_list(participantes),
+      fecha_creacion: parse_dt(fecha),
+      estado: String.to_atom(estado)
     }
   end
 
-  # Convierte lista de %Team{} a CSV y guarda el archivo
-  defp escribir_equipos(equipos) do
-    contenido =
-      equipos
-      |> Enum.map(&to_csv_line/1)
-      |> Enum.join("\n")
+  # -------------------------------------------------------------
+  # Utilidades
+  # -------------------------------------------------------------
 
-    File.mkdir_p!("data")
-    File.write!(@ruta_archivo, @headers <> contenido)
+  defp clean(nil), do: ""
+  defp clean(txt), do: txt |> String.replace(",", ";") |> String.replace("\n", " ")
+
+  defp blank(""), do: nil
+  defp blank(v), do: v
+
+  defp serialize_dt(nil), do: ""
+  defp serialize_dt(%DateTime{} = dt), do: DateTime.to_iso8601(dt)
+
+  defp parse_dt(""), do: nil
+  defp parse_dt(str) do
+    case DateTime.from_iso8601(str) do
+      {:ok, dt, _} -> dt
+      _ -> nil
+    end
   end
 
-  # Convierte un equipo a una línea CSV
-  defp to_csv_line(%Team{} = eq) do
-    [
-      eq.id,
-      eq.nombre,
-      sanitize(eq.descripcion),
-      eq.categoria,
-      eq.id_proyecto || "",
-      eq.id_mentor || "",
-      serialize_list(eq.participantes),
-      serialize_datetime(eq.fecha_creacion),
-      Atom.to_string(eq.estado),
-      eq.canal_chat_id || "",
-      Integer.to_string(eq.puntaje),
-      serialize_historial(eq.historial)
-    ]
-    |> Enum.join(",")
-  end
-
-  # ============================================================
-  # FUNCIONES AUXILIARES DE SERIALIZACIÓN/DESERIALIZACIÓN
-  # ============================================================
-
-  defp sanitize(texto) when is_binary(texto) do
-    texto
-    |> String.replace(",", ";")
-    |> String.replace("\n", " ")
-  end
-
-  defp parse_nil(""), do: nil
-  defp parse_nil(valor), do: valor
-
-  defp parse_datetime(""), do: nil
-  defp parse_datetime(str), do: DateTime.from_iso8601(str) |> elem(1)
-
-  defp serialize_datetime(nil), do: ""
-  defp serialize_datetime(dt), do: DateTime.to_iso8601(dt)
-
-  defp parse_estado("activo"), do: :activo
-  defp parse_estado("inactivo"), do: :inactivo
-  defp parse_estado(_), do: :activo
+  defp serialize_list(list) when is_list(list), do: Enum.join(list, ";")
+  defp serialize_list(_), do: ""
 
   defp parse_list(""), do: []
   defp parse_list(str), do: String.split(str, ";")
-
-  defp serialize_list(lista) when is_list(lista), do: Enum.join(lista, ";")
-  defp serialize_list(_), do: ""
-
-  defp parse_historial(""), do: []
-  defp parse_historial(str) do
-    str
-    |> String.split("|")
-    |> Enum.map(fn e -> %{timestamp: nil, detalle: e} end)
-  end
-
-  defp serialize_historial(historial) when is_list(historial) do
-    historial
-    |> Enum.map(fn %{detalle: d} -> sanitize(d) end)
-    |> Enum.join("|")
-  end
-
-  defp serialize_historial(_), do: ""
 end
