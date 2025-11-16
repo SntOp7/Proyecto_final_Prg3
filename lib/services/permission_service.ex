@@ -7,7 +7,7 @@ defmodule ProyectoFinalPrg3.Services.PermissionService do
   alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
 
   @permissions %{
-    "participante" => [
+    participante: [
       :ver_equipos,
       :ver_proyecto,
       :unirse_equipo,
@@ -15,13 +15,13 @@ defmodule ProyectoFinalPrg3.Services.PermissionService do
       :ver_canales
     ],
 
-    "mentor" => [
+    mentor: [
       :ver_equipos,
       :ver_proyecto,
       :enviar_feedback
     ],
 
-    "admin" => [
+    admin: [
       :ver_equipos,
       :ver_proyecto,
       :crear_equipo,
