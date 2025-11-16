@@ -35,6 +35,11 @@ Mox.defmock(LoggerServiceMock,
   for: ProyectoFinalPrg3.Adapters.Logging.LoggerServiceBehaviour
 )
 
+Mox.defmock(AuthServiceMock,
+  for: ProyectoFinalPrg3.Services.AuthServiceBehaviour
+)
+
+
 # ------------------------------------------------------------
 
 # ============================================================
