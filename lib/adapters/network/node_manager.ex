@@ -1,28 +1,27 @@
 defmodule ProyectoFinalPrg3.Adapters.Network.NodeManager do
   @moduledoc """
-  Adaptador encargado de gestionar la comunicación entre nodos del cluster BEAM.
+  Implementación del adaptador encargado de gestionar la comunicación entre
+  nodos del cluster BEAM.
 
-  Este módulo permite enviar mensajes a nodos remotos mediante RPC, verificar el
-  estado del cluster y establecer conexiones manuales entre nodos definidos por
-  configuración. Constituye la base para la mensajería distribuida utilizada por
-  `MessageBroadcast`.
+  Este módulo sigue estrictamente el behaviour definido en
+  `NodeManagerBehaviour`, lo que permite:
 
-  Es utilizado principalmente por:
+    • Pruebas unitarias con Mox
+    • Simulación de nodos (mocks)
+    • Garantizar consistencia en la API distribuida
 
-    - `MessageBroadcast`
-    - `ClusterConfig`
-    - Servicios que requieren coordinación entre nodos
+  ## Funcionalidades principales
+    - Inicialización del nodo local
+    - Envío de mensajes RPC entre nodos
+    - Difusión a todos los nodos
+    - Conexión automática a nodos configurados
+    - Inspección del estado del cluster
 
-  ## Funciones principales
-    - `enviar_a_nodos/2`: Difunde un mensaje a todos los nodos conectados.
-    - `enviar_directo/2`: Envía un mensaje directamente a un nodo remoto.
-    - `recibir_mensaje/1`: Maneja los mensajes entrantes desde otros nodos.
-    - `estado_cluster/0`: Retorna el estado actual del cluster.
-    - `conectarse_a_nodos/0`: Conecta el nodo local a otros nodos configurados.
-
-  Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
-  Fecha: 2025-10-27
-  Licencia: GNU GPLv3
+  Este módulo es utilizado por:
+    • InitialBootService
+    • MessageBroadcast
+    • ClusterConfig
+    • Servicios que requieren coordinación distribuida
   """
 
   @behaviour ProyectoFinalPrg3.Adapters.Network.NodeManagerBehaviour
@@ -30,121 +29,91 @@ defmodule ProyectoFinalPrg3.Adapters.Network.NodeManager do
   alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
 
   # ============================================================
-  # ENVÍO A TODOS LOS NODOS
+  # 1. INICIO DEL NODO LOCAL
   # ============================================================
 
   @doc """
-  Envía un mensaje a todos los nodos conectados del cluster.
+  Inicia el nodo local si aún no tiene nombre (`:nonode@nohost`).
 
-  Este método implementa el mecanismo de difusión distribuida utilizado por
-  `MessageBroadcast` para garantizar que un evento llegue a todos los nodos BEAM
-  actualmente conectados.
-
-  ## Flujo:
-    1. Obtiene la lista de nodos conectados mediante `Node.list/0`.
-    2. Si no hay nodos, registra un evento de omisión y finaliza.
-    3. Si hay nodos, ejecuta `enviar_directo/2` para cada nodo.
-    4. Retorna confirmación.
-
-  ## Parámetros:
-    - `evento`: Nombre del evento que identifica la transmisión.
-    - `mensaje`: Información a enviar.
-
-  ## Retorna:
-    - `:ok` si el mensaje fue enviado a todos los nodos.
-    - `:sin_nodos` si no existían nodos conectados.
+  Esto es requerido para permitir comunicación distribuida.
   """
+  @spec iniciar_nodo_local() :: :ok | {:error, any()}
+  def iniciar_nodo_local do
+    case Node.self() do
+      :nonode@nohost ->
+        iniciar_nodo_con_nombre()
+
+      _ ->
+        :ok
+    end
+  end
+
+  @doc false
+  defp iniciar_nodo_con_nombre do
+    hostname =
+      :inet.gethostname()
+      |> elem(1)
+      |> to_string()
+
+    nombre = :"proyecto_final@#{hostname}"
+
+    case :net_kernel.start([nombre, :shortnames]) do
+      {:ok, _pid} ->
+        LoggerService.registrar_evento("Nodo BEAM iniciado", %{nodo: nombre})
+        :ok
+
+      {:error, razon} ->
+        LoggerService.registrar_evento("Error iniciando nodo BEAM", %{razon: inspect(razon)})
+        {:error, razon}
+    end
+  end
+
+  # ============================================================
+  # 2. ENVÍO A TODOS LOS NODOS
+  # ============================================================
+
+  @impl true
   def enviar_a_nodos(evento, mensaje) do
     nodos = Node.list()
 
     if nodos == [] do
-      LoggerService.registrar_evento("Difusión distribuida omitida: sin nodos", %{evento: evento})
+      LoggerService.registrar_evento("Sin nodos para difusión", %{evento: evento})
       :sin_nodos
     else
-      Enum.map(nodos, fn nodo ->
-        enviar_directo(nodo, {evento, mensaje})
-      end)
-
+      Enum.each(nodos, &enviar_directo(&1, {evento, mensaje}))
       :ok
     end
   end
 
   # ============================================================
-  # ENVÍO DIRECTO A UN SOLO NODO
+  # 3. ENVÍO DIRECTO RPC
   # ============================================================
 
-  @doc """
-  Envía un mensaje directamente a un nodo remoto mediante RPC.
-
-  Utiliza `:rpc.call/4` para invocar la función `recibir_mensaje/1` en el nodo
-  destino. Esta operación constituye la base del sistema de mensajería distribuida.
-
-  ## Flujo:
-    1. Verifica si el nodo está en `Node.list/0`.
-    2. Si no está conectado, registra el error y retorna.
-    3. Si está conectado:
-       - Ejecuta `:rpc.call/4` para enviar el mensaje.
-       - Maneja errores RPC (`{:badrpc, razón}`).
-       - Registra el evento y la respuesta remota.
-    4. Retorna confirmación.
-
-  ## Parámetros:
-    - `nodo`: Identificador del nodo (`:"nombre@ip"`).
-    - `payload`: Datos a enviar.
-
-  ## Retorna:
-    - `:ok` si el RPC fue ejecutado sin errores.
-    - `{:error, :nodo_no_conectado}` si el nodo no está disponible.
-    - `{:error, :rpc_fallo}` en caso de error remoto.
-  """
-  def enviar_directo(nodo, payload) when is_atom(nodo) do
-    if nodo in Node.list() do
-      respuesta =
-        case :rpc.call(nodo, __MODULE__, :recibir_mensaje, [payload]) do
-          {:badrpc, razon} ->
-            LoggerService.registrar_evento("Error RPC", %{nodo: nodo, razon: inspect(razon)})
-            {:error, :rpc_fallo}
-
-          ok ->
-            ok
-        end
-
-      LoggerService.registrar_evento("Mensaje enviado a nodo", %{
-        destino: nodo,
-        payload: payload,
-        respuesta: respuesta
-      })
-
-      :ok
-    else
-      LoggerService.registrar_evento("Error: nodo no está conectado", %{destino: nodo})
+  @impl true
+  def enviar_directo(nodo, payload) do
+    if nodo not in Node.list() do
+      LoggerService.registrar_evento("Nodo no conectado", %{destino: nodo})
       {:error, :nodo_no_conectado}
+    else
+      case :rpc.call(nodo, __MODULE__, :recibir_mensaje, [payload]) do
+        {:badrpc, razon} ->
+          LoggerService.registrar_evento("Error RPC", %{destino: nodo, razon: inspect(razon)})
+          {:error, :rpc_fallo}
+
+        respuesta ->
+          LoggerService.registrar_evento("RPC enviado", %{destino: nodo, respuesta: respuesta})
+          :ok
+      end
     end
   end
 
   # ============================================================
-  # RECEPCIÓN DE MENSAJES REMOTOS
+  # 4. RECEPCIÓN DE MENSAJES
   # ============================================================
 
-  @doc """
-  Función invocada remotamente por otros nodos mediante RPC.
-
-  Representa el punto de entrada estándar para recibir mensajes distribuidos
-  desde otros nodos del cluster.
-
-  ## Flujo:
-    1. Recibe un tuple `{evento, data}` enviado desde otro nodo.
-    2. Registra el evento con su contenido.
-    3. Retorna confirmación.
-
-  ## Parámetros:
-    - `{evento, data}`: Payload enviado desde nodo remoto.
-
-  ## Retorna:
-    - `{:ok, :recibido}` indicando recepción exitosa.
-  """
+  @impl true
   def recibir_mensaje({evento, data}) do
-    LoggerService.registrar_evento("Mensaje recibido desde otro nodo", %{
+    LoggerService.registrar_evento("Mensaje recibido desde nodo remoto", %{
       evento: evento,
       data: data
     })
@@ -153,22 +122,10 @@ defmodule ProyectoFinalPrg3.Adapters.Network.NodeManager do
   end
 
   # ============================================================
-  # ESTADO DEL CLUSTER
+  # 5. ESTADO DEL CLUSTER
   # ============================================================
 
-  @doc """
-  Retorna un mapa con el estado actual del cluster BEAM.
-
-  Este método es consultado por `ClusterConfig` y herramientas administrativas
-  para verificar:
-
-    - nodo local,
-    - nodos conectados,
-    - si el entorno es distribuido.
-
-  ## Retorna:
-    - `%{nodo_local: atom, nodos_conectados: list, distribuido?: boolean}`
-  """
+  @impl true
   def estado_cluster do
     nodos = Node.list()
 
@@ -180,35 +137,22 @@ defmodule ProyectoFinalPrg3.Adapters.Network.NodeManager do
   end
 
   # ============================================================
-  # CONEXIÓN A NODOS CONFIGURADOS
+  # 6. CONEXIÓN A NODOS CONFIGURADOS
   # ============================================================
 
-  @doc """
-  Conecta el nodo local a otros nodos definidos en `config.exs`.
-
-  Este método es normalmente invocado por `ClusterConfig` durante el arranque
-  del sistema.
-
-  ## Flujo:
-    1. Obtiene la lista de nodos configurados.
-    2. Intenta conectar a cada uno usando `Node.connect/1`.
-    3. Registra si la conexión fue exitosa o rechazada.
-
-  ## Retorna:
-    - `:ok` después de intentar conectar a todos los nodos.
-  """
+  @impl true
   def conectarse_a_nodos do
     nodos = Application.get_env(:proyecto_final_prg3, :nodos, [])
 
     Enum.each(nodos, fn nodo ->
       case Node.connect(nodo) do
         true ->
-          LoggerService.registrar_evento("Conectado a nodo", %{nodo: nodo})
+          LoggerService.registrar_evento("Conectado al nodo", %{nodo: nodo})
 
         false ->
-          LoggerService.registrar_evento("No se pudo conectar al nodo", %{
+          LoggerService.registrar_evento("Error conectando al nodo", %{
             nodo: nodo,
-            estado: :rechazado
+            razon: :rechazado
           })
       end
     end)
