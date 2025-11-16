@@ -1,64 +1,86 @@
 defmodule ProyectoFinalPrg3.Domain.Project do
-
   @moduledoc """
-  Define la estructura y comportamiento del **proyecto** dentro del dominio del sistema de hackathon.
+  Representa un **proyecto de hackathon**, asociado a un equipo, un mentor y
+  una categoría temática.
 
-  Un **Proyecto** representa la propuesta o solución tecnológica desarrollada por un equipo,
-  la cual está asociada a un mentor, un repositorio de código y un conjunto de avances o
-  retroalimentaciones que reflejan su evolución durante el evento hackaton.
+  Esta versión ha sido reducida a los campos **realmente necesarios** para:
 
-  Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
-  Fecha de creación: 2025-10-25
-  Fecha de última modificación:
-  Licencia: GNU GPLv3
+    - Persistencia en CSV
+    - Integración con CategoryService
+    - Integración con TeamStore y Mentor/Participant
+    - CLI
+    - Evaluación y seguimiento básico del proyecto
+
+  ## Campos esenciales
+    - `:id` — Identificador único del proyecto.
+    - `:nombre` — Nombre del proyecto.
+    - `:descripcion` — Resumen general del proyecto.
+    - `:categoria` — Categoría temática.
+    - `:estado` — Estado (`:en_desarrollo`, `:completado`, etc.).
+    - `:fecha_creacion` — Fecha de registro.
+    - `:equipo_id` — Equipo dueño del proyecto.
+    - `:mentor_id` — Mentor asignado.
+    - `:repositorio_url` — Enlace externo al código (opcional).
+    - `:puntaje` — Calificación final opcional.
+
+  NOTA IMPORTANTE:
+  - Los avances NO se guardan en este struct.
+  - La retroalimentación y comentarios se manejan por `Progress`.
   """
 
   defstruct [
-    :id,                  # Identificador único del proyecto
-    :nombre,               # Nombre del proyecto
-    :descripcion,          # Descripción general de la idea
-    :categoria,            # Categoría del proyecto (educación, salud, ambiente, etc.)
-    :estado,               # Estado actual (en_desarrollo, completado, pausado)
-    :fecha_creacion,       # Fecha de registro del proyecto
-    :fecha_actualizacion,  # Última modificación o avance registrado
-    :equipo_id,            # ID del equipo al que pertenece
-    :mentor_id,            # ID del mentor asociado
-    :avances,              # Lista de avances (referencia al módulo Avance)
-    :retroalimentaciones,  # Lista de feedbacks o comentarios (referencia a Feedback/Historial)
-    :repositorio_url,      # Enlace al repositorio del código (GitHub, GitLab, etc.)
-    :puntaje,              # Puntuación o calificación final (opcional)
-    :visibilidad,          # Pública o privada (para control de acceso)
-    :tags                  # Lista de etiquetas o palabras clave relacionadas
+    :id,
+    :nombre,
+    :descripcion,
+    :categoria,
+    :estado,
+    :fecha_creacion,
+    :equipo_id,
+    :mentor_id,
+    :repositorio_url,
+    :puntaje
   ]
 
-  @doc"""
-   Crea un nuevo registro de tipo Project con los atributos especificados.
+  @doc """
+  Constructor oficial del dominio para un proyecto.
 
-  ## Parámetros
-    - `id` — Identificador único del proyecto.
-    - `nombre` — Nombre oficial del proyecto.
-    - `descripcion` — Descripción general de la idea o solución propuesta.
-    - `categoria` — Categoría temática (ej. educación, salud, ambiente, tecnología, etc.).
-    - `estado` — Estado actual (`:en_desarrollo`, `:completado`, `:pausado`).
-    - `fecha_creacion` — Fecha en la que se registró el proyecto.
-    - `fecha_actualizacion` — Última fecha de modificación o avance.
-    - `equipo_id` — Identificador del equipo propietario.
-    - `mentor_id` — Identificador del mentor asignado.
-    - `avances` — Lista de avances registrados (puede referenciar a otro módulo).
-    - `retroalimentaciones` — Lista de comentarios o feedback del mentor.
-    - `repositorio_url` — Enlace al repositorio del proyecto (GitHub, GitLab, etc.).
-    - `puntaje` — Calificación final o puntuación obtenida (opcional).
-    - `visibilidad` — Define si el proyecto es `:publico` o `:privado`.
-    - `tags` — Lista de etiquetas relacionadas con el contenido o propósito del proyecto.
+  ## Parámetros mínimos:
+    - `id`
+    - `nombre`
+    - `descripcion`
+    - `categoria`
+    - `estado`
+    - `fecha_creacion`
+    - `equipo_id`
+    - `mentor_id`
 
+  ## Parámetros opcionales:
+    - `repositorio_url` (por defecto `nil`)
+    - `puntaje` (por defecto `nil`)
   """
-  def nuevo(id, nombre, descripcion, categoria, estado, fecha_creacion, fecha_actualizacion, equipo_id, mentor_id, avances,
-  retroalimentaciones, repositorio_url, puntaje, visibilidad, tags) do
-
-    %__MODULE__{id: id, nombre: nombre, descripcion: descripcion, categoria: categoria, estado: estado, fecha_creacion: fecha_creacion,
-    fecha_actualizacion: fecha_actualizacion, equipo_id: equipo_id, mentor_id: mentor_id, avances: avances,
-    retroalimentaciones: retroalimentaciones, repositorio_url: repositorio_url, puntaje: puntaje, visibilidad: visibilidad,
-     tags: tags}
-
+  def nuevo(
+        id,
+        nombre,
+        descripcion,
+        categoria,
+        estado,
+        fecha_creacion,
+        equipo_id,
+        mentor_id,
+        repositorio_url \\ nil,
+        puntaje \\ nil
+      ) do
+    %__MODULE__{
+      id: id,
+      nombre: nombre,
+      descripcion: descripcion,
+      categoria: categoria,
+      estado: estado,
+      fecha_creacion: fecha_creacion,
+      equipo_id: equipo_id,
+      mentor_id: mentor_id,
+      repositorio_url: repositorio_url,
+      puntaje: puntaje
+    }
   end
 end
