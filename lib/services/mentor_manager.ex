@@ -15,7 +15,7 @@ defmodule ProyectoFinalPrg3.Services.MentorManager do
   @doc """
   Registra un mentor nuevo con los campos del dominio.
   """
-  def registrar_mentor(nombre, correo, contrasena, especialidad) do
+  def registrar_mentor(nombre, correo, contrasena, rol, especialidad) do
     case MentorStore.buscar_por_correo(correo) do
       nil ->
         mentor =
@@ -24,6 +24,7 @@ defmodule ProyectoFinalPrg3.Services.MentorManager do
             nombre,
             correo,
             contrasena,
+            rol,
             especialidad
           )
 
@@ -104,7 +105,7 @@ defmodule ProyectoFinalPrg3.Services.MentorManager do
     with {:ok, mentor} <- obtener_mentor(id) do
       actualizado =
         mentor
-        |> Map.merge(Map.take(cambios, [:nombre, :correo, :contrasena, :especialidad]))
+        |> Map.merge(Map.take(cambios, [:nombre, :correo, :contrasena, :rol, :especialidad]))
 
       MentorStore.guardar_mentor(actualizado)
       BroadcastService.notificar(:mentor_actualizado, actualizado)
