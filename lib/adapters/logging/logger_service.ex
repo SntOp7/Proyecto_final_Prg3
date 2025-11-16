@@ -23,6 +23,8 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
   Licencia: GNU GPLv3
   """
 
+  @behaviour ProyectoFinalPrg3.Adapters.Logging.LoggerServiceBehaviour
+
   @log_dir "logs"
   @log_file "#{@log_dir}/event_log.csv"
 

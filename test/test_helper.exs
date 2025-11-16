@@ -30,6 +30,11 @@ Mox.defmock(ProyectoFinalPrg3.Mocks.AuthServiceMock,
 #
 Mox.defmock(ProyectoFinalPrg3.Mocks.PermissionAdapterMock,
 for: ProyectoFinalPrg3.Adapters.Security.PermissionAdapterBehaviour)
+
+Mox.defmock(LoggerServiceMock,
+  for: ProyectoFinalPrg3.Adapters.Logging.LoggerServiceBehaviour
+)
+
 # ------------------------------------------------------------
 
 # ============================================================
