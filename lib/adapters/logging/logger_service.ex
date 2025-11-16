@@ -148,26 +148,27 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
   end
 
   def exportar_a_json(ruta_salida) do
-  log_path = Path.join([File.cwd!(), "data", "logs", "eventos.log"])
+  log_path = @log_file  # logs/event_log.csv
 
   with true <- File.exists?(log_path),
        {:ok, contenido} <- File.read(log_path) do
+
     eventos =
       contenido
       |> String.split("\n", trim: true)
-      |> Enum.map(&%{evento: &1, timestamp: DateTime.utc_now()})
+      |> Enum.drop(1)  # remover encabezados
+      |> Enum.map(&csv_a_mapa/1)
 
-    json = Jason.encode!(eventos)
-
-    File.write!(ruta_salida, json)
+    File.write!(ruta_salida, Jason.encode!(eventos, pretty: true))
     {:ok, ruta_salida}
   else
     _ -> {:error, :no_existe_log}
   end
 end
 
+
 def exportar_a_txt(ruta_salida) do
-  log_path = Path.join([File.cwd!(), "data", "logs", "eventos.log"])
+  log_path = @log_file  # logs/event_log.csv
 
   case File.exists?(log_path) do
     true ->
@@ -178,5 +179,31 @@ def exportar_a_txt(ruta_salida) do
       {:error, :no_existe_log}
   end
 end
+
+defp csv_a_mapa(linea) do
+  [id, timestamp, nodo, tipo, mensaje, datos] =
+    linea
+    |> String.split(",", parts: 6)
+    |> Enum.map(&String.trim/1)
+
+  %{
+    id: id,
+    timestamp: timestamp,
+    nodo: nodo,
+    tipo: tipo,
+    mensaje: limpiar_comillas(mensaje),
+    datos: limpiar_comillas(datos) |> Jason.decode!()
+  }
+end
+
+defp limpiar_comillas(v) do
+  v
+  |> String.trim_leading("\"")
+  |> String.trim_trailing("\"")
+end
+
+
+
+
 
 end

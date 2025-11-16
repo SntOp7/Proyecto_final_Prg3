@@ -19,6 +19,12 @@ Mox.defmock(ProyectoFinalPrg3.MockTeamStore,
   for: ProyectoFinalPrg3.Adapters.Persistence.TeamStoreBehaviour
 )
 
+Mox.defmock(ProyectoFinalPrg3.MockCategoryStore,
+  for: ProyectoFinalPrg3.Adapters.Persistence.CategoryStoreBehaviour
+)
+
+
+
 Mox.defmock(ProyectoFinalPrg3.MockFeedbackStore,
   for: ProyectoFinalPrg3.Adapters.Persistence.FeedbackStoreBehaviour
 )

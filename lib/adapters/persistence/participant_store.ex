@@ -219,6 +219,24 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ParticipantStore do
 
   defp serialize_json_list(_), do: ""
 
-  def actualizar_estado(_id, _estado), do: :ok
+  def actualizar_estado(id_participante, nuevo_estado) do
+  participantes = listar_participantes()
+
+  case Enum.find(participantes, &(&1.id == id_participante)) do
+    nil ->
+      {:error, :no_encontrado}
+
+    participante ->
+      actualizado = %{participante | estado: nuevo_estado}
+      nuevos =
+        participantes
+        |> Enum.reject(&(&1.id == id_participante))
+        |> Kernel.++([actualizado])
+
+      escribir_participantes(nuevos)
+      :ok
+  end
+end
+
 
 end
