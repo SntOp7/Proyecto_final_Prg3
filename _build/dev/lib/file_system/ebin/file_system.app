@@ -7,6 +7,6 @@
                         'Elixir.FileSystem.Worker']},
               {optional_applications,[]},
               {applications,[kernel,stdlib,elixir,logger]},
-              {description,"An Elixir file system change watcher wrapper based on FS, the native file\r\nsystem listener.\r\n"},
+              {description,"An Elixir file system change watcher wrapper based on FS, the native file\nsystem listener.\n"},
               {registered,[]},
               {vsn,"1.1.1"}]}.

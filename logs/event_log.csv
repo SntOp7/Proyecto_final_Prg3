@@ -1,0 +1,9 @@
+id,timestamp,nodo,tipo,mensaje,datos
+"badb112d-f420-4a04-ae83-e0b026559d16","2025-11-16T20:37:27.544000Z","nonode@nohost","info","Inicio del sistema","{'nodo':'central'}"
+"56892343-3a23-4ef6-81c8-47d2dd715cd8","2025-11-16T20:37:27.565000Z","proyecto_final@PC-SANTIAGO","info","Nodo BEAM iniciado","{'nodo':'proyecto_final@PC-SANTIAGO'}"
+"7298568e-3aa9-4c61-85ce-f215b0215428","2025-11-16T20:37:27.568000Z","proyecto_final@PC-SANTIAGO","central","Nodo local iniciado","{'tipo':'central'}"
+"4c49b7ff-2945-415b-b290-7d61242ee440","2025-11-16T20:37:27.623000Z","proyecto_final@PC-SANTIAGO","info","Error conectando al nodo","{'nodo':'persistencia@persistencia','razon':'rechazado'}"
+"86b1fcad-075a-4057-b516-b7ab93190d19","2025-11-16T20:37:27.626000Z","proyecto_final@PC-SANTIAGO","persistencia","Persistencia inicializada correctamente","{'tipo':'persistencia','fecha':'2025-11-16T20:37:27.626000Z'}"
+"f10bfa6f-79d8-4d2b-ba66-d56cc8a2e0d4","2025-11-16T20:37:27.643000Z","proyecto_final@PC-SANTIAGO","info","Repositorios cargados","{}"
+"a291cc1e-dfdb-431c-8c8e-e30f02aefced","2025-11-16T20:37:33.659000Z","proyecto_final@PC-SANTIAGO","info","Ejecución de comando","{'args':{},'comando':'/help'}"
+"495db04c-c2ba-4ee6-8ef9-1290dce57dd4","2025-11-16T20:37:50.457000Z","proyecto_final@PC-SANTIAGO","info","Ejecución de comando","{'args':{},'comando':'/help'}"
