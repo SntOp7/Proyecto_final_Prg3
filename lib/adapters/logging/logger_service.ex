@@ -7,6 +7,11 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
   - Exporta a JSON o TXT
 
   No realiza filtros ni análisis (eso es trabajo de AuditService).
+
+  Autores: [Sharif Giraldo Obando, Juan Sebastián Hernández y Santiago Ospina Sánchez]
+  Fecha de creación: 2025-11-16
+  Fecha de última modificación: 2025-11-16
+  Licencia: GNU GPL v3
   """
 
   @log_dir "logs"
@@ -16,6 +21,13 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
   # API PÚBLICA
   # ============================================================
 
+  @doc """
+  Función principal para registrar un evento de logging.
+  Parámetros:
+    - `mensaje`: Descripción del evento.
+    - `data`: Mapa con datos adicionales (opcional).
+  Retorna: :ok
+  """
   def registrar_evento(mensaje, data \\ %{}) do
     evento = construir_evento(mensaje, data)
     guardar_en_archivo(evento)
@@ -23,6 +35,12 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
     :ok
   end
 
+  @doc """
+  Función para obtener los eventos más recientes del log.
+  Parámetros:
+    - `limite`: Cantidad máxima de eventos a retornar (por defecto 20).
+  Retorna: Lista de mapas con los eventos.
+  """
   def obtener_eventos_recientes(limite \\ 20) do
     if File.exists?(@log_file) do
       @log_file
@@ -36,12 +54,24 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
     end
   end
 
+  @doc """
+  Función para limpiar todos los logs existentes.
+  Parámetros: Ninguno.
+  Retorna: :ok
+  """
   def limpiar_logs do
     File.rm(@log_file)
     File.mkdir_p!(@log_dir)
     inicializar_csv()
   end
 
+  @doc """
+  Funciones para exportar los eventos de logging a diferentes formatos.
+  Parámetros:
+    - `ruta_salida`: Ruta del archivo destino.
+  Retorna:
+    - `{:ok, ruta_salida}` con la ubicación del archivo exportado.
+  """
   def exportar_a_json(ruta_salida) do
     eventos =
       obtener_eventos_recientes(99999)
@@ -50,6 +80,13 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
     {:ok, ruta_salida}
   end
 
+  @doc """
+  Funciones para exportar los eventos de logging a diferentes formatos.
+  Parámetros:
+    - `ruta_salida`: Ruta del archivo destino.
+  Retorna:
+    - `{:ok, ruta_salida}` con la ubicación del archivo exportado.
+  """
   def exportar_a_txt(ruta_salida) do
     contenido =
       obtener_eventos_recientes(99999)
@@ -66,6 +103,7 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
   # PRIVADO
   # ============================================================
 
+  @doc false
   defp construir_evento(mensaje, data) do
     %{
       id: UUID.uuid4(),
@@ -73,17 +111,20 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
       nodo: Atom.to_string(Node.self()),
       tipo: Map.get(data, :tipo, inferir_tipo(mensaje)),
       mensaje: mensaje,
-      datos: normalizar_datos(data)   # <---- FIX
+      # <---- FIX
+      datos: normalizar_datos(data)
     }
   end
 
-  # --- NUEVO FIX: normaliza datos para evitar crashes ---
+  @doc false
   defp normalizar_datos(data) when is_struct(data) do
     data
     |> Map.from_struct()
-    |> Map.drop([:contrasena])   # nunca loguear contraseñas
+    # nunca loguear contraseñas
+    |> Map.drop([:contrasena])
   end
 
+  @doc false
   defp normalizar_datos(data) when is_map(data) do
     data
     |> Map.drop([:contrasena])
@@ -91,6 +132,7 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
 
   # -------------------------------------------------------
 
+  @doc false
   defp guardar_en_archivo(evento) do
     File.mkdir_p!(@log_dir)
     unless File.exists?(@log_file), do: inicializar_csv()
@@ -98,7 +140,8 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
     json =
       if is_binary(evento.datos),
         do: evento.datos,
-        else: Jason.encode!(evento.datos)   # ← ahora siempre seguro
+        # ← ahora siempre seguro
+        else: Jason.encode!(evento.datos)
 
     fila_vals = [
       evento.id,
@@ -119,6 +162,7 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
     File.write!(@log_file, linea, [:append])
   end
 
+  @doc false
   defp parse_line(linea) do
     campos =
       Regex.scan(~r/"([^"]*)"|([^,]+)/, linea)
@@ -149,6 +193,7 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
     end
   end
 
+  @doc false
   defp escape(v) do
     v
     |> to_string()
@@ -156,6 +201,7 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
     |> (&("\"" <> &1 <> "\"")).()
   end
 
+  @doc false
   defp safe_atom(v),
     do:
       (try do
@@ -165,20 +211,25 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
            :info
        end)
 
+  @doc false
   defp inicializar_csv do
     encabezado = "id,timestamp,nodo,tipo,mensaje,datos\n"
     File.write!(@log_file, encabezado)
   end
 
+  @doc false
   defp mostrar_en_consola(%{tipo: :error} = e),
     do: IO.puts(IO.ANSI.red() <> "[ERROR] #{e.timestamp} | #{e.mensaje}" <> IO.ANSI.reset())
 
+  @doc false
   defp mostrar_en_consola(%{tipo: :warning} = e),
     do: IO.puts(IO.ANSI.yellow() <> "[WARN] #{e.timestamp} | #{e.mensaje}" <> IO.ANSI.reset())
 
+  @doc false
   defp mostrar_en_consola(e),
     do: IO.puts(IO.ANSI.cyan() <> "[INFO] #{e.timestamp} | #{e.mensaje}" <> IO.ANSI.reset())
 
+  @doc false
   defp inferir_tipo(msg) do
     cond do
       Regex.match?(~r/error|fallo/i, msg) -> :error
