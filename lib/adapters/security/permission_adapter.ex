@@ -34,30 +34,42 @@ defmodule ProyectoFinalPrg3.Adapters.Security.PermissionAdapter do
   # ============================================================
 
   @permisos %{
-    admin: [
-      :crear_equipo,
-      :eliminar_equipo,
-      :ver_todos_los_proyectos,
-      :editar_proyecto,
-      :asignar_mentor,
-      :gestionar_usuarios
-    ],
-    mentor: [
-      :ver_proyecto,
-      :enviar_feedback,
-      :revisar_avance,
-      :comentar_equipo
-    ],
-    participante: [
-      :registrarse,
-      :iniciar_sesion,
-      :unirse_equipo,
-      :enviar_mensaje,
-      :actualizar_perfil,
-      :subir_avance,
-      :editar_proyecto
-    ]
-  }
+  admin: [
+    :crear_equipo,
+    :eliminar_equipo,
+    :ver_todos_los_proyectos,
+    :editar_proyecto,
+    :asignar_mentor,
+    :gestionar_usuarios,
+    :ver_equipos,
+    :ver_proyecto,
+    :crear_proyecto,
+    :ver_canales
+  ],
+  mentor: [
+    :ver_proyecto,
+    :enviar_feedback,
+    :revisar_avance,
+    :comentar_equipo,
+    :ver_equipos,
+    :ver_canales
+  ],
+  participante: [
+    :registrarse,
+    :iniciar_sesion,
+    :unirse_equipo,
+    :enviar_mensaje,
+    :actualizar_perfil,
+    :subir_avance,
+    :editar_proyecto,
+    :ver_equipos,
+    :ver_proyecto,
+    :crear_equipo,
+    :crear_proyecto,
+    :ver_canales
+  ]
+}
+
 
   # ============================================================
   # VALIDACIÓN DE PERMISOS
