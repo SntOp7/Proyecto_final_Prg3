@@ -9,9 +9,10 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
     • Activación y revocación de sesiones
     • Registro de eventos de acceso
 
-  Autores: Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez
-  Fecha de creación: 2025-10-27
-  Licencia: GNU GPLv3
+  Autores: [Sharif Giraldo Obando, Juan Sebastián Hernández y Santiago Ospina Sánchez]
+  Fecha de creación: 2025-11-16
+  Fecha de última modificación: 2025-11-16
+  Licencia: GNU GPL v3
   """
 
   alias ProyectoFinalPrg3.Domain.Participant
@@ -79,7 +80,6 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
         if EncryptionAdapter.verificar(contrasena, participante.contrasena) do
           with {:ok, token} <- TokenManager.generar_token(participante.id),
                :ok <- SessionManager.activar_sesion(participante.id, token) do
-
             LoggerService.registrar_evento("Inicio de sesión", %{correo: correo})
 
             {:ok, %{participante: participante, token: token}}
@@ -98,6 +98,8 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
 
   @doc """
   Cierra la sesión asociada a un participante.
+  Retorna:
+    {:ok, :sesion_cerrada}
   """
   def cerrar_sesion(id_participante) do
     SessionManager.revocar_sesion(id_participante)
@@ -110,7 +112,13 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
   # ============================================================
 
   @doc """
+  Parámetros:
+    - `token` — Token a validar.
   Valida un token y retorna el participante asociado.
+  Retorna:
+    {:ok, participante}
+    {:error, :token_invalido}
+    {:error, :no_encontrado}
   """
   def validar_token(token) do
     case TokenManager.validar_token(token) do
