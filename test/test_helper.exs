@@ -17,15 +17,19 @@ Mox.defmock(
 # ------------------------------------------------------------
 # Si tu proyecto tiene otros behaviours mockeables, regístralos
 # aquí siguiendo el mismo patrón:
+Mox.defmock(CommandParserMock,
+  for: ProyectoFinalPrg3.Behaviours.CommandParserBehaviour
+)
+
 #
-# Mox.defmock(ProyectoFinalPrg3.Mocks.LoggerServiceMock,
-#   for: ProyectoFinalPrg3.Adapters.Logging.LoggerServiceBehaviour)
+Mox.defmock(ProyectoFinalPrg3.Mocks.LoggerServiceMock,
+for: ProyectoFinalPrg3.Adapters.Logging.LoggerServiceBehaviour)
 #
-# Mox.defmock(ProyectoFinalPrg3.Mocks.AuthServiceMock,
-#   for: ProyectoFinalPrg3.Services.AuthServiceBehaviour)
+Mox.defmock(ProyectoFinalPrg3.Mocks.AuthServiceMock,
+ for: ProyectoFinalPrg3.Services.AuthServiceBehaviour)
 #
-# Mox.defmock(ProyectoFinalPrg3.Mocks.PermissionAdapterMock,
-#   for: ProyectoFinalPrg3.Adapters.Security.PermissionAdapterBehaviour)
+Mox.defmock(ProyectoFinalPrg3.Mocks.PermissionAdapterMock,
+for: ProyectoFinalPrg3.Adapters.Security.PermissionAdapterBehaviour)
 # ------------------------------------------------------------
 
 # ============================================================

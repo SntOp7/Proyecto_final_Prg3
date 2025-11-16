@@ -17,7 +17,8 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRegistryTest do
     test "retorna todos los comandos registrados en el sistema" do
       commands = CommandRegistry.all()
       assert is_map(commands)
-      assert Map.keys(commands) == @expected_commands
+      assert Enum.sort(Map.keys(commands)) == Enum.sort(@expected_commands)
+
     end
 
     test "cada comando contiene las claves mínimas requeridas" do
