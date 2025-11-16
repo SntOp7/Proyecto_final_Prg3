@@ -2,15 +2,9 @@ defmodule ProyectoFinalPrg3.Domain.Participant do
   @moduledoc """
   Estructura del participante dentro del dominio del sistema.
 
-  Esta versión está alineada con la estructura usada por:
-    - ParticipantStore
-    - AuthService
-    - TeamManager
-    - Mox y behaviours de pruebas
-
-  No incluye el campo :contrasena dentro del struct,
-  ya que la contraseña cifrada se maneja únicamente en la capa de servicios
-  (AuthService + EncryptionAdapter).
+  Incluye el campo :contrasena ya que los tests oficiales del sistema,
+  AuthService y ParticipantStore requieren almacenar el hash de la contraseña
+  dentro del struct del dominio (nunca la contraseña en texto plano).
   """
 
   defstruct [
@@ -27,20 +21,18 @@ defmodule ProyectoFinalPrg3.Domain.Participant do
     :mensajes,
     :canales_asignados,
     :token_sesion,
-    :perfil_url
+    :perfil_url,
+
+    :contrasena     # ← CAMPO NECESARIO PARA AUTH Y TESTS
   ]
 
   @doc """
-  Constructor con la aridad exacta utilizada por todo el sistema: 14 parámetros.
+  Constructor principal del participante.
 
-  Este constructor es usado por:
-    - ParticipantManager
-    - TeamManager
-    - AuthService (luego añade contrasena cifrada por separado)
+  Ahora incluye explícitamente contrasena (hash), en consistencia con:
+    - AuthService
     - ParticipantStore
-    - Los tests con Mox
-
-  Todos los campos de lista se normalizan para evitar errores.
+    - Tests oficiales (AuthServiceTest, PermissionAdapterTest)
   """
 
   def nuevo(
@@ -57,7 +49,8 @@ defmodule ProyectoFinalPrg3.Domain.Participant do
         mensajes,
         canales_asignados,
         token_sesion,
-        perfil_url
+        perfil_url,
+        contrasena
       ) do
 
     %__MODULE__{
@@ -74,7 +67,8 @@ defmodule ProyectoFinalPrg3.Domain.Participant do
       mensajes: mensajes || [],
       canales_asignados: canales_asignados || [],
       token_sesion: token_sesion,
-      perfil_url: perfil_url
+      perfil_url: perfil_url,
+      contrasena: contrasena  # ← NECESARIO PARA TESTS Y AUTH SERVICE
     }
   end
 end

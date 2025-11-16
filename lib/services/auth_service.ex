@@ -46,7 +46,9 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
             [],
             [],
             nil,
+            nil,
             nil
+
           )
 
         # Guardamos participante Y contraseña cifrada en ParticipantStore

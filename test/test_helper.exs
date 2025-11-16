@@ -1,14 +1,10 @@
 ExUnit.start()
-# Mox NO se coloca en modo global, cada test debe usar:
-# setup :verify_on_exit!
-# import Mox
 
 # ============================================================
 # CLI
 # ============================================================
 
-Mox.defmock(
-  ProyectoFinalPrg3.MockCommandRegistry,
+Mox.defmock(CommandRegistryMock,
   for: ProyectoFinalPrg3.Adapters.CLI.CommandRegistryBehaviour
 )
 
@@ -16,33 +12,27 @@ Mox.defmock(
 # Persistencia
 # ============================================================
 
-Mox.defmock(
-  ProyectoFinalPrg3.MockParticipantStore,
+Mox.defmock(ParticipantStoreMock,
   for: ProyectoFinalPrg3.Adapters.Persistence.ParticipantStoreBehaviour
 )
 
-Mox.defmock(
-  ProyectoFinalPrg3.MockProjectStore,
+Mox.defmock(ProjectStoreMock,
   for: ProyectoFinalPrg3.Adapters.Persistence.ProjectStoreBehaviour
 )
 
-Mox.defmock(
-  ProyectoFinalPrg3.MockTeamStore,
+Mox.defmock(TeamStoreMock,
   for: ProyectoFinalPrg3.Adapters.Persistence.TeamStoreBehaviour
 )
 
-Mox.defmock(
-  ProyectoFinalPrg3.MockCategoryStore,
+Mox.defmock(CategoryStoreMock,
   for: ProyectoFinalPrg3.Adapters.Persistence.CategoryStoreBehaviour
 )
 
-Mox.defmock(
-  ProyectoFinalPrg3.MockFeedbackStore,
+Mox.defmock(FeedbackStoreMock,
   for: ProyectoFinalPrg3.Adapters.Persistence.FeedbackStoreBehaviour
 )
 
-Mox.defmock(
-  ProyectoFinalPrg3.MockProgressStore,
+Mox.defmock(ProgressStoreMock,
   for: ProyectoFinalPrg3.Adapters.Persistence.ProgressStoreBehaviour
 )
 
@@ -50,23 +40,19 @@ Mox.defmock(
 # Seguridad
 # ============================================================
 
-Mox.defmock(
-  ProyectoFinalPrg3.MockTokenManager,
+Mox.defmock(TokenManagerMock,
   for: ProyectoFinalPrg3.Adapters.Security.TokenManagerBehaviour
 )
 
-Mox.defmock(
-  ProyectoFinalPrg3.MockSessionManager,
+Mox.defmock(SessionManagerMock,
   for: ProyectoFinalPrg3.Adapters.Security.SessionManagerBehaviour
 )
 
-Mox.defmock(
-  ProyectoFinalPrg3.MockEncryptionAdapter,
+Mox.defmock(EncryptionAdapterMock,
   for: ProyectoFinalPrg3.Adapters.Security.EncryptionAdapterBehaviour
 )
 
-Mox.defmock(
-  ProyectoFinalPrg3.MockPermissionAdapter,
+Mox.defmock(PermissionAdapterMock,
   for: ProyectoFinalPrg3.Adapters.Security.PermissionAdapterBehaviour
 )
 
@@ -74,18 +60,15 @@ Mox.defmock(
 # Servicios
 # ============================================================
 
-Mox.defmock(
-  ProyectoFinalPrg3.MockLoggerService,
+Mox.defmock(LoggerServiceMock,
   for: ProyectoFinalPrg3.Adapters.Logging.LoggerServiceBehaviour
 )
 
-Mox.defmock(
-  ProyectoFinalPrg3.MockAuthService,
+Mox.defmock(AuthServiceMock,
   for: ProyectoFinalPrg3.Services.AuthServiceBehaviour
 )
 
-Mox.defmock(
-  ProyectoFinalPrg3.MockBroadcastService,
+Mox.defmock(BroadcastServiceMock,
   for: ProyectoFinalPrg3.Services.BroadcastServiceBehaviour
 )
 
@@ -93,7 +76,6 @@ Mox.defmock(
 # Network / Cluster / Distributed
 # ============================================================
 
-Mox.defmock(
-  ProyectoFinalPrg3.MockNodeManager,
+Mox.defmock(NodeManagerMock,
   for: ProyectoFinalPrg3.Adapters.Network.NodeManagerBehaviour
 )

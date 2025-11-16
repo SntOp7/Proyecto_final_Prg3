@@ -1,6 +1,9 @@
 defmodule ProyectoFinalPrg3.Adapters.Security.SessionManager do
   @moduledoc """
-  (… descripción igual a la tuya …)
+  Administrador de sesiones basado en ETS.
+
+  La tabla :sesiones_activas se crea al cargar el módulo para garantizar
+  su disponibilidad inmediata tanto en ejecución normal como en pruebas.
   """
 
   @behaviour ProyectoFinalPrg3.Adapters.Security.SessionManagerBehaviour
@@ -11,17 +14,11 @@ defmodule ProyectoFinalPrg3.Adapters.Security.SessionManager do
   @table :sesiones_activas
 
   # ============================================================
-  # INICIALIZACIÓN
+  # CREACIÓN DE LA ETS AL CARGAR EL MÓDULO
   # ============================================================
 
-  @doc false
-  def start_link(_) do
-    # Crear la tabla solo si NO existe
-    if :ets.whereis(@table) == :undefined do
-      :ets.new(@table, [:named_table, :public, read_concurrency: true])
-    end
-
-    {:ok, self()}
+  if :ets.whereis(@table) == :undefined do
+    :ets.new(@table, [:named_table, :public, read_concurrency: true])
   end
 
   # ============================================================
@@ -40,7 +37,7 @@ defmodule ProyectoFinalPrg3.Adapters.Security.SessionManager do
   end
 
   @doc """
-  Valida si un token corresponde a una sesión activa en memoria.
+  Valida si un token corresponde a una sesión activa.
   """
   def validar_sesion(token) when is_binary(token) do
     case TokenManager.validar_token(token) do
@@ -56,7 +53,7 @@ defmodule ProyectoFinalPrg3.Adapters.Security.SessionManager do
   end
 
   @doc """
-  Revoca una sesión activa y elimina su registro.
+  Revoca una sesión activa.
   """
   def revocar_sesion(id_usuario) when is_binary(id_usuario) do
     case :ets.lookup(@table, id_usuario) do
@@ -81,7 +78,7 @@ defmodule ProyectoFinalPrg3.Adapters.Security.SessionManager do
   end
 
   @doc """
-  Obtiene cualquier usuario autenticado (si existe alguno).
+  Retorna el primer usuario logueado (si existe).
   """
   def obtener_participante_actual do
     case :ets.tab2list(@table) do

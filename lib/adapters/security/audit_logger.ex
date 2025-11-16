@@ -43,7 +43,7 @@ defmodule ProyectoFinalPrg3.Adapters.Security.AuditLogger do
   # FUNCIONES PRIVADAS
   # ============================================================
 
-  defp construir_evento(accion, detalles) do
+  def construir_evento(accion, detalles) do
     %{
       id: UUID.uuid4(),
       timestamp: DateTime.utc_now() |> DateTime.to_iso8601(),
@@ -56,7 +56,7 @@ defmodule ProyectoFinalPrg3.Adapters.Security.AuditLogger do
     }
   end
 
-  defp guardar_en_archivo(evento) do
+  def guardar_en_archivo(evento) do
     File.mkdir_p!(@audit_dir)
     unless File.exists?(@audit_file), do: inicializar_csv()
 
@@ -65,18 +65,18 @@ defmodule ProyectoFinalPrg3.Adapters.Security.AuditLogger do
     end)
   end
 
-  defp mostrar_en_consola(%{estado: "ERROR"} = e),
+  def mostrar_en_consola(%{estado: "ERROR"} = e),
     do: IO.puts(:red, "[SECURITY ALERT] #{e.timestamp} | #{e.accion} | Usuario: #{e.usuario}")
 
-  defp mostrar_en_consola(e),
+  def mostrar_en_consola(e),
     do: IO.puts(:magenta, "[SECURITY] #{e.timestamp} | #{e.accion} | Usuario: #{e.usuario}")
 
-  defp inicializar_csv do
+  def inicializar_csv do
     encabezados = ["id", "timestamp", "accion", "usuario", "rol", "ip", "estado", "detalles"]
     File.write!(@audit_file, Enum.join(encabezados, ",") <> "\n")
   end
 
-  defp evento_a_csv(e) do
+  def evento_a_csv(e) do
     Enum.join(
       [
         e.id,
@@ -96,4 +96,7 @@ defmodule ProyectoFinalPrg3.Adapters.Security.AuditLogger do
     escaped = String.replace(v, "\"", "'")
     "\"#{escaped}\""
   end
+
+
+
 end
