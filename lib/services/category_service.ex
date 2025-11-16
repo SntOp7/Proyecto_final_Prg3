@@ -52,7 +52,7 @@ defmodule ProyectoFinalPrg3.Services.CategoryService do
   """
   def actualizar_categoria(id, %{nombre: nombre, descripcion: descripcion}) do
     with {:ok, categoria} <- obtener_categoria(id) do
-      actualizada = %{categoria | nombre: nombre, descripcion: descripcion}
+      actualizada = Map.merge(categoria, %{nombre: nombre, descripcion: descripcion})
       CategoryStore.guardar_categoria(actualizada)
 
       BroadcastService.notificar(:categoria_actualizada, actualizada)
