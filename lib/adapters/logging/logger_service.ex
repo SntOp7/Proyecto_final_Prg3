@@ -89,7 +89,6 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
     |> Map.drop([:contrasena])
   end
 
-  defp normalizar_datos(data), do: data
   # -------------------------------------------------------
 
   defp guardar_en_archivo(evento) do

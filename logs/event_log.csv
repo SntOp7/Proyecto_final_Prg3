@@ -1,3 +1,6 @@
 id,timestamp,nodo,tipo,mensaje,datos
-"f63b7849-a592-4057-a724-b341bd5fa620","2025-11-16T21:13:21.059000Z","central@JuanHernandez","info","Inicio del sistema","{'nodo':'central'}"
-"b01cad77-267e-4af8-bbaa-dca7e2c73a84","2025-11-16T21:13:21.061000Z","central@JuanHernandez","central","Nodo local iniciado","{'tipo':'central'}"
+"0e63184c-f706-49ab-8832-1a6910578d62","2025-11-16T21:46:31.502000Z","central@JuanHernandez","info","Inicio del sistema","{'nodo':'central'}"
+"8e98e01f-db28-4ee7-8962-d71b9ee02b38","2025-11-16T21:46:31.513000Z","central@JuanHernandez","central","Nodo local iniciado","{'tipo':'central'}"
+"201abea3-a97c-4990-a895-6b029078eef4","2025-11-16T21:46:34.246000Z","central@JuanHernandez","error","Error conectando al nodo","{'nodo':'persistencia@persistencia','razon':'rechazado'}"
+"48aee661-563b-429d-b619-544fadc42dd6","2025-11-16T21:46:34.250000Z","central@JuanHernandez","persistencia","Persistencia inicializada correctamente","{'tipo':'persistencia','fecha':'2025-11-16T21:46:34.250000Z'}"
+"a5af0515-7b55-408c-9d11-7e36550f22e9","2025-11-16T21:46:34.262000Z","central@JuanHernandez","info","Repositorios cargados","{}"

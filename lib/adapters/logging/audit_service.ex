@@ -31,6 +31,12 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.AuditService do
   # ============================================================
 
   defp parse_csv_line(linea) do
+  linea = String.trim(linea)
+
+  # Ignorar líneas vacías o basura
+  if linea == "" or linea == "," or linea == "\"\"" do
+    :ignore
+  else
     campos =
       Regex.scan(~r/"([^"]*)"|([^,]+)/, linea)
       |> Enum.map(fn
@@ -56,11 +62,12 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.AuditService do
           datos: datos
         }
 
-      invalid ->
-        IO.puts("[WARN] Línea CSV inválida ignorada: #{inspect(invalid)}")
-        :ignore
+      _ ->
+        :ignore  # ya no imprime warnings feos
     end
   end
+end
+
 
   defp safe_atom(nil), do: :info
   defp safe_atom(""), do: :info
