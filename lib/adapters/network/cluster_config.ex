@@ -25,15 +25,25 @@ defmodule ProyectoFinalPrg3.Adapters.Network.ClusterConfig do
   alias ProyectoFinalPrg3.Adapters.Network.NodeManager
   alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
 
-  # -------------------------------------------------------
-  # PUNTO DE ENTRADA PRINCIPAL
-  # -------------------------------------------------------
-  @doc """
-  Inicializa la topología del cluster.
+  # ============================================================
+  # INICIALIZACIÓN DEL CLUSTER
+  # ============================================================
 
-  Este método:
-    1. Conecta nodos definidos en config.exs
-    2. Registra el estado final del cluster
+  @doc """
+  Inicializa la topología del cluster al arranque del sistema.
+
+  Este método ejecuta todas las rutinas necesarias para preparar la comunicación
+  distribuida. Se encarga de conectar nodos remotos definidos en la configuración
+  de la aplicación y registrar el estado final del cluster.
+
+  ## Flujo:
+    1. Registra un evento indicando el inicio del proceso de configuración.
+    2. Conecta de manera manual a los nodos configurados.
+    3. Consulta y registra el estado final del cluster.
+    4. Deja el entorno distribuido listo para su uso.
+
+  ## Retorna:
+    - `:ok` — cuando el proceso ha finalizado correctamente.
   """
   def inicializar do
     LoggerService.registrar_evento("ClusterConfig: inicializando cluster", %{
@@ -46,9 +56,12 @@ defmodule ProyectoFinalPrg3.Adapters.Network.ClusterConfig do
     :ok
   end
 
-  # -------------------------------------------------------
-  # CONEXIÓN MANUAL A NODOS
-  # -------------------------------------------------------
+  # ============================================================
+  # CONEXIÓN A NODOS REMOTOS
+  # ============================================================
+
+  @doc false
+  @spec conectar_nodos_estaticos() :: :ok
   defp conectar_nodos_estaticos do
     nodos = Application.get_env(:proyecto_final_prg3, :nodos, [])
 
@@ -67,16 +80,37 @@ defmodule ProyectoFinalPrg3.Adapters.Network.ClusterConfig do
     :ok
   end
 
-  # -------------------------------------------------------
+  # ============================================================
   # ESTADO DEL CLUSTER
-  # -------------------------------------------------------
+  # ============================================================
+
   @doc """
-  Devuelve el estado del cluster vía NodeManager.
+  Obtiene el estado actual del cluster.
+
+  El estado es retornado directamente desde `NodeManager`, lo que garantiza
+  consistencia con el resto de componentes que consultan la topología distribuida.
+
+  ## Retorna:
+    Un mapa con la siguiente estructura:
+
+    ```
+    %{
+      nodo_local: <nombre del nodo>,
+      nodos_conectados: [...],
+      distribuido?: boolean
+    }
+    ```
   """
   def estado do
     NodeManager.estado_cluster()
   end
 
+  # ============================================================
+  # REGISTRO DE ESTADO
+  # ============================================================
+
+  @doc false
+  @spec registrar_estado() :: :ok
   defp registrar_estado do
     estado = estado()
 
