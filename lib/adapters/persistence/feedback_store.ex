@@ -154,7 +154,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.FeedbackStore do
 
   defp parse_datetime(""), do: nil
 
-  defp parse_datetime(str) do
+  defp parse_datetime(str) when is_binary(str) do
     case DateTime.from_iso8601(str) do
       {:ok, dt, _} -> dt
       _ -> nil
