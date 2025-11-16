@@ -145,12 +145,12 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.FeedbackStore do
 
   # Permite comas dentro de comillas
   defp split_csv(linea) do
-    Regex.scan(~r/"([^"]*)"|([^,]+)/, linea)
-    |> Enum.map(fn
-      [_, quoted, _] -> quoted
-      [_, _, normal] -> normal
-    end)
-  end
+  Regex.scan(~r/"([^"]*)"|([^,]+)/, linea)
+  |> Enum.map(fn
+    [_, quoted, nil] -> quoted
+    [_, nil, normal] -> normal
+  end)
+end
 
   defp parse_datetime(""), do: nil
 
