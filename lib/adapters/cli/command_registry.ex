@@ -3,8 +3,6 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRegistry do
   Registro centralizado de comandos disponibles en la CLI.
   """
 
-  @behaviour ProyectoFinalPrg3.Adapters.CLI.CommandRegistryBehaviour
-
   @commands %{
     # ============================================================
     # COMANDOS PÚBLICOS (no requieren sesión)
@@ -104,7 +102,7 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRegistry do
 
     "/feedback" => %{
       description: "Enviar feedback a un equipo",
-      usage: "/feedback equipo=Titanes mensaje=\"Buen trabajo, pero mejoren documentación\"",
+      usage: "/feedback proyecto_id=proyecto123 mensaje=\"Buen trabajo, pero mejoren documentación\"",
       service: :mentor_manager,
       action: :feedback,
       required_permission: :enviar_feedback
