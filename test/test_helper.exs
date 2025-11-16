@@ -39,6 +39,11 @@ Mox.defmock(AuthServiceMock,
   for: ProyectoFinalPrg3.Services.AuthServiceBehaviour
 )
 
+Mox.defmock(PermissionAdapterMock,
+  for: ProyectoFinalPrg3.Adapters.Security.PermissionAdapterBehaviour
+)
+
+
 
 # ------------------------------------------------------------
 
