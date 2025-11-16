@@ -27,6 +27,7 @@
                         'Elixir.ProyectoFinalPrg3.Adapters.Persistence.ProjectStore',
                         'Elixir.ProyectoFinalPrg3.Adapters.Persistence.ProjectStoreBehaviour',
                         'Elixir.ProyectoFinalPrg3.Adapters.Persistence.TeamStore',
+                        'Elixir.ProyectoFinalPrg3.Adapters.Persistence.TeamStoreBehaviour',
                         'Elixir.ProyectoFinalPrg3.Adapters.Security.AuditLogger',
                         'Elixir.ProyectoFinalPrg3.Adapters.Security.EncryptionAdapter',
                         'Elixir.ProyectoFinalPrg3.Adapters.Security.EncryptionAdapterBehaviour',
