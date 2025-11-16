@@ -1,16 +1,27 @@
 defmodule ProyectoFinalPrg3.Adapters.Network.PubSubAdapter do
   @moduledoc """
-  Adaptador envoltorio para Phoenix.PubSub utilizado por BroadcastService
-  y por InitialBootService durante el arranque del sistema.
+  Adaptador encargado de gestionar la mensajería interna basada en `Phoenix.PubSub`.
 
-  Funciones clave usadas por otros módulos:
-    - inicializar/0
-    - publicar/2
-    - suscribir/1
-    - desuscribir/1
+  Este módulo proporciona una capa ligera y segura para enviar y recibir mensajes
+  entre procesos dentro de un mismo nodo del sistema distribuido. No utiliza
+  WebSockets ni Phoenix Channels; únicamente emplea PubSub interno del BEAM.
 
-  Este adaptador es *fail-safe*: si Phoenix.PubSub no está disponible,
-  todas las operaciones se degradan a no-op seguro.
+  Es utilizado principalmente por:
+
+    - `ChannelManager`
+    - `MessageBroadcast`
+    - `AnnouncementChannel`
+    - `MentorshipChannel`
+    - Servicios que requieren suscripción a eventos internos
+
+  ## Funciones principales
+    - `publicar/2`: Difunde un mensaje a todos los suscriptores de un evento.
+    - `suscribirse/2`: Registra un proceso como suscriptor de un canal lógico.
+    - `desuscribir/2`: Elimina la suscripción de un proceso.
+
+  Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
+  Fecha: 2025-10-27
+  Licencia: GNU GPLv3
   """
 
   require Logger
