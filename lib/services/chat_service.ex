@@ -50,6 +50,7 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
     with {:ok, id_participante} <- obtener_sesion_actual(),
          {:ok, equipo} <- TeamManager.obtener_equipo(nombre_equipo),
          true <- miembro_del_equipo?(equipo, id_participante) do
+
       LoggerService.registrar_evento("Ingreso a chat", %{
         participante: id_participante,
         equipo: equipo.nombre
@@ -79,8 +80,8 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
 
   defp obtener_sesion_actual do
     case SessionManager.obtener_participante_actual() do
+      {:error, _} -> {:error, :no_sesion}
       {:ok, participante} -> {:ok, participante.id}
-      error -> error
     end
   end
 
