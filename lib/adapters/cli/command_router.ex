@@ -29,23 +29,22 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRouter do
 
       _ ->
         case @parser.parse(input) do
-          {:ok, %{command: cmd, args: args}} ->
-            # ← ← ← EL ARREGLO
-            cmd = String.trim(cmd)
+          {:ok, %{command: raw_cmd, args: args}} ->
+            cmd = String.trim(raw_cmd)
 
             with {:ok, command_info} <- CommandRegistry.get(cmd),
                  :ok <- verificar_acceso(command_info),
-                 true <- validar_permiso(nil, command_info) do
+                 :ok <- verificar_permiso(command_info) do
               ejecutar_comando(cmd, args, command_info)
             else
-              {:error, msg} ->
-                {:error, msg}
+              {:error, mensaje} ->
+                {:error, mensaje}
 
               _ ->
                 {:error, "Comando no reconocido. Usa /help para ver las opciones disponibles."}
             end
 
-          {:error, _reason} ->
+          {:error, _} ->
             {:error, "Formato inválido. Usa /help para ver los comandos válidos."}
         end
     end
@@ -55,14 +54,46 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRouter do
     do: {:error, "Entrada inválida. El comando debe ser texto."}
 
   # ============================================================
-  # PERMISOS
+  # ACCESO SEGÚN SESIÓN
   # ============================================================
 
-  defp validar_permiso(id_usuario, %{required_permission: permiso}) when is_atom(permiso) do
-    PermissionService.autorizado?(id_usuario, permiso)
+  # Comandos públicos: no requieren sesión
+  defp es_publico?(%{required_permission: nil}), do: true
+  defp es_publico?(_), do: false
+
+  defp verificar_acceso(command_info) do
+    usuario = SessionManager.obtener_participante_actual()
+
+    cond do
+      es_publico?(command_info) ->
+        :ok
+
+      SessionManager.sesion_activa?(usuario.id) ->
+        :ok
+
+      true ->
+        {:error, "Debes iniciar sesión para ejecutar este comando."}
+    end
   end
 
-  defp validar_permiso(_id_usuario, _), do: true
+  # ============================================================
+  # VERIFICACIÓN DE PERMISOS POR ROL
+  # ============================================================
+
+  defp verificar_permiso(%{required_permission: nil}), do: :ok
+
+  defp verificar_permiso(%{required_permission: permiso}) do
+    case SessionManager.obtener_participante_actual() do
+      {:ok, id_usuario} ->
+        case PermissionService.autorizado?(id_usuario, permiso) do
+          true -> :ok
+          false -> {:error, "Acceso denegado. No tienes permisos para ejecutar este comando."}
+        end
+
+      {:error, :no_usuario_autenticado} ->
+        {:error, "Debes iniciar sesión para ejecutar este comando."}
+    end
+  end
 
   # ============================================================
   # EJECUCIÓN DEL COMANDO
@@ -70,7 +101,7 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRouter do
 
   defp ejecutar_comando(cmd, args, command_info) do
     try do
-      LoggerService.registrar_evento("Ejecución de comando", %{comando: cmd, argumentos: args})
+      LoggerService.registrar_evento("Ejecución de comando", %{comando: cmd, args: args})
       CommandExecutor.execute(command_info, args)
     rescue
       error ->
@@ -82,16 +113,4 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRouter do
         {:error, "Ocurrió un error al ejecutar el comando #{cmd}: #{Exception.message(error)}"}
     end
   end
-
-  defp verificar_acceso(%{required_permission: _permiso}) do
-    case SessionManager.obtener_participante_actual() do
-      {:ok, _user} ->
-        :ok
-
-      {:error, :no_usuario_autenticado} ->
-        {:error, "Debes iniciar sesión para ejecutar este comando."}
-    end
-  end
-
-  defp verificar_acceso(_), do: :ok
 end
