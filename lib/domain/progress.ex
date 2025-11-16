@@ -21,10 +21,10 @@ defmodule ProyectoFinalPrg3.Domain.Progress do
     - `:estado` — Estado del avance (`:pendiente`, `:revision`, `:aprobado`).
     - `:version` — Número o etiqueta de versión.
 
-  ## Campos opcionales útiles
-    - `:retroalimentacion` — Comentarios del mentor (si existen).
-    - `:adjuntos` — Lista de URLs o archivos relacionados.
-
+  Autores: [Sharif Giraldo Obando, Juan Sebastián Hernández y Santiago Ospina Sánchez]
+  Fecha de creación: 2025-11-16
+  Fecha de última modificación: 2025-11-16
+  Licencia: GNU GPL v3
   """
   @derive Jason.Encoder
   defstruct [
@@ -42,8 +42,7 @@ defmodule ProyectoFinalPrg3.Domain.Progress do
   ]
 
   @doc """
-  Constructor simplificado para avances.
-
+  Constructor para crear un nuevo registro de avance.
   ## Parámetros mínimos requeridos:
     - `id`
     - `proyecto_id`
