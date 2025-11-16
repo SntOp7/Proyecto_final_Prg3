@@ -14,46 +14,43 @@ config :logger, :console,
   metadata: [:module, :line],
   level: :info
 
-
 # ================================================================
-# CONFIGURACIÓN DE PUBSUB (para BroadcastService)
-# Usamos el adaptador PG2 (compatible y sin warnings).
+# PUBSUB
 # ================================================================
 
 config :proyecto_final_prg3, ProyectoFinalPrg3.PubSub,
   adapter: Phoenix.PubSub.PG2
 
-
 # ================================================================
 # CONFIGURACIÓN DE PERSISTENCIA
-# Rutas usadas por ParticipantStore, TeamStore, ProjectStore, etc.
 # ================================================================
 
 config :proyecto_final_prg3, :persistencia,
   ruta_data: "data",
   ruta_logs: "logs"
 
-
 # ================================================================
-# CONFIGURACIÓN DE NODOS DISTRIBUIDOS (NodeManager)
-# Puedes dejarlo vacío, no genera errores.
+# CONFIGURACIÓN DE NODOS DISTRIBUIDOS
+# Lista de nodos a los que se conectará el nodo CENTRAL
 # ================================================================
 
 config :proyecto_final_prg3,
-  nodos: []
-
+  nodos: [
+    :"persistencia@localhost"
+  ]
 
 # ================================================================
-# CONFIGURACIÓN DE BROADCAST Y NETWORK
-# (No requiere valores adicionales por el momento)
+# TIPO DE NODO ACTUAL
+# Cambia este valor manualmente al iniciar cada nodo.
+# ================================================================
+
+config :proyecto_final_prg3,
+  tipo_nodo: :central
+# valores válidos: :central | :persistencia | :cli
+
+# ================================================================
+# BROADCAST
 # ================================================================
 
 config :proyecto_final_prg3, :broadcast,
   habilitado: true
-
-
-# ================================================================
-# NOTA IMPORTANTE:
-# NO se usa import_config "#{config_env()}.exs"
-# porque NO trabajamos con entornos dev/prod/test.
-# ================================================================
