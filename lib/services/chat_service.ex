@@ -47,33 +47,33 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
     - `{:error, razon}`
   """
   def ingresar_chat_equipo(nombre_equipo) when is_binary(nombre_equipo) do
-  with {:ok, id_participante} <- obtener_sesion_actual(),
-       {:ok, participante} <- ParticipantManager.obtener_participante(id_participante),  # ← Agregar esta línea
-       {:ok, equipo} <- TeamManager.obtener_equipo(nombre_equipo),
-       true <- miembro_del_equipo?(equipo, participante) do  # ← Pasar participante completo
+    with {:ok, id_participante} <- obtener_sesion_actual(),
+         {:ok, _participante} <- ParticipantManager.obtener_participante(id_participante),
+         {:ok, equipo} <- TeamManager.obtener_equipo(nombre_equipo),
+         # ← Verificar directamente con el ID
+         true <- id_participante in equipo.participantes do
+      LoggerService.registrar_evento("Ingreso a chat", %{
+        participante: id_participante,
+        equipo: equipo.nombre
+      })
 
-    LoggerService.registrar_evento("Ingreso a chat", %{
-      participante: id_participante,
-      equipo: equipo.nombre
-    })
+      BroadcastService.notificar(:ingreso_chat, %{
+        equipo: equipo.nombre,
+        participante: id_participante
+      })
 
-    BroadcastService.notificar(:ingreso_chat, %{
-      equipo: equipo.nombre,
-      participante: id_participante
-    })
+      {:ok, "Has ingresado al chat del equipo #{equipo.nombre}."}
+    else
+      {:error, :no_sesion} ->
+        {:error, "Debes iniciar sesión para acceder al chat."}
 
-    {:ok, "Has ingresado al chat del equipo #{equipo.nombre}."}
-  else
-    {:error, :no_sesion} ->
-      {:error, "Debes iniciar sesión para acceder al chat."}
+      {:error, :no_encontrado} ->
+        {:error, "El equipo '#{nombre_equipo}' no existe."}
 
-    {:error, :no_encontrado} ->
-      {:error, "El equipo '#{nombre_equipo}' no existe."}
-
-    false ->
-      {:error, "No perteneces a este equipo, no puedes ingresar a su chat."}
+      false ->
+        {:error, "No perteneces a este equipo, no puedes ingresar a su chat."}
+    end
   end
-end
 
   # ============================================================
   # FUNCIONES AUXILIARES
@@ -84,9 +84,5 @@ end
       {:error, _} -> {:error, :no_sesion}
       {:ok, participante} -> {:ok, participante.id}
     end
-  end
-
-  defp miembro_del_equipo?(equipo, id_participante) do
-    Enum.any?(equipo.participantes, fn p -> p.id == id_participante end)
   end
 end
