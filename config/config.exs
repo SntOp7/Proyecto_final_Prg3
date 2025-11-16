@@ -18,8 +18,7 @@ config :logger, :console,
 # PUBSUB
 # ================================================================
 
-config :proyecto_final_prg3, ProyectoFinalPrg3.PubSub,
-  adapter: Phoenix.PubSub.PG2
+config :proyecto_final_prg3, ProyectoFinalPrg3.PubSub, adapter: Phoenix.PubSub.PG2
 
 # ================================================================
 # CONFIGURACIÓN DE PERSISTENCIA
@@ -36,7 +35,7 @@ config :proyecto_final_prg3, :persistencia,
 
 config :proyecto_final_prg3,
   nodos: [
-    :"persistencia@persistencia"
+    :"persistencia@#{:inet.gethostname() |> elem(1)}"
   ]
 
 # ================================================================
@@ -46,16 +45,15 @@ config :proyecto_final_prg3,
 
 config :proyecto_final_prg3,
   tipo_nodo: :central
+
 # valores válidos: :central | :persistencia | :cli
 
 # ================================================================
 # BROADCAST
 # ================================================================
 
-config :proyecto_final_prg3, :broadcast,
-  habilitado: true
+config :proyecto_final_prg3, :broadcast, habilitado: true
 
-
-#iex.bat --sname persistencia -S mix
-#iex.bat --sname central -S mix
-#mix run cli.exs
+# iex.bat --sname persistencia -S mix
+# iex.bat --sname central -S mix
+# mix run cli.exs
