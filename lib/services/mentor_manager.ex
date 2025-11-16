@@ -6,7 +6,7 @@ defmodule ProyectoFinalPrg3.Services.MentorManager do
 
   alias ProyectoFinalPrg3.Domain.{Mentor, Feedback}
   alias ProyectoFinalPrg3.Adapters.Persistence.{MentorStore, FeedbackStore}
-  alias ProyectoFinalPrg3.Services.BroadcastService
+  alias ProyectoFinalPrg3.Services.{BroadcastService, TeamManager}
 
   # ============================================================
   # REGISTRO DE MENTOR
@@ -123,6 +123,18 @@ defmodule ProyectoFinalPrg3.Services.MentorManager do
       MentorStore.eliminar_mentor(id)
       BroadcastService.notificar(:mentor_eliminado, mentor)
       {:ok, :eliminado}
+    else
+      {:error, razon} -> {:error, razon}
+    end
+  end
+
+  def asignar_a_equipo(id_mentor, nombre_equipo) do
+    with {:ok, mentor} <- obtener_mentor(id_mentor),
+         {:ok, equipo} <- TeamManager.obtener_equipo(nombre_equipo) do
+      equipo_actualizado = %{equipo | id_mentor: mentor.id}
+      TeamManager.actualizar_equipo(equipo_actualizado)
+      BroadcastService.notificar(:mentor_asignado_equipo, %{mentor: mentor.id, equipo: equipo.id})
+      {:ok, mentor}
     else
       {:error, razon} -> {:error, razon}
     end
