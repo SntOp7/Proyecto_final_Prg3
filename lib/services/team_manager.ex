@@ -1,15 +1,8 @@
 defmodule ProyectoFinalPrg3.Services.TeamManager do
   @moduledoc """
-  Define la lógica de negocio y operaciones asociadas a la gestión de equipos dentro del sistema de hackathon.
-  Gestiona la creación, actualización, listado, vinculación de proyectos, asignación de mentores,
-  manejo de participantes, historial y canales de comunicación.
-
-  Este módulo forma parte de la capa de servicios de la arquitectura hexagonal.
-
-  Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez].
-  Fecha de creación: 2025-10-25
-  Fecha de última modificación: 2025-10-26
-  Licencia: GNU GPLv3
+  Servicio oficial de gestión de equipos.
+  Totalmente alineado con el struct Team sin campos extra
+  (sin canal_chat_id, sin puntaje, sin historial).
   """
 
   alias ProyectoFinalPrg3.Domain.{Team, Participant}
@@ -24,342 +17,194 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
   }
 
   # ============================================================
-  # FUNCIONES PRINCIPALES DE GESTIÓN DE EQUIPOS
+  # CREAR EQUIPO
   # ============================================================
 
-  @doc """
-  Crea un nuevo equipo y lo registra en el sistema.
-  Genera un ID único, asigna la fecha de creación y notifica a los servicios asociados.
-  """
   def crear_equipo(nombre, categoria, descripcion) do
-    if PermissionService.autorizado?(
-         SessionManager.obtener_participante_actual().id,
-         :crear_equipo
-       ) do
+    with {:ok, usuario} <- SessionManager.obtener_participante_actual(),
+         true <- PermissionService.autorizado?(usuario.id, :crear_equipo) do
+
       case TeamStore.obtener_equipo(nombre) do
         nil ->
-          equipo = %Team{
-            id: UUID.uuid4(),
-            nombre: nombre,
-            descripcion: descripcion,
-            categoria: categoria,
-            id_proyecto: nil,
-            id_mentor: nil,
-            participantes: [],
-            fecha_creacion: DateTime.utc_now(),
-            estado: :activo,
-            canal_chat_id: nil,
-            puntaje: 0,
-            historial: []
-          }
+          equipo =
+            Team.nuevo(
+              UUID.uuid4(),
+              nombre,
+              descripcion,
+              categoria,
+              nil,     # id_proyecto
+              nil,     # id_mentor
+              [],      # participantes
+              DateTime.utc_now(),
+              :activo
+            )
 
           TeamStore.guardar_equipo(equipo)
           BroadcastService.notificar(:equipo_creado, equipo)
 
-          # 🔹 MÉTRICAS EN TIEMPO REAL
-          ProyectoFinalPrg3.Services.MetricsService.registrar_evento(:equipo_creado, %{
-            equipo_id: equipo.id,
-            nombre: equipo.nombre,
-            categoria: categoria
-          })
-
           {:ok, equipo}
 
-        _existente ->
+        _ ->
           {:error, :equipo_ya_existente}
       end
+
     else
-      {:error, :permiso_denegado}
+      false -> {:error, :permiso_denegado}
+      error -> error
     end
   end
 
-  @doc """
-  Actualiza la información completa de un equipo existente.
-  """
-  def actualizar_equipo(%Team{} = equipo) do
-    TeamStore.guardar_equipo(equipo)
-    BroadcastService.notificar(:equipo_actualizado, equipo)
-    {:ok, equipo}
+  # ============================================================
+  # CONSULTA
+  # ============================================================
+
+  def listar_equipos, do: TeamStore.listar_equipos()
+
+  def obtener_equipo(nombre) do
+    case TeamStore.obtener_equipo(nombre) do
+      nil -> {:error, :no_encontrado}
+      eq -> {:ok, eq}
+    end
   end
 
-  @doc """
-  Agrega un participante a un equipo, verificando que no exista previamente.
-  También actualiza la información del participante.
-  """
-  def agregar_participante(nombre_equipo, participante = %Participant{}) do
+  def obtener_por_id(id) do
+    case TeamStore.obtener_equipo_por_id(id) do
+      nil -> {:error, :no_encontrado}
+      eq -> {:ok, eq}
+    end
+  end
+
+  # ============================================================
+  # PARTICIPANTES
+  # ============================================================
+
+  def agregar_participante(nombre_equipo, %Participant{} = participante) do
     with {:ok, equipo} <- obtener_equipo(nombre_equipo),
          false <- participante_en_equipo?(equipo, participante.id) do
-      participante_actualizado = %{participante | equipo_id: equipo.id}
 
       equipo_actualizado = %{
         equipo
-        | participantes: [participante_actualizado | equipo.participantes]
+        | participantes: [participante.id | equipo.participantes]
       }
 
       TeamStore.guardar_equipo(equipo_actualizado)
       ParticipantManager.actualizar_equipo(participante.id, equipo.id)
+
       BroadcastService.notificar(:equipo_actualizado, equipo_actualizado)
 
-      # 🔹 REGISTRO EN MÉTRICAS
-      ProyectoFinalPrg3.Services.MetricsService.registrar_evento(:participante_agregado, %{
-        equipo_id: equipo.id,
-        participante_id: participante.id,
-        nombre_equipo: equipo.nombre
-      })
-
       {:ok, equipo_actualizado}
+
     else
       true -> {:error, :ya_en_equipo}
-      {:error, razon} -> {:error, razon}
+      error -> error
     end
   end
 
-  def unirse_a_equipo(nombre_equipo, id_participante) do
-    with {:ok, usuario} <- AuthService.obtener_participante(id_participante),
+  def unirse_a_equipo(nombre_equipo, participante) do
+    with {:ok, usuario} <- AuthService.obtener_participante(participante.id),
          {:ok, equipo} <- obtener_equipo(nombre_equipo),
-         false <- participante_en_equipo?(equipo, id_participante) do
-      usuario_actualizado = %{usuario | equipo_id: equipo.id}
-      equipo_actualizado = %{equipo | participantes: [usuario_actualizado | equipo.participantes]}
+         false <- participante_en_equipo?(equipo, usuario.id) do
+
+      equipo_actualizado = %{
+        equipo
+        | participantes: [usuario.id | equipo.participantes]
+      }
 
       TeamStore.guardar_equipo(equipo_actualizado)
       ParticipantManager.actualizar_equipo(usuario.id, equipo.id)
+
       BroadcastService.notificar(:miembro_unido, equipo_actualizado)
 
-      # 🔹 REGISTRO EN MÉTRICAS
-      ProyectoFinalPrg3.Services.MetricsService.registrar_evento(:miembro_unido, %{
-        equipo_id: equipo.id,
-        participante_id: usuario.id,
-        nombre_equipo: equipo.nombre
-      })
-
       {:ok, equipo_actualizado}
+
     else
       true -> {:error, :ya_es_miembro}
-      {:error, razon} -> {:error, razon}
+      err -> err
     end
   end
 
-  @doc """
-  Remueve un participante de un equipo.
-  """
-  def remover_participante(nombre_equipo, id_participante) do
+  def remover_participante(nombre_equipo, id_usuario) do
     with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
-      nuevos_participantes =
-        Enum.reject(equipo.participantes, fn p -> p.id == id_participante end)
+      nuevos =
+        Enum.reject(equipo.participantes, fn id -> id == id_usuario end)
 
-      equipo_actualizado = %{equipo | participantes: nuevos_participantes}
+      equipo_actualizado = %{equipo | participantes: nuevos}
 
       TeamStore.guardar_equipo(equipo_actualizado)
-      ParticipantManager.actualizar_equipo(id_participante, nil)
+      ParticipantManager.actualizar_equipo(id_usuario, nil)
+
       BroadcastService.notificar(:equipo_actualizado, equipo_actualizado)
 
       {:ok, equipo_actualizado}
+
     else
-      {:error, razon} -> {:error, razon}
+      err -> err
     end
   end
 
-  @doc """
-  Disuelve un equipo (marca su estado como inactivo y notifica el cambio).
-  """
+  # ============================================================
+  # ESTADO DEL EQUIPO
+  # ============================================================
+
   def disolver_equipo(nombre_equipo) do
-    if PermissionService.autorizado?(
-         SessionManager.obtener_participante_actual().id,
-         :disolver_equipo
-       ) do
-      with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
-        equipo_actualizado = %{equipo | estado: :inactivo}
-        TeamStore.guardar_equipo(equipo_actualizado)
-        BroadcastService.notificar(:equipo_disuelto, equipo_actualizado)
+    with {:ok, usuario} <- SessionManager.obtener_participante_actual(),
+         true <- PermissionService.autorizado?(usuario.id, :disolver_equipo),
+         {:ok, equipo} <- obtener_equipo(nombre_equipo) do
 
-        # 🔹 REGISTRO EN MÉTRICAS
-        ProyectoFinalPrg3.Services.MetricsService.registrar_evento(:equipo_disuelto, %{
-          equipo_id: equipo.id,
-          nombre_equipo: equipo.nombre
-        })
+      equipo_actualizado = %{equipo | estado: :inactivo}
 
-        {:ok, :equipo_disuelto}
-      else
-        {:error, razon} -> {:error, razon}
-      end
+      TeamStore.guardar_equipo(equipo_actualizado)
+      BroadcastService.notificar(:equipo_disuelto, equipo_actualizado)
+
+      {:ok, :equipo_disuelto}
+
     else
-      {:error, :permiso_denegado}
+      false -> {:error, :permiso_denegado}
+      err -> err
     end
   end
 
   # ============================================================
-  # FUNCIONES DE CONSULTA Y FILTRADO
+  # MENTOR Y PROYECTO
   # ============================================================
 
-  @doc """
-  Lista todos los equipos registrados.
-  """
-  def listar_equipos, do: TeamStore.listar_equipos()
-
-  @doc """
-  Obtiene un equipo por su nombre.
-  """
-  def obtener_equipo(nombre) do
-    case TeamStore.obtener_equipo(nombre) do
-      nil -> {:error, :no_encontrado}
-      equipo -> {:ok, equipo}
-    end
-  end
-
-  @doc """
-  Obtiene un equipo por su ID único.
-  """
-  def obtener_por_id(id) do
-    case TeamStore.obtener_equipo_por_id(id) do
-      nil -> {:error, :no_encontrado}
-      equipo -> {:ok, equipo}
-    end
-  end
-
-  @doc """
-  Filtra los equipos por categoría o estado.
-  """
-  def filtrar_equipos(filtro, valor) do
-    equipos = TeamStore.listar_equipos()
-
-    case filtro do
-      :categoria -> Enum.filter(equipos, &(&1.categoria == valor))
-      :estado -> Enum.filter(equipos, &(&1.estado == valor))
-      _ -> equipos
-    end
-  end
-
-  @doc """
-  Verifica si un equipo está activo.
-  """
-  def equipo_activo?(nombre_equipo) do
-    with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
-      equipo.estado == :activo
-    else
-      _ -> false
-    end
-  end
-
-  # ============================================================
-  # FUNCIONES DE MENTORÍA Y PROYECTOS
-  # ============================================================
-
-  @doc """
-  Asigna o actualiza el mentor de un equipo.
-  """
   def asignar_mentor(nombre_equipo, id_mentor) do
-    if PermissionService.autorizado?(
-         SessionManager.obtener_participante_actual().id,
-         :asignar_mentor
-       ) do
-      with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
-        equipo_actualizado = %{equipo | id_mentor: id_mentor}
-        TeamStore.guardar_equipo(equipo_actualizado)
-        BroadcastService.notificar(:mentor_asignado, equipo_actualizado)
-        {:ok, equipo_actualizado}
-      else
-        {:error, razon} -> {:error, razon}
-      end
+    with {:ok, usuario} <- SessionManager.obtener_participante_actual(),
+         true <- PermissionService.autorizado?(usuario.id, :asignar_mentor),
+         {:ok, equipo} <- obtener_equipo(nombre_equipo) do
+
+      actualizado = %{equipo | id_mentor: id_mentor}
+
+      TeamStore.guardar_equipo(actualizado)
+      BroadcastService.notificar(:mentor_asignado, actualizado)
+
+      {:ok, actualizado}
+
     else
-      {:error, :permiso_denegado}
+      false -> {:error, :permiso_denegado}
+      err -> err
     end
   end
 
-  @doc """
-  Vincula un proyecto existente al equipo mediante su ID.
-  """
   def vincular_proyecto(nombre_equipo, id_proyecto) do
     with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
-      equipo_actualizado = %{equipo | id_proyecto: id_proyecto}
-      TeamStore.guardar_equipo(equipo_actualizado)
-      BroadcastService.notificar(:proyecto_vinculado, equipo_actualizado)
-      {:ok, equipo_actualizado}
+      actualizado = %{equipo | id_proyecto: id_proyecto}
+
+      TeamStore.guardar_equipo(actualizado)
+      BroadcastService.notificar(:proyecto_vinculado, actualizado)
+
+      {:ok, actualizado}
+
     else
-      {:error, razon} -> {:error, razon}
+      err -> err
     end
   end
 
   # ============================================================
-  # FUNCIONES DE EVALUACIÓN Y PUNTAJE
+  # AUXILIAR
   # ============================================================
 
-  @doc """
-  Actualiza el puntaje global del equipo tras una evaluación.
-  """
-  def actualizar_puntaje(nombre_equipo, nuevo_puntaje) do
-    with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
-      equipo_actualizado = %{equipo | puntaje: nuevo_puntaje}
-      TeamStore.guardar_equipo(equipo_actualizado)
-      BroadcastService.notificar(:puntaje_actualizado, equipo_actualizado)
-      {:ok, equipo_actualizado}
-    else
-      {:error, razon} -> {:error, razon}
-    end
+  defp participante_en_equipo?(equipo, participante_id) do
+    Enum.member?(equipo.participantes, participante_id)
   end
-
-  # ============================================================
-  # FUNCIONES DE HISTORIAL Y TRAZABILIDAD
-  # ============================================================
-
-  @doc """
-  Registra un evento o acción en el historial del equipo.
-  """
-  def registrar_evento(nombre_equipo, evento) do
-    with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
-      historial_actualizado = [
-        %{timestamp: DateTime.utc_now(), detalle: evento} | equipo.historial
-      ]
-
-      equipo_actualizado = %{equipo | historial: historial_actualizado}
-      TeamStore.guardar_equipo(equipo_actualizado)
-      {:ok, equipo_actualizado}
-    else
-      {:error, razon} -> {:error, razon}
-    end
-  end
-
-  @doc """
-  Obtiene el historial completo de eventos de un equipo.
-  """
-  def obtener_historial(nombre_equipo) do
-    with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
-      {:ok, equipo.historial}
-    else
-      {:error, razon} -> {:error, razon}
-    end
-  end
-
-  # ============================================================
-  # FUNCIONES DE COMUNICACIÓN
-  # ============================================================
-
-  @doc """
-  Asigna o actualiza el canal de chat del equipo.
-  """
-  def asignar_canal_chat(nombre_equipo, canal_id) do
-    with {:ok, equipo} <- obtener_equipo(nombre_equipo) do
-      equipo_actualizado = %{equipo | canal_chat_id: canal_id}
-      TeamStore.guardar_equipo(equipo_actualizado)
-      BroadcastService.notificar(:canal_chat_asignado, equipo_actualizado)
-      {:ok, equipo_actualizado}
-    else
-      {:error, razon} -> {:error, razon}
-    end
-  end
-
-  @doc """
-  Envía un mensaje de notificación a todos los miembros del equipo.
-  """
-  def notificar_equipo(equipo, mensaje) do
-    BroadcastService.notificar(:mensaje_equipo, %{equipo: equipo.nombre, contenido: mensaje})
-    {:ok, :mensaje_enviado}
-  end
-
-  # ============================================================
-  # FUNCIONES AUXILIARES
-  # ============================================================
-
-  @doc false
-  defp participante_en_equipo?(equipo, id_participante),
-    do: Enum.any?(equipo.participantes, fn p -> p.id == id_participante end)
 end
