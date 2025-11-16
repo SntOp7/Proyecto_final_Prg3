@@ -80,8 +80,8 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
 
   defp obtener_sesion_actual do
     case SessionManager.obtener_participante_actual() do
-      nil -> {:error, :no_sesion}
-      id -> {:ok, id}
+      {:error, _} -> {:error, :no_sesion}
+      {:ok, participante} -> {:ok, participante.id}
     end
   end
 
