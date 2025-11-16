@@ -11,7 +11,6 @@ defmodule ProyectoFinalPrg3.Services.ProjectManager do
   alias ProyectoFinalPrg3.Services.{
     TeamManager,
     BroadcastService,
-    CategoryService,
     PermissionService
   }
 
@@ -58,9 +57,6 @@ defmodule ProyectoFinalPrg3.Services.ProjectManager do
               BroadcastService.notificar(:equipo_no_encontrado, %{equipo_id: equipo_id})
           end
         end
-
-        # Agregar a categoría
-        if categoria, do: CategoryService.agregar_proyecto(categoria, proyecto.id)
 
         {:ok, proyecto}
       end
@@ -134,11 +130,6 @@ defmodule ProyectoFinalPrg3.Services.ProjectManager do
 
             _ -> :ok
           end
-        end
-
-        # Desvincular categoría
-        if proyecto.categoria do
-          CategoryService.remover_proyecto(proyecto.categoria, proyecto.id)
         end
 
         BroadcastService.notificar(:proyecto_eliminado, proyecto)
