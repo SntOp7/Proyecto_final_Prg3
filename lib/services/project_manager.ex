@@ -24,47 +24,57 @@ defmodule ProyectoFinalPrg3.Services.ProjectManager do
 
   Requiere permiso :crear_proyecto.
   """
-  def crear_proyecto(nombre, descripcion, categoria, equipo_id, usuario_id, mentor_id \\ nil) do
-    if PermissionService.autorizado?(usuario_id, :crear_proyecto) do
+  def crear_proyecto(nombre, descripcion, categoria, nombre_equipo, usuario_id, mentor_id \\ nil) do
 
+  case PermissionService.autorizado?(usuario_id, :crear_proyecto) do
+    true ->
       if existe_proyecto?(nombre) do
         {:error, :proyecto_ya_existente}
       else
-        proyecto =
-          Project.nuevo(
-            UUID.uuid4(),
-            nombre,
-            descripcion,
-            categoria,
-            :en_desarrollo,
-            DateTime.utc_now(),
-            equipo_id,
-            mentor_id,
-            nil,  # repositorio_url
-            nil   # puntaje
-          )
+        case TeamManager.obtener_equipo(nombre_equipo) do
+          {:ok, equipo} ->
+            id_equipo = equipo.id
+            proyecto_id = UUID.uuid4()
+            fecha = DateTime.utc_now()
+            try do
+              proyecto = Project.nuevo(
+                proyecto_id,
+                nombre,
+                descripcion,
+                categoria,
+                :en_desarrollo,
+                fecha,
+                id_equipo,
+                mentor_id,
+                nil,
+                nil
+              )
 
-        ProjectStore.guardar_proyecto(proyecto)
-        BroadcastService.notificar(:proyecto_creado, proyecto)
+              IO.inspect(proyecto, label: "   Proyecto")
 
-        # Vincular con el equipo si aplica
-        if equipo_id do
-          case TeamManager.obtener_por_id(equipo_id) do
-            {:ok, equipo} ->
+              ProjectStore.guardar_proyecto(proyecto)
+
+              BroadcastService.notificar(:proyecto_creado, proyecto)
+
               TeamManager.vincular_proyecto(equipo.nombre, proyecto.id)
 
-            _ ->
-              BroadcastService.notificar(:equipo_no_encontrado, %{equipo_id: equipo_id})
-          end
-        end
+              IO.puts("PROYECTO CREADO EXITOSAMENTE\n")
+            rescue
+              e ->
+                IO.puts("ERROR EN: #{inspect(e)}")
+                reraise e, __STACKTRACE__
+            end
 
-        {:ok, proyecto}
+          {:error, :no_encontrado} ->
+            IO.puts("Equipo no encontrado")
+            {:error, "No se encontró un equipo con ese nombre"}
+        end
       end
 
-    else
+    false ->
       {:error, :permiso_denegado}
-    end
   end
+end
 
   # ============================================================
   # ACTUALIZACIÓN
@@ -78,7 +88,6 @@ defmodule ProyectoFinalPrg3.Services.ProjectManager do
   def actualizar_proyecto(nombre, cambios, usuario_id) do
     if PermissionService.autorizado?(usuario_id, :editar_proyecto) do
       with {:ok, proyecto} <- obtener_proyecto(nombre) do
-
         # Se permiten solo campos válidos del struct
         cambios_validos =
           Map.take(cambios, [
@@ -101,7 +110,6 @@ defmodule ProyectoFinalPrg3.Services.ProjectManager do
       else
         {:error, razon} -> {:error, razon}
       end
-
     else
       {:error, :permiso_denegado}
     end
@@ -119,7 +127,6 @@ defmodule ProyectoFinalPrg3.Services.ProjectManager do
   def eliminar_proyecto(nombre, usuario_id) do
     if PermissionService.autorizado?(usuario_id, :eliminar_proyecto) do
       with {:ok, proyecto} <- obtener_proyecto(nombre) do
-
         ProjectStore.eliminar_proyecto(nombre)
 
         # Desvincular del equipo
@@ -128,7 +135,8 @@ defmodule ProyectoFinalPrg3.Services.ProjectManager do
             {:ok, equipo} ->
               TeamManager.vincular_proyecto(equipo.nombre, nil)
 
-            _ -> :ok
+            _ ->
+              :ok
           end
         end
 
@@ -137,7 +145,6 @@ defmodule ProyectoFinalPrg3.Services.ProjectManager do
       else
         {:error, razon} -> {:error, razon}
       end
-
     else
       {:error, :permiso_denegado}
     end

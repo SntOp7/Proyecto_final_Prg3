@@ -153,16 +153,28 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
     {:ok, "Equipo creado correctamente."}
   end
 
-  # /create_project <nombre> <categoria> <descripcion>
-  def ejecutar_comando(%{service: :team_manager, action: :create_project}, %{
+  def ejecutar_comando(%{service: :project_manager, action: :create_project}, %{
         nombre: n,
         descripcion: d,
         categoria: c,
-        id_equipo: id_equipo
+        equipo: e
       }) do
-    usuario = SessionManager.obtener_participante_actual()
-    ProjectManager.crear_proyecto(n, d, c, id_equipo, usuario.id, nil)
-    {:ok, "Proyecto creado correctamente."}
+
+    case SessionManager.obtener_participante_actual() do
+      {:ok, usuario} ->
+
+        resultado = ProjectManager.crear_proyecto(n, d, c, e, usuario.id, nil)
+        IO.puts("Resultado: #{inspect(resultado)}")
+
+        case resultado do
+          {:ok, _proyecto} -> {:ok, "Proyecto creado correctamente."}
+          error -> error
+        end
+
+      {:error, razon} ->
+        IO.puts("Error obteniendo usuario: #{inspect(razon)}")
+        {:error, "Debes iniciar sesión para crear un proyecto."}
+    end
   end
 
   # /chat <equipo>

@@ -82,7 +82,7 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRegistry do
 
     "/create_project" => %{
       description: "Crear un proyecto nuevo",
-      usage: "/create_project nombre=Titanes descripcion=\"Equipo de dev\", categoria=web , id_equipo=id_equipo",
+      usage: "/create_project nombre=Titanes descripcion=\"Equipo de dev\", categoria=web , equipo=Titanes",
       service: :project_manager,
       action: :create_project,
       required_permission: :crear_proyecto

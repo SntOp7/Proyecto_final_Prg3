@@ -1,2 +1,1 @@
-id,nombre,descripcion,categoria,estado,fecha_creacion,fecha_actualizacion,equipo_id,mentor_id,avances,retroalimentaciones,repositorio_url,puntaje,visibilidad,tags
-P2,"HealthAI","v2",Salud,completado,,,,,,,,0,privado,
+id,nombre,descripcion,categoria,estado,fecha_creacion,equipo_id,mentor_id,repositorio_url,puntaje

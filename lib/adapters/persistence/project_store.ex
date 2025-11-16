@@ -39,6 +39,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProjectStore do
       |> File.stream!()
       |> Stream.drop(1)
       |> Enum.map(&parse_line/1)
+      |> Enum.reject(&is_nil/1)
     else
       []
     end
@@ -89,31 +90,25 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProjectStore do
   # ============================================================
 
   defp parse_line(line) do
-    [
-      id,
-      nombre,
-      descripcion,
-      categoria,
-      estado,
-      fecha,
-      equipo_id,
-      mentor_id,
-      repo,
-      puntaje
-    ] = String.split(String.trim(line), ",", parts: 10)
+    case String.split(String.trim(line), ",", parts: 10) do
+      [id, nombre, descripcion, categoria, estado, fecha, equipo_id, mentor_id, repo, puntaje] ->
+        %Project{
+          id: id,
+          nombre: nombre,
+          descripcion: descripcion,
+          categoria: categoria,
+          estado: String.to_atom(estado),
+          fecha_creacion: parse_dt(fecha),
+          equipo_id: blank(equipo_id),
+          mentor_id: blank(mentor_id),
+          repositorio_url: blank(repo),
+          puntaje: parse_int(puntaje)
+        }
 
-    %Project{
-      id: id,
-      nombre: nombre,
-      descripcion: descripcion,
-      categoria: categoria,
-      estado: String.to_atom(estado),
-      fecha_creacion: parse_dt(fecha),
-      equipo_id: blank(equipo_id),
-      mentor_id: blank(mentor_id),
-      repositorio_url: blank(repo),
-      puntaje: parse_int(puntaje)
-    }
+      _ ->
+        # Línea inválida, ignorar
+        nil
+    end
   end
 
   # ============================================================
@@ -133,6 +128,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProjectStore do
   defp serialize_dt(%DateTime{} = dt), do: DateTime.to_iso8601(dt)
 
   defp parse_dt(""), do: nil
+
   defp parse_dt(str) do
     case DateTime.from_iso8601(str) do
       {:ok, dt, _} -> dt
