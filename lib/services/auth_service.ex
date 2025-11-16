@@ -27,6 +27,13 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
   @doc """
   Registra un participante con contraseña cifrada.
 
+  Parámetros:
+    - `nombre`    — Nombre completo del participante.
+    - `correo`    — Correo electrónico único.
+    - `username`  — Nombre de usuario.
+    - `contrasena` — Contraseña en texto plano.
+    - `rol`       — Rol del participante (por defecto "participante").
+
   Retorna:
     {:ok, participante}
     {:error, :correo_ya_registrado}
@@ -65,6 +72,10 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
 
   @doc """
   Autentica un usuario mediante correo + contraseña.
+
+  Parámetros:
+    - `correo` — Correo del participante.
+    - `contrasena` — Contraseña en texto plano.
 
   Retorna:
     {:ok, %{participante: p, token: t}}
@@ -139,6 +150,11 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
 
   @doc """
   Verifica si un token pertenece a una sesión activa.
+  Parámetros:
+    - `token` — Token a verificar.
+  Retorna:
+    - `true` si la sesión está activa.
+    - `false` en caso contrario.
   """
   def sesion_activa?(token) do
     case SessionManager.validar_sesion(token) do

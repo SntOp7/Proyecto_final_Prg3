@@ -31,6 +31,21 @@ defmodule ProyectoFinalPrg3.Domain.Team do
 
   """
   @derive Jason.Encoder
+
+  @doc"""
+  Representa un **equipo de la hackathon** dentro del dominio.
+  Constructor oficial del dominio Team.
+  ## Campos esenciales:
+    - `:id`              — Identificador único del equipo.
+    - `:nombre`          — Nombre del equipo.
+    - `:descripcion`     — Breve descripción del equipo.
+    - `:categoria`       — Categoría temática asignada.
+    - `:id_proyecto`     — Proyecto asociado (1 a 1).
+    - `:id_mentor`       — Mentor responsable.
+    - `:participantes`   — Lista de IDs de participantes.
+    - `:fecha_creacion`  — Fecha de formación.
+    - `:estado`          — Estado (`:activo`, `:inactivo`, `:disuelto`).
+  """
   defstruct [
     :id,
     :nombre,
