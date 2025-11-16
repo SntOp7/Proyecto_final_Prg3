@@ -127,7 +127,6 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ProjectStore do
   defp blank(v), do: v
 
   defp parse_int(""), do: nil
-  defp parse_int(nil), do: nil
   defp parse_int(v), do: String.to_integer(v)
 
   defp serialize_dt(nil), do: ""
