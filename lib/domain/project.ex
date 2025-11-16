@@ -26,6 +26,10 @@ defmodule ProyectoFinalPrg3.Domain.Project do
   NOTA IMPORTANTE:
   - Los avances NO se guardan en este struct.
   - La retroalimentación y comentarios se manejan por `Progress`.
+  Autores: [Sharif Giraldo Obando, Juan Sebastián Hernández y Santiago Ospina Sánchez]
+  Fecha de creación: 2025-11-16
+  Fecha de última modificación: 2025-11-16
+  Licencia: GNU GPL v3
   """
   @derive Jason.Encoder
   defstruct [

@@ -5,6 +5,10 @@ defmodule ProyectoFinalPrg3.Domain.Message do
   Esta versión optimizada contiene únicamente los atributos esenciales
   requeridos para la comunicación por canales según los requisitos
   del proyecto académico.
+  Autores: [Sharif Giraldo Obando, Juan Sebastián Hernández y Santiago Ospina Sánchez]
+  Fecha de creación: 2025-11-16
+  Fecha de última modificación: 2025-11-16
+  Licencia: GNU GPL v3
   """
   @derive Jason.Encoder
   defstruct [
