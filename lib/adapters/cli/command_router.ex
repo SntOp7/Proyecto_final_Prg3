@@ -29,23 +29,23 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRouter do
 
       _ ->
         case @parser.parse(input) do
-          %{command: cmd, args: args} ->
+          {:ok, %{command: cmd, args: args}} ->
+            # ← ← ← EL ARREGLO
+            cmd = String.trim(cmd)
+
             with {:ok, command_info} <- CommandRegistry.get(cmd),
-                 {:ok, id_usuario} <- SessionManager.obtener_participante_actual(),
-                 true <- validar_permiso(id_usuario, command_info) do
+                 :ok <- verificar_acceso(command_info),
+                 true <- validar_permiso(nil, command_info) do
               ejecutar_comando(cmd, args, command_info)
             else
-              false ->
-                {:error, "Acceso denegado. No tienes permisos para ejecutar este comando."}
-
-              {:error, :no_usuario_autenticado} ->
-                {:error, "Debes iniciar sesión para ejecutar comandos."}
+              {:error, msg} ->
+                {:error, msg}
 
               _ ->
                 {:error, "Comando no reconocido. Usa /help para ver las opciones disponibles."}
             end
 
-          _ ->
+          {:error, _reason} ->
             {:error, "Formato inválido. Usa /help para ver los comandos válidos."}
         end
     end
@@ -82,4 +82,16 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRouter do
         {:error, "Ocurrió un error al ejecutar el comando #{cmd}: #{Exception.message(error)}"}
     end
   end
+
+  defp verificar_acceso(%{required_permission: _permiso}) do
+    case SessionManager.obtener_participante_actual() do
+      {:ok, _user} ->
+        :ok
+
+      {:error, :no_usuario_autenticado} ->
+        {:error, "Debes iniciar sesión para ejecutar este comando."}
+    end
+  end
+
+  defp verificar_acceso(_), do: :ok
 end

@@ -1,4 +1,9 @@
 id,timestamp,nodo,tipo,mensaje,datos
-"c5881b26-7915-48a6-a7c2-9ab12ce2f97d","2025-11-16T14:26:25.781000Z","nonode@nohost","info","Inicio del sistema de hackathon","{}"
-"238dd2e2-ec2a-45c9-abce-7aeb95856889","2025-11-16T14:26:25.787000Z","nonode@nohost","persistencia","Persistencia inicializada correctamente","{'tipo':'persistencia','fecha':'2025-11-16T14:26:25.787000Z'}"
-"9cef650a-24da-4db0-abeb-b7a951f06fbe","2025-11-16T14:26:25.810000Z","nonode@nohost","info","Repositorios cargados","{}"
+"e4972ac5-a446-4f55-9514-c11f07374a7f","2025-11-16T16:13:24.113000Z","nonode@nohost","info","Inicio del sistema","{'nodo':'central'}"
+"a81b4599-53b6-4813-8a27-bda31a8a3eda","2025-11-16T16:13:24.132000Z","proyecto_final@PC-SANTIAGO","info","Nodo BEAM iniciado","{'nodo':'proyecto_final@PC-SANTIAGO'}"
+"21b21dd2-6c2a-4ec1-a8f5-947cc6042f10","2025-11-16T16:13:24.132000Z","proyecto_final@PC-SANTIAGO","central","Nodo local iniciado","{'tipo':'central'}"
+"be41d12b-5df1-4707-a82f-74167e8cdb99","2025-11-16T16:13:24.176000Z","proyecto_final@PC-SANTIAGO","info","Error conectando al nodo","{'nodo':'persistencia@persistencia','razon':'rechazado'}"
+"874d0738-7343-446d-892f-a7f183b77c43","2025-11-16T16:13:24.176000Z","proyecto_final@PC-SANTIAGO","persistencia","Persistencia inicializada correctamente","{'tipo':'persistencia','fecha':'2025-11-16T16:13:24.176000Z'}"
+"84b3ad32-f243-4de5-b288-7340ee52eb5e","2025-11-16T16:13:24.193000Z","proyecto_final@PC-SANTIAGO","info","Repositorios cargados","{}"
+"4701d595-2cae-440f-b1ca-2f00253b30c4","2025-11-16T16:13:27.594000Z","proyecto_final@PC-SANTIAGO","info","Ejecución de comando","{'argumentos':[],'comando':'/help'}"
+"1990457b-f069-48da-9e86-59948000ce06","2025-11-16T16:13:27.597000Z","proyecto_final@PC-SANTIAGO","info","Ejecución CLI","{'args':[],'comando':{'description':'Mostrar comandos disponibles y su descripción','service':'command_service','action':'show_help'}}"

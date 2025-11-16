@@ -30,42 +30,53 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.AuditService do
     campos =
       Regex.scan(~r/"([^"]*)"|([^,]+)/, linea)
       |> Enum.map(fn
-        [_, quoted, _] when quoted != nil -> quoted
-        [_, _, unquoted]                  -> unquoted
+        # Caso normal: viene en la forma [match, quoted, unquoted]
+        [_, quoted, _] when quoted != nil ->
+          quoted
+
+        [_, _, unquoted] ->
+          unquoted
+
+        # Caso defectuoso: la regex devolvió algo inesperado como ["\"uuid\"", "uuid"]
+        lista ->
+          lista
+          |> List.last()
+          |> String.trim("\"")
       end)
 
-    [id, timestamp, nodo, tipo, mensaje, datos_json] = campos
+    case campos do
+      [id, timestamp, nodo, tipo, mensaje, datos_json] ->
+        datos =
+          case Jason.decode(datos_json) do
+            {:ok, mapa} -> mapa
+            _ -> %{}
+          end
 
-    datos =
-      case Jason.decode(datos_json) do
-        {:ok, mapa} -> mapa
-        _ -> %{}
-      end
+        %{
+          id: id,
+          timestamp: timestamp,
+          nodo: nodo,
+          tipo: safe_atom(tipo),
+          mensaje: mensaje,
+          datos: datos
+        }
 
-    %{
-      id: id,
-      timestamp: timestamp,
-      nodo: nodo,
-      tipo: safe_atom(tipo),
-      mensaje: mensaje,
-      datos: datos
-    }
+      campos_invalidos ->
+        IO.puts("[WARN] Línea CSV inválida ignorada: #{inspect(campos_invalidos)}")
+        :ignore
+    end
   end
-
 
   defp safe_atom(nil), do: :info
-defp safe_atom(""), do: :info
+  defp safe_atom(""), do: :info
 
-defp safe_atom(str) when is_binary(str) do
-  try do
-    String.to_existing_atom(str)
-  rescue
-    _ -> :info
+  defp safe_atom(str) when is_binary(str) do
+    try do
+      String.to_existing_atom(str)
+    rescue
+      _ -> :info
+    end
   end
-end
-
-
-
 
   # ============================================================
   # FILTROS
@@ -77,18 +88,17 @@ end
   def filtrar_por_rango(fi_str, ff_str) do
     with {:ok, fi, _} <- DateTime.from_iso8601(fi_str),
          {:ok, ff, _} <- DateTime.from_iso8601(ff_str) do
-
       obtener_todos()
       |> Enum.filter(fn evento ->
         case DateTime.from_iso8601(evento.timestamp) do
           {:ok, fecha, _} ->
             DateTime.compare(fecha, fi) != :lt and
-            DateTime.compare(fecha, ff) != :gt
+              DateTime.compare(fecha, ff) != :gt
 
-          _ -> false
+          _ ->
+            false
         end
       end)
-
     else
       _ -> {:error, :fechas_invalidas}
     end
@@ -110,29 +120,35 @@ end
   # ============================================================
 
   def exportar_a_json(destino \\ "logs/audit_export.json") do
-    eventos = obtener_todos()
-    File.mkdir_p!("logs")
-    File.write!(destino, Jason.encode!(eventos, pretty: true))
-    {:ok, destino}
-  end
+  eventos =
+    obtener_todos()
+    |> Enum.filter(&is_map/1)   # << FILTRA :ignore
 
-  def exportar_a_txt(destino \\ "logs/audit_export.txt") do
-    eventos = obtener_todos()
+  File.mkdir_p!("logs")
+  File.write!(destino, Jason.encode!(eventos, pretty: true))
+  {:ok, destino}
+end
 
-    contenido =
-      eventos
-      |> Enum.map(fn e ->
-        """
-        [#{e.timestamp}] (#{e.tipo}) #{e.mensaje}
-        Nodo: #{e.nodo}
-        Datos: #{Jason.encode!(e.datos)}
-        ----------------------------------------
-        """
-      end)
-      |> Enum.join("\n")
+def exportar_a_txt(destino \\ "logs/audit_export.txt") do
+  eventos =
+    obtener_todos()
+    |> Enum.filter(&is_map/1)   # << FILTRA :ignore
 
-    File.mkdir_p!("logs")
-    File.write!(destino, contenido)
-    {:ok, destino}
-  end
+  contenido =
+    eventos
+    |> Enum.map(fn e ->
+      """
+      [#{e.timestamp}] (#{e.tipo}) #{e.mensaje}
+      Nodo: #{e.nodo}
+      Datos: #{Jason.encode!(e.datos)}
+      ----------------------------------------
+      """
+    end)
+    |> Enum.join("\n")
+
+  File.mkdir_p!("logs")
+  File.write!(destino, contenido)
+  {:ok, destino}
+end
+
 end

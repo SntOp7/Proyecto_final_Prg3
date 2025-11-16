@@ -40,6 +40,7 @@ defmodule ProyectoFinalPrg3.Services.InitialBootService do
   """
 
   use GenServer
+  require Logger
 
   alias ProyectoFinalPrg3.Adapters.Logging.{LoggerService, AuditService}
   alias ProyectoFinalPrg3.Adapters.Persistence.PersistenceManager
@@ -65,6 +66,8 @@ defmodule ProyectoFinalPrg3.Services.InitialBootService do
 
   @impl true
   def init(:ok) do
+    :ets.new(:sesiones_activas, [:set, :named_table, :public])
+
     Process.send_after(self(), :boot, 15)
     {:ok, %{}}
   end

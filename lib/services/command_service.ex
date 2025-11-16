@@ -28,77 +28,62 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
   alias ProyectoFinalPrg3.Adapters.CLI.CommandRegistry
   alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
 
-  @doc """
-  Ejecuta comandos provenientes de la CLI según el servicio y acción especificados.
-  """
   @spec ejecutar_comando(map(), list()) :: {:ok, any()} | {:error, String.t()}
 
   # ============================================================
-  # COMANDOS PRINCIPALES
+  # COMANDOS CORRECTOS (según CommandRegistry)
   # ============================================================
 
-  def ejecutar_comando(%{service: :command_service, action: :listar_equipos}, _args) do
+  # /teams
+  def ejecutar_comando(%{service: :team_manager, action: :list_teams}, _args) do
     equipos = TeamManager.listar_equipos()
-    LoggerService.registrar_evento("Comando ejecutado", %{accion: :listar_equipos})
     {:ok, equipos}
   end
 
-  def ejecutar_comando(%{service: :command_service, action: :mostrar_proyecto}, [nombre_equipo]) do
+  # /project <equipo>
+  def ejecutar_comando(%{service: :project_manager, action: :show_project}, [nombre_equipo]) do
     with {:ok, equipo} <- TeamManager.obtener_equipo(nombre_equipo),
          {:ok, proyecto} <- ProjectManager.obtener_proyecto_por_id(equipo.id_proyecto) do
-      LoggerService.registrar_evento("Comando ejecutado", %{accion: :mostrar_proyecto, equipo: nombre_equipo})
       {:ok, proyecto}
     else
-      {:error, :no_encontrado} -> {:error, "No se encontró el equipo o proyecto indicado."}
+      _ -> {:error, "No se encontró el equipo o proyecto indicado."}
     end
   end
 
-  def ejecutar_comando(%{service: :command_service, action: :unirse_a_equipo}, [nombre_equipo]) do
-    id_participante = SessionManager.obtener_participante_actual()
+  # /join <equipo>
+  def ejecutar_comando(%{service: :team_manager, action: :join_team}, [nombre_equipo]) do
+    id = SessionManager.obtener_participante_actual()
 
-    case TeamManager.unirse_a_equipo(nombre_equipo, id_participante) do
-      {:ok, equipo} ->
-        LoggerService.registrar_evento("Comando ejecutado", %{accion: :unirse_a_equipo, equipo: equipo.nombre})
-        {:ok, "Te uniste exitosamente al equipo #{equipo.nombre}"}
-
+    case TeamManager.unirse_a_equipo(nombre_equipo, id) do
+      {:ok, equipo} -> {:ok, "Te uniste al equipo #{equipo.nombre}"}
       {:error, :ya_es_miembro} -> {:error, "Ya perteneces a este equipo."}
-      {:error, :no_encontrado} -> {:error, "No se encontró el equipo indicado."}
+      {:error, :no_encontrado} -> {:error, "Equipo no encontrado."}
     end
   end
 
-  def ejecutar_comando(%{service: :command_service, action: :ingresar_chat_equipo}, [nombre_equipo]) do
+  # /chat <equipo>
+  def ejecutar_comando(%{service: :chat_manager, action: :open_chat}, [nombre_equipo]) do
     ChatService.ingresar_chat_equipo(nombre_equipo)
-    LoggerService.registrar_evento("Comando ejecutado", %{accion: :ingresar_chat_equipo, equipo: nombre_equipo})
-    {:ok, "Has ingresado al chat del equipo #{nombre_equipo}."}
+    {:ok, "Ingresaste al chat del equipo #{nombre_equipo}"}
   end
 
-  def ejecutar_comando(%{service: :command_service, action: :mostrar_ayuda}, _args) do
-    mostrar_ayuda()
+  # /help
+  def ejecutar_comando(%{service: :command_service, action: :show_help}, _args) do
+    comandos =
+      CommandRegistry.all()
+      |> Enum.map(fn {cmd, info} ->
+        "#{cmd} → #{info.description}"
+      end)
+      |> Enum.join("\n")
+
+    {:ok, "Comandos disponibles:\n" <> comandos}
   end
 
   # ============================================================
-  # CASO POR DEFECTO (debe ir al final)
+  # DEFAULT
   # ============================================================
 
   def ejecutar_comando(_, _) do
     {:error, "Comando no reconocido o uso incorrecto. Usa /help para ver los comandos disponibles."}
-  end
-
-  # ============================================================
-  # FUNCIONES AUXILIARES
-  # ============================================================
-
-  @doc """
-  Imprime la lista de comandos disponibles registrados en el sistema.
-  """
-  @spec mostrar_ayuda() :: {:ok, atom()}
-  def mostrar_ayuda do
-    IO.puts("\nComandos disponibles:")
-    Enum.each(CommandRegistry.all(), fn {cmd, info} ->
-      IO.puts("  #{cmd} → #{info.description}")
-    end)
-
-    LoggerService.registrar_evento("Comando ejecutado", %{accion: :mostrar_ayuda})
-    {:ok, :help_mostrado}
   end
 end

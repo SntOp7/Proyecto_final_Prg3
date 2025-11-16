@@ -1,4 +1,6 @@
+-file("src/earmark_parser_link_text_parser.yrl", 0).
 -module(earmark_parser_link_text_parser).
+-file("src/earmark_parser_link_text_parser.erl", 3).
 -export([parse/1, parse_and_scan/1, format_error/1]).
 -file("src/earmark_parser_link_text_parser.yrl", 45).
 
@@ -16,11 +18,13 @@ title_tuple({Title, Parsed}) -> {link, Title, string:join(["[", Parsed, "]"], ""
 
 %% SPDX-License-Identifier: Apache-2.0
 
--file("c:/Program Files/Erlang OTP/lib/parsetools-2.5/include/yeccpre.hrl", 0).
+-file("c:/Program Files/Erlang OTP/lib/parsetools-2.7/include/yeccpre.hrl", 0).
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -42,10 +46,16 @@ title_tuple({Title, Parsed}) -> {link, Title, string:join(["[", Parsed, "]"], ""
 
 -type yecc_ret() :: {'error', _} | {'ok', _}.
 
+-ifdef (YECC_PARSE_DOC).
+-doc ?YECC_PARSE_DOC.
+-endif.
 -spec parse(Tokens :: list()) -> yecc_ret().
 parse(Tokens) ->
     yeccpars0(Tokens, {no_func, no_location}, 0, [], []).
 
+-ifdef (YECC_PARSE_AND_SCAN_DOC).
+-doc ?YECC_PARSE_AND_SCAN_DOC.
+-endif.
 -spec parse_and_scan({function() | {atom(), atom()}, [_]}
                      | {atom(), atom(), [_]}) -> yecc_ret().
 parse_and_scan({F, A}) ->
@@ -54,6 +64,9 @@ parse_and_scan({M, F, A}) ->
     Arity = length(A),
     yeccpars0([], {{fun M:F/Arity, A}, no_location}, 0, [], []).
 
+-ifdef (YECC_FORMAT_ERROR_DOC).
+-doc ?YECC_FORMAT_ERROR_DOC.
+-endif.
 -spec format_error(any()) -> [char() | list()].
 format_error(Message) ->
     case io_lib:deep_char_list(Message) of
@@ -195,7 +208,7 @@ yecctoken2string1(Other) ->
 
 
 
--file("src/earmark_parser_link_text_parser.erl", 198).
+-file("src/earmark_parser_link_text_parser.erl", 211).
 
 -dialyzer({nowarn_function, yeccpars2/7}).
 -compile({nowarn_unused_function,  yeccpars2/7}).
