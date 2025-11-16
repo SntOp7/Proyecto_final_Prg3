@@ -49,10 +49,13 @@ defmodule ProyectoFinalPrg3.Adapters.Security.PermissionAdapter do
       :comentar_equipo
     ],
     participante: [
+      :registrarse,
+      :iniciar_sesion,
       :unirse_equipo,
       :enviar_mensaje,
       :actualizar_perfil,
-      :subir_avance
+      :subir_avance,
+      :editar_proyecto
     ]
   }
 
