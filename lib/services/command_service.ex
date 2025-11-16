@@ -21,13 +21,13 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
   # ===================================================================
 
   # /register <nombre> <correo> <rol>
-  def ejecutar_comando(%{service: :auth_service, action: :register}, %{nombre: nombre, correo: correo, username: username, rol: rol, exp: exp}) do
+  def ejecutar_comando(%{service: :auth_service, action: :register}, %{nombre: nombre, correo: correo, username: username, contrasenia: contrasenia, rol: rol, exp: exp}) do
     case rol do
       "participante" ->
         ParticipantManager.registrar_participante(nombre, correo, username, rol, exp)
 
       "mentor" ->
-        MentorManager.registrar_mentor(nombre, correo, rol)
+        MentorManager.registrar_mentor(nombre, correo, contrasenia, rol, nil)
 
       _ ->
         "Rol no permitido"
@@ -118,7 +118,7 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
   end
 
   # /create_project <nombre> <categoria> <descripcion>
-  def ejecutar_comando(%{service: :team_manager, action: :create_team}, %{nombre: n, descripcion: d, categoria: c, id_equipo: id_equipo}) do
+  def ejecutar_comando(%{service: :team_manager, action: :create_project}, %{nombre: n, descripcion: d, categoria: c, id_equipo: id_equipo}) do
     usuario = SessionManager.obtener_participante_actual()
     ProjectManager.crear_proyecto(n, d, c, id_equipo, usuario.id, nil)
     {:ok, "Proyecto creado correctamente."}
@@ -134,11 +134,12 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
   # MENTOR
   # ===================================================================
 
-  # /feedback <equipo> <mensaje>
-  def ejecutar_comando(%{service: :mentor_manager, action: :feedback}, %{equipo: equipo, mensaje: mensaje}) do
+  # /feedback <proyecto_id> <mensaje>
+  def ejecutar_comando(%{service: :mentor_manager, action: :feedback}, %{proyecto_id: proyecto_id, mensaje: mensaje}) do
+    mentor = SessionManager.obtener_participante_actual()
     mensaje = Enum.join(mensaje, " ")
-    MentorManager.registrar_feedback(equipo, mensaje)
-    {:ok, "Feedback enviado a #{equipo}"}
+    MentorManager.registrar_feedback(mentor.id, proyecto_id, mensaje)
+    {:ok, "Feedback enviado"}
   end
 
   # ===================================================================
