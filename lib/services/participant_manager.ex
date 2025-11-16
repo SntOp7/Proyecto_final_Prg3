@@ -103,6 +103,14 @@ defmodule ProyectoFinalPrg3.Services.ParticipantManager do
   end
 
   @doc """
+  Actualiza solo el campo `equipo_id` del participante.
+  Usado por TeamManager para asignar o remover un participante de un equipo.
+  """
+  def actualizar_equipo(id_participante, nuevo_equipo_id) do
+    actualizar_datos(id_participante, %{equipo_id: nuevo_equipo_id})
+  end
+
+  @doc """
   Actualiza el rol del participante.
   """
   def actualizar_rol(id, nuevo_rol),
