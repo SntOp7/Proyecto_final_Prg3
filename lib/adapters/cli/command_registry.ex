@@ -18,7 +18,7 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRegistry do
 
     "/register" => %{
       description: "Registrar un nuevo usuario",
-      usage: "/register nombre=JuanJose correo=juan@gmail.com username=JuanJo123 rol=participante/mentor exp=3",
+      usage: "/register nombre=JuanJose correo=juan@gmail.com username=JuanJo123 contrasenia=123 rol=participante/mentor",
       service: :auth_service,
       action: :register,
       required_permission: nil
