@@ -56,8 +56,6 @@ defmodule ProyectoFinalPrg3.Services.ParticipantManager do
   # CONSULTAS
   # ============================================================
 
-
-
   @doc """
   Obtiene un participante por su ID.
   """
@@ -207,4 +205,8 @@ defmodule ProyectoFinalPrg3.Services.ParticipantManager do
   Verifica si un participante existe.
   """
   def participante_existe?(id), do: match?({:ok, _}, obtener_participante(id))
+
+  def listar_participantes do
+    ProyectoFinalPrg3.Adapters.Persistence.ParticipantStore.listar_participantes()
+  end
 end
