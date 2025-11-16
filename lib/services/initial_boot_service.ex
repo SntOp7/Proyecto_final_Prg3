@@ -1,43 +1,31 @@
 defmodule ProyectoFinalPrg3.Services.InitialBootService do
   @moduledoc """
   Servicio de inicialización del sistema.
-  Realiza todas las tareas que antes estaban en start.exs.
   """
 
   use GenServer
 
-  alias ProyectoFinalPrg3.Adapters.Logging.{LoggerService, AuditService}
+  alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
   alias ProyectoFinalPrg3.Adapters.Persistence.PersistenceManager
 
-  # -------------------------
-  # INIT
-  # -------------------------
-  def start_link(_opts) do
-    GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
+  def start_link(_args), do: GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
+
+  @impl true
+  def init(:ok) do
+    Process.send_after(self(), :boot, 10)
+    {:ok, %{}}
   end
 
   @impl true
-  def init(state) do
-    inicializar_sistema()
-    {:ok, state}
-  end
-
-  # -------------------------
-  # LÓGICA DE ARRANQUE
-  # -------------------------
-  defp inicializar_sistema do
-    IO.puts("\n🚀 Iniciando sistema ProyectoFinalPrg3...\n")
-
-    # Logging
-    LoggerService.limpiar_logs()
-    LoggerService.registrar_evento("Inicio del sistema de hackathon", %{})
+  def handle_info(:boot, state) do
+    LoggerService.registrar_evento("Inicio del sistema de hackathon")
 
     # Persistencia
     PersistenceManager.inicializar()
-    LoggerService.registrar_evento("Repositorios cargados", %{})
 
-    AuditService.exportar_a_txt("logs/audit_start_report.txt")
+    LoggerService.registrar_evento("Sistema cargado")
+    IO.puts("✔ Backend listo.")
 
-    IO.puts("✔ Sistema listo.\n")
+    {:noreply, state}
   end
 end
