@@ -1,176 +1,143 @@
 defmodule ProyectoFinalPrg3.Adapters.Persistence.ProjectStore do
   @moduledoc """
-  Adaptador de persistencia responsable de almacenar y recuperar proyectos
-  desde archivos CSV dentro del sistema de hackathon.
-
-  Provee operaciones CRUD (crear, leer, actualizar y eliminar) y utilidades
-  para filtrar o listar proyectos en memoria.
-
-  Los archivos CSV se guardan en `data/projects.csv`.
-
-  Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
-  Fecha de creación: 2025-10-27
-  Licencia: GNU GPLv3
+  Persistencia oficial de proyectos.
+  Compatible al 100% con el dominio Project reducido.
   """
 
   alias ProyectoFinalPrg3.Domain.Project
-  
-  @ruta_archivo Path.join([File.cwd!(), "data", "proyectos.csv"])
+
+  @ruta Path.join([File.cwd!(), "data", "proyectos.csv"])
+  @headers "id,nombre,descripcion,categoria,estado,fecha_creacion,equipo_id,mentor_id,repositorio_url,puntaje\n"
 
   # ============================================================
-  # API PÚBLICA
+  # CRUD
   # ============================================================
 
-  @doc """
-  Guarda o actualiza un proyecto en el archivo CSV.
-  Si el proyecto ya existe (por nombre o ID), se sobrescribe.
-  """
-  def guardar_proyecto(%Project{} = proyecto) do
-    proyectos = listar_proyectos()
-    proyectos_actualizados =
-      proyectos
-      |> Enum.reject(&(&1.id == proyecto.id or &1.nombre == proyecto.nombre))
-      |> Kernel.++([proyecto])
+  def guardar_proyecto(%Project{} = p) do
+    lista =
+      listar_proyectos()
+      |> Enum.reject(&(&1.id == p.id or &1.nombre == p.nombre))
+      |> Kernel.++([p])
 
-    escribir_csv(proyectos_actualizados)
-    :ok
+    persistir(lista)
+    {:ok, p}
   end
 
-  @doc """
-  Obtiene un proyecto por su nombre.
-  """
-  def obtener_proyecto(nombre) do
-    listar_proyectos()
-    |> Enum.find(&(&1.nombre == nombre))
-  end
-
-  @doc """
-  Obtiene un proyecto por su ID.
-  """
   def obtener_por_id(id) do
     listar_proyectos()
     |> Enum.find(&(&1.id == id))
   end
 
-  @doc """
-  Lista todos los proyectos almacenados.
-  """
+  def obtener_proyecto(nombre) do
+    listar_proyectos()
+    |> Enum.find(&(&1.nombre == nombre))
+  end
+
   def listar_proyectos do
-    if File.exists?(@ruta_archivo) do
-      @ruta_archivo
+    if File.exists?(@ruta) do
+      @ruta
       |> File.stream!()
-      |> CSV.decode!(headers: true)
-      |> Enum.map(&mapear_a_struct/1)
+      |> Stream.drop(1)
+      |> Enum.map(&parse_line/1)
     else
       []
     end
   end
 
-  @doc """
-  Elimina un proyecto por nombre del archivo CSV.
-  """
   def eliminar_proyecto(nombre) do
-    proyectos_restantes =
+    nuevos =
       listar_proyectos()
       |> Enum.reject(&(&1.nombre == nombre))
 
-    escribir_csv(proyectos_restantes)
+    persistir(nuevos)
     :ok
   end
 
   # ============================================================
-  # FUNCIONES PRIVADAS DE UTILIDAD
+  # SERIALIZACIÓN
   # ============================================================
 
-  defp escribir_csv(proyectos) do
+  defp persistir(lista) do
     File.mkdir_p!("data")
 
-    encabezados = [
-      "id", "nombre", "descripcion", "categoria", "estado",
-      "fecha_creacion", "fecha_actualizacion", "equipo_id", "mentor_id",
-      "avances", "retroalimentaciones", "repositorio_url", "puntaje",
-      "visibilidad", "tags"
-    ]
+    contenido =
+      lista
+      |> Enum.map(&to_csv/1)
+      |> Enum.join("\n")
 
-    File.open!(@ruta_archivo, [:write], fn file ->
-      IO.write(file, Enum.join(encabezados, ",") <> "\n")
-
-      Enum.each(proyectos, fn p ->
-        IO.write(file, a_csv_row(p))
-      end)
-    end)
+    File.write!(@ruta, @headers <> contenido <> "\n")
   end
 
-  defp a_csv_row(p) do
+  defp to_csv(p) do
     [
       p.id,
-      escape_csv(p.nombre),
-      escape_csv(p.descripcion),
+      clean(p.nombre),
+      clean(p.descripcion),
       p.categoria,
       Atom.to_string(p.estado),
-      p.fecha_creacion,
-      p.fecha_actualizacion,
-      p.equipo_id,
-      p.mentor_id,
-      Enum.join(p.avances, "|"),
-      Enum.join(p.retroalimentaciones, "|"),
-      p.repositorio_url,
-      p.puntaje,
-      Atom.to_string(p.visibilidad),
-      Enum.join(p.tags, "|")
+      serialize_dt(p.fecha_creacion),
+      p.equipo_id || "",
+      p.mentor_id || "",
+      p.repositorio_url || "",
+      p.puntaje || ""
     ]
-    |> Enum.map(&to_string/1)
     |> Enum.join(",")
-    |> Kernel.<>("\n")
   end
 
-  defp mapear_a_struct(row) do
+  # ============================================================
+  # PARSEO
+  # ============================================================
+
+  defp parse_line(line) do
+    [
+      id,
+      nombre,
+      descripcion,
+      categoria,
+      estado,
+      fecha,
+      equipo_id,
+      mentor_id,
+      repo,
+      puntaje
+    ] = String.split(String.trim(line), ",", parts: 10)
+
     %Project{
-      id: row["id"],
-      nombre: row["nombre"],
-      descripcion: row["descripcion"],
-      categoria: row["categoria"],
-      estado: parse_atom(row["estado"]),
-      fecha_creacion: parse_datetime(row["fecha_creacion"]),
-      fecha_actualizacion: parse_datetime(row["fecha_actualizacion"]),
-      equipo_id: nilify(row["equipo_id"]),
-      mentor_id: nilify(row["mentor_id"]),
-      avances: parse_list(row["avances"]),
-      retroalimentaciones: parse_list(row["retroalimentaciones"]),
-      repositorio_url: row["repositorio_url"],
-      puntaje: parse_integer(row["puntaje"]),
-      visibilidad: parse_atom(row["visibilidad"]),
-      tags: parse_list(row["tags"])
+      id: id,
+      nombre: nombre,
+      descripcion: descripcion,
+      categoria: categoria,
+      estado: String.to_atom(estado),
+      fecha_creacion: parse_dt(fecha),
+      equipo_id: blank(equipo_id),
+      mentor_id: blank(mentor_id),
+      repositorio_url: blank(repo),
+      puntaje: parse_int(puntaje)
     }
   end
 
   # ============================================================
-  # PARSERS Y HELPERS
+  # HELPERS
   # ============================================================
 
-  defp escape_csv(value) when is_binary(value),
-    do: "\"" <> String.replace(value, "\"", "'") <> "\""
-  defp escape_csv(nil), do: ""
-  defp escape_csv(value), do: to_string(value)
+  defp clean(nil), do: ""
+  defp clean(txt), do: txt |> String.replace(",", ";") |> String.replace("\n", " ")
 
-  defp parse_list(nil), do: []
-  defp parse_list(""), do: []
-  defp parse_list(str), do: String.split(str, "|", trim: true)
+  defp blank(""), do: nil
+  defp blank(v), do: v
 
-  defp parse_integer(nil), do: 0
-  defp parse_integer(""), do: 0
-  defp parse_integer(value), do: String.to_integer(value)
+  defp parse_int(""), do: nil
+  defp parse_int(nil), do: nil
+  defp parse_int(v), do: String.to_integer(v)
 
-  defp parse_atom(nil), do: :desconocido
-  defp parse_atom(""), do: :desconocido
-  defp parse_atom(value) when is_binary(value), do: String.to_atom(value)
-  defp parse_atom(value), do: value
+  defp serialize_dt(nil), do: ""
+  defp serialize_dt(%DateTime{} = dt), do: DateTime.to_iso8601(dt)
 
-  defp parse_datetime(nil), do: nil
-  defp parse_datetime(""), do: nil
-  defp parse_datetime(str), do: DateTime.from_iso8601(str) |> elem(1)
-
-  defp nilify(""), do: nil
-  defp nilify(nil), do: nil
-  defp nilify(value), do: value
+  defp parse_dt(""), do: nil
+  defp parse_dt(str) do
+    case DateTime.from_iso8601(str) do
+      {:ok, dt, _} -> dt
+      _ -> nil
+    end
+  end
 end
