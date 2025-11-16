@@ -81,13 +81,13 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRouter do
 
   defp verificar_permiso(%{required_permission: permiso}) do
     case SessionManager.obtener_participante_actual() do
-      {:ok, id_usuario} ->
-        case PermissionService.autorizado?(id_usuario, permiso) do
+      {:ok, participante} ->
+        case PermissionService.autorizado?(participante.id, permiso) do
           true -> :ok
           false -> {:error, "Acceso denegado. No tienes permisos para ejecutar este comando."}
         end
 
-      {:error, :no_usuario_autenticado} ->
+      {:error, _} ->
         {:error, "Debes iniciar sesión para ejecutar este comando."}
     end
   end
