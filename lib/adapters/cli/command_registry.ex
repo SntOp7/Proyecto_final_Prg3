@@ -82,6 +82,14 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRegistry do
       required_permission: :crear_equipo
     },
 
+    "/create_project" => %{
+      description: "Crear un proyecto nuevo",
+      usage: "/create_project nombre=Titanes descripcion=\"Equipo de dev\", categoria=web , id_equipo=id_equipo",
+      service: :project_manager,
+      action: :create_project,
+      required_permission: :crear_proyecto
+    },
+
     "/chat" => %{
       description: "Entrar al chat de un equipo",
       usage: "/chat equipo=Titanes",
