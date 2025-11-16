@@ -1,147 +1,151 @@
 defmodule ProyectoFinalPrg3.Adapters.Persistence.CategoryStore do
   @moduledoc """
-  Define el repositorio general de persistencia del sistema.
-  Este módulo actúa como punto de acceso unificado para los distintos mecanismos de
-  almacenamiento de datos (equipos, proyectos, categorías, etc.) a través de submódulos
-  especializados que gestionan cada tipo de entidad.
-
-  Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
-  Fecha de creación: 2025-10-26
-  Fecha de última modificación:
-  Licencia: GNU GPLv3
+  Persistencia de categorías en archivo CSV.
+  Alineado al dominio Category (id, nombre, descripcion).
   """
 
   alias ProyectoFinalPrg3.Domain.Category
 
-  @ruta_archivo Path.join([File.cwd!(), "data", "categorias.csv"])
+  @ruta Path.join([File.cwd!(), "data", "categorias.csv"])
 
   # ------------------------------------------------------------
-  # FUNCIONES PRINCIPALES DE PERSISTENCIA
+  # GUARDAR / ACTUALIZAR
   # ------------------------------------------------------------
 
   @doc """
-  Guarda una nueva categoría o actualiza una existente en el archivo CSV.
-  Retorna `{:ok, categoria}`.
+  Guarda o actualiza una categoría. Se identifica por `id`.
   """
-  def guardar_categoria(categoria = %Category{}) do
-    categorias = listar_categorias()
+  def guardar_categoria(%Category{} = categoria) do
+    categorias =
+      listar_categorias()
+      |> Enum.reject(&(&1.id == categoria.id))
 
-    categorias_actualizadas =
-      categorias
-      |> Enum.reject(&(&1.nombre == categoria.nombre))
-      |> Enum.concat([categoria])
-
-    persistir_en_csv(categorias_actualizadas)
+    persistir([categoria | categorias])
     {:ok, categoria}
   end
 
+  # ------------------------------------------------------------
+  # OBTENER
+  # ------------------------------------------------------------
+
   @doc """
-  Obtiene una categoría por su id desde el archivo CSV.
-  Retorna `{:ok, categoria}` si se encuentra, o `nil` si no existe.
+  Obtiene una categoría por su id.
+  Retorna {:ok, categoria} o nil si no existe.
   """
   def obtener_categoria(id) do
-    categorias = listar_categorias()
-
-    case Enum.find(categorias, &(&1.id == id)) do
+    case Enum.find(listar_categorias(), &(&1.id == id)) do
       nil -> nil
       categoria -> {:ok, categoria}
     end
   end
 
   @doc """
-  Lista todas las categorías registradas en el sistema.
-  Retorna una lista de estructuras `%Category{}`.
+  Obtiene una categoría por su nombre (case-insensitive).
+  """
+  def obtener_categoria_por_nombre(nombre) do
+    nombre = String.downcase(nombre)
+
+    Enum.find(listar_categorias(), fn c ->
+      String.downcase(c.nombre) == nombre
+    end)
+  end
+
+  # ------------------------------------------------------------
+  # LISTAR
+  # ------------------------------------------------------------
+
+  @doc """
+  Devuelve todas las categorías como structs %Category{}
   """
   def listar_categorias do
-    case File.read(@ruta_archivo) do
+    case File.read(@ruta) do
       {:ok, contenido} ->
         contenido
         |> String.split("\n", trim: true)
-        |> Enum.drop(1)
-        |> Enum.map(&parsear_linea_a_struct/1)
+        |> Enum.drop(1)             # quitar encabezado
+        |> Enum.map(&parsear_linea/1)
 
       {:error, :enoent} ->
-        # Si no existe el archivo, retornar lista vacía
         []
     end
   end
 
+  # ------------------------------------------------------------
+  # ELIMINAR
+  # ------------------------------------------------------------
+
   @doc """
-  Elimina una categoría del archivo CSV según su nombre.
-  Retorna `:ok` si la operación fue exitosa.
+  Elimina una categoría por su id.
   """
-  def eliminar_categoria(nombre) do
+  def eliminar_categoria(id) do
     categorias =
       listar_categorias()
-      |> Enum.reject(&(&1.nombre == nombre))
+      |> Enum.reject(&(&1.id == id))
 
-    persistir_en_csv(categorias)
+    persistir(categorias)
     :ok
   end
 
   # ------------------------------------------------------------
-  # FUNCIONES INTERNAS DE APOYO
+  # CSV (INTERNO)
   # ------------------------------------------------------------
 
-  @doc false
-  defp persistir_en_csv(categorias) do
-    encabezado = "id,nombre,descripcion,proyectos,fecha_creacion,creador_id,activo"
+  defp persistir(categorias) do
+    encabezado = "id,nombre,descripcion"
 
     filas =
       categorias
-      |> Enum.map(&serializar_categoria/1)
+      |> Enum.map(&serializar/1)
       |> Enum.join("\n")
 
     File.mkdir_p!(Path.join(File.cwd!(), "data"))
-    File.write!(@ruta_archivo, "#{encabezado}\n#{filas}")
+    File.write!(@ruta, encabezado <> "\n" <> filas)
   end
 
-  @doc false
-  defp parsear_linea_a_struct(linea) do
-    [id, nombre, descripcion, proyectos_str, fecha_creacion, creador_id, activo_str] =
-      String.split(linea, ",")
-
-    %Category{
-      id: id,
-      nombre: nombre,
-      descripcion: descripcion,
-      proyectos: parsear_proyectos(proyectos_str),
-      fecha_creacion: parsear_fecha(fecha_creacion),
-      creador_id: creador_id,
-      activo: String.downcase(activo_str) in ["true", "1", "yes", "activo"]
-    }
-  end
-
-  @doc false
-  defp serializar_categoria(categoria) do
-    proyectos_str = serializar_proyectos(categoria.proyectos)
-
+  defp serializar(%Category{id: id, nombre: nombre, descripcion: descripcion}) do
     [
-      categoria.id,
-      categoria.nombre,
-      categoria.descripcion,
-      proyectos_str,
-      DateTime.to_string(categoria.fecha_creacion),
-      categoria.creador_id,
-      to_string(categoria.activo)
+      id,
+      escapar(nombre),
+      escapar(descripcion)
     ]
     |> Enum.join(",")
   end
 
-  @doc false
-  defp parsear_proyectos(""), do: []
-  defp parsear_proyectos(str), do: String.split(str, ";", trim: true)
+  # ------------------------------------------------------------
+  # PARSING
+  # ------------------------------------------------------------
 
-  @doc false
-  defp serializar_proyectos(nil), do: ""
-  defp serializar_proyectos([]), do: ""
-  defp serializar_proyectos(lista) when is_list(lista), do: Enum.join(lista, ";")
+  defp parsear_linea(linea) do
+    [id, nombre, descripcion] =
+      linea
+      |> split_csv()
 
-  @doc false
-  defp parsear_fecha(fecha_str) do
-    case DateTime.from_iso8601(fecha_str) do
-      {:ok, fecha, _offset} -> fecha
-      _ -> DateTime.utc_now()
+    %Category{
+      id: id,
+      nombre: nombre,
+      descripcion: descripcion
+    }
+  end
+
+  # ------------------------------------------------------------
+  # UTILIDADES CSV SEGUROS
+  # ------------------------------------------------------------
+
+  # Manejo seguro de comas en descripción y nombre
+  defp escapar(texto) when is_binary(texto) do
+    if String.contains?(texto, ",") do
+      "\"" <> texto <> "\""
+    else
+      texto
     end
+  end
+
+  # Permite parsear campos con comas dentro de comillas
+  defp split_csv(linea) do
+    Regex.scan(~r/"([^"]*)"|([^,]+)/, linea)
+    |> Enum.map(fn
+      [_, quoted, _] -> quoted
+      [_, _, normal] -> normal
+    end)
   end
 end
