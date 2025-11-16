@@ -6,8 +6,6 @@ defmodule ProyectoFinalPrg3.Adapters.Security.SessionManager do
   su disponibilidad inmediata tanto en ejecución normal como en pruebas.
   """
 
-  @behaviour ProyectoFinalPrg3.Adapters.Security.SessionManagerBehaviour
-
   alias ProyectoFinalPrg3.Adapters.Security.TokenManager
   alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
 
