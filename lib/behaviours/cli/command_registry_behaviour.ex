@@ -5,5 +5,7 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRegistryBehaviour do
   """
 
   @callback all() :: map()
-  @callback get(String.t()) :: map() | nil
+  @callback get(command :: String.t()) ::
+  {:ok, map()} | {:error, :comando_no_encontrado}
+
 end
