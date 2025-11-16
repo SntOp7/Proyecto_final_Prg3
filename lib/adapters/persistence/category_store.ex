@@ -62,7 +62,8 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.CategoryStore do
       {:ok, contenido} ->
         contenido
         |> String.split("\n", trim: true)
-        |> Enum.drop(1)             # quitar encabezado
+        # quitar encabezado
+        |> Enum.drop(1)
         |> Enum.map(&parsear_linea/1)
 
       {:error, :enoent} ->
@@ -144,8 +145,8 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.CategoryStore do
   defp split_csv(linea) do
     Regex.scan(~r/"([^"]*)"|([^,]+)/, linea)
     |> Enum.map(fn
-      [_, quoted, _] -> quoted
-      [_, _, normal] -> normal
+      [_, quoted, nil] -> quoted
+      [_, nil, normal] -> normal
     end)
   end
 end
