@@ -1,11 +1,12 @@
 defmodule ProyectoFinalPrg3.Services.ProjectManager do
   @moduledoc """
-  Servicio encargado de la gestión integral de proyectos dentro del sistema de hackathon,
-  con control de acceso mediante `PermissionService`.
+  Servicio responsable de gestionar proyectos dentro del sistema,
+  manteniendo consistencia con el struct Project SIN avances, SIN tags,
+  SIN visibilidad, SIN retroalimentaciones y SIN fecha_actualizacion.
   """
 
-  alias ProyectoFinalPrg3.Domain.{Project, Progress}
-  alias ProyectoFinalPrg3.Adapters.Persistence.{ProjectStore, ProgressStore, FeedbackStore}
+  alias ProyectoFinalPrg3.Domain.Project
+  alias ProyectoFinalPrg3.Adapters.Persistence.ProjectStore
 
   alias ProyectoFinalPrg3.Services.{
     TeamManager,
@@ -15,117 +16,144 @@ defmodule ProyectoFinalPrg3.Services.ProjectManager do
   }
 
   # ============================================================
-  # FUNCIONES PRINCIPALES DE GESTIÓN DE PROYECTOS
+  # CREACIÓN DE PROYECTOS
   # ============================================================
 
   @doc """
-  Crea un nuevo proyecto en el sistema (requiere permiso :crear_proyecto).
+  Crea un proyecto nuevo y lo registra en el equipo y categoría correspondiente.
+  Respeta estrictamente los campos definidos en el struct Project.
+
+  Requiere permiso :crear_proyecto.
   """
-  def crear_proyecto(nombre, descripcion, categoria, equipo_id, id_usuario, mentor_id \\ nil) do
-    if PermissionService.autorizado?(id_usuario, :crear_proyecto) do
+  def crear_proyecto(nombre, descripcion, categoria, equipo_id, usuario_id, mentor_id \\ nil) do
+    if PermissionService.autorizado?(usuario_id, :crear_proyecto) do
+
       if existe_proyecto?(nombre) do
         {:error, :proyecto_ya_existente}
       else
-        proyecto = %Project{
-          id: UUID.uuid4(),
-          nombre: nombre,
-          descripcion: descripcion,
-          categoria: categoria,
-          estado: :en_desarrollo,
-          fecha_creacion: DateTime.utc_now(),
-          fecha_actualizacion: DateTime.utc_now(),
-          equipo_id: equipo_id,
-          mentor_id: mentor_id,
-          avances: [],
-          retroalimentaciones: [],
-          repositorio_url: nil,
-          puntaje: 0,
-          visibilidad: :privado,
-          tags: []
-        }
+        proyecto =
+          Project.nuevo(
+            UUID.uuid4(),
+            nombre,
+            descripcion,
+            categoria,
+            :en_desarrollo,
+            DateTime.utc_now(),
+            equipo_id,
+            mentor_id,
+            nil,  # repositorio_url
+            nil   # puntaje
+          )
 
         ProjectStore.guardar_proyecto(proyecto)
         BroadcastService.notificar(:proyecto_creado, proyecto)
 
+        # Vincular con el equipo si aplica
         if equipo_id do
           case TeamManager.obtener_por_id(equipo_id) do
             {:ok, equipo} ->
               TeamManager.vincular_proyecto(equipo.nombre, proyecto.id)
 
-            {:error, _} ->
+            _ ->
               BroadcastService.notificar(:equipo_no_encontrado, %{equipo_id: equipo_id})
           end
         end
 
+        # Agregar a categoría
         if categoria, do: CategoryService.agregar_proyecto(categoria, proyecto.id)
-
-        ProyectoFinalPrg3.Services.MetricsService.registrar_evento(:proyecto_creado, %{
-          id: proyecto.id,
-          nombre: proyecto.nombre,
-          categoria: categoria,
-          equipo_id: equipo_id,
-          creador_id: id_usuario
-        })
 
         {:ok, proyecto}
       end
+
     else
       {:error, :permiso_denegado}
     end
   end
 
+  # ============================================================
+  # ACTUALIZACIÓN
+  # ============================================================
+
   @doc """
-  Actualiza los datos de un proyecto existente (requiere permiso :editar_proyecto).
+  Actualiza únicamente los campos EXISTENTES del struct Project.
+
+  Requiere permiso :editar_proyecto.
   """
-  def actualizar_proyecto(nombre, nuevos_datos, id_usuario) do
-    if PermissionService.autorizado?(id_usuario, :editar_proyecto) do
+  def actualizar_proyecto(nombre, cambios, usuario_id) do
+    if PermissionService.autorizado?(usuario_id, :editar_proyecto) do
       with {:ok, proyecto} <- obtener_proyecto(nombre) do
-        actualizado =
-          proyecto
-          |> Map.merge(nuevos_datos)
-          |> Map.put(:fecha_actualizacion, DateTime.utc_now())
+
+        # Se permiten solo campos válidos del struct
+        cambios_validos =
+          Map.take(cambios, [
+            :nombre,
+            :descripcion,
+            :categoria,
+            :estado,
+            :equipo_id,
+            :mentor_id,
+            :repositorio_url,
+            :puntaje
+          ])
+
+        actualizado = Map.merge(proyecto, cambios_validos)
 
         ProjectStore.guardar_proyecto(actualizado)
         BroadcastService.notificar(:proyecto_actualizado, actualizado)
+
         {:ok, actualizado}
       else
         {:error, razon} -> {:error, razon}
       end
+
     else
       {:error, :permiso_denegado}
     end
   end
 
+  # ============================================================
+  # ELIMINAR PROYECTO
+  # ============================================================
+
   @doc """
-  Elimina un proyecto del sistema (requiere permiso :eliminar_proyecto).
+  Elimina un proyecto del sistema.
+
+  Requiere permiso :eliminar_proyecto.
   """
-  def eliminar_proyecto(nombre, id_usuario) do
-    if PermissionService.autorizado?(id_usuario, :eliminar_proyecto) do
+  def eliminar_proyecto(nombre, usuario_id) do
+    if PermissionService.autorizado?(usuario_id, :eliminar_proyecto) do
       with {:ok, proyecto} <- obtener_proyecto(nombre) do
+
         ProjectStore.eliminar_proyecto(nombre)
 
+        # Desvincular del equipo
         if proyecto.equipo_id do
           case TeamManager.obtener_por_id(proyecto.equipo_id) do
-            {:ok, equipo} -> TeamManager.vincular_proyecto(equipo.nombre, nil)
+            {:ok, equipo} ->
+              TeamManager.vincular_proyecto(equipo.nombre, nil)
+
             _ -> :ok
           end
         end
 
-        if proyecto.categoria,
-          do: CategoryService.remover_proyecto(proyecto.categoria.id, proyecto.id)
+        # Desvincular categoría
+        if proyecto.categoria do
+          CategoryService.remover_proyecto(proyecto.categoria, proyecto.id)
+        end
 
         BroadcastService.notificar(:proyecto_eliminado, proyecto)
         {:ok, :proyecto_eliminado}
       else
         {:error, razon} -> {:error, razon}
       end
+
     else
       {:error, :permiso_denegado}
     end
   end
 
   # ============================================================
-  # FUNCIONES DE CONSULTA Y FILTRADO (SIN CAMBIOS)
+  # CONSULTAS DIRECTAS
   # ============================================================
 
   def listar_proyectos, do: ProjectStore.listar_proyectos()
@@ -144,17 +172,6 @@ defmodule ProyectoFinalPrg3.Services.ProjectManager do
     end
   end
 
-  def filtrar_proyectos(filtro, valor) do
-    proyectos = ProjectStore.listar_proyectos()
-
-    case filtro do
-      :categoria -> Enum.filter(proyectos, &(&1.categoria == valor))
-      :estado -> Enum.filter(proyectos, &(&1.estado == valor))
-      :visibilidad -> Enum.filter(proyectos, &(&1.visibilidad == valor))
-      _ -> proyectos
-    end
-  end
-
   def listar_por_mentor(mentor_id),
     do: ProjectStore.listar_proyectos() |> Enum.filter(&(&1.mentor_id == mentor_id))
 
@@ -162,92 +179,24 @@ defmodule ProyectoFinalPrg3.Services.ProjectManager do
     do: ProjectStore.listar_proyectos() |> Enum.filter(&(&1.equipo_id == equipo_id))
 
   # ============================================================
-  # FUNCIONES DE AVANCES, FEEDBACK Y ARCHIVO (SIN CAMBIOS)
+  # FILTROS BÁSICOS (SOLO CAMPOS EXISTENTES)
   # ============================================================
 
-  @doc """
-  Registra un nuevo avance dentro de un proyecto y lo guarda tanto en ProjectStore como en ProgressStore.
-  """
-  def registrar_avance(nombre_proyecto, %Progress{} = avance) do
-    with {:ok, proyecto} <- obtener_proyecto(nombre_proyecto) do
-      actualizado = %{
-        proyecto
-        | avances: proyecto.avances ++ [avance],
-          fecha_actualizacion: DateTime.utc_now()
-      }
+  def filtrar_proyectos(filtro, valor) do
+    proyectos = ProjectStore.listar_proyectos()
 
-      ProgressStore.guardar_avance(avance)
-      ProjectStore.guardar_proyecto(actualizado)
-
-      BroadcastService.notificar(:avance_registrado, %{
-        proyecto: nombre_proyecto,
-        avance: avance.id
-      })
-
-      ProyectoFinalPrg3.Services.MetricsService.registrar_evento(:avance_registrado, %{
-        proyecto_id: proyecto.id,
-        avance_id: avance.id,
-        nombre_proyecto: nombre_proyecto
-      })
-
-      {:ok, actualizado}
-    else
-      {:error, razon} -> {:error, razon}
-    end
-  end
-
-  @doc """
-  Registra una nueva retroalimentación para un proyecto.
-  Guarda solo el ID de la retroalimentación en el proyecto para evitar duplicación de datos.
-  """
-  def registrar_retroalimentacion(nombre_proyecto, feedback) do
-    with {:ok, proyecto} <- obtener_proyecto(nombre_proyecto) do
-      actualizado = %{
-        proyecto
-        | retroalimentaciones: [feedback.id | proyecto.retroalimentaciones],
-          fecha_actualizacion: DateTime.utc_now()
-      }
-
-      FeedbackStore.guardar_feedback(feedback)
-      ProjectStore.guardar_proyecto(actualizado)
-
-      BroadcastService.notificar(:retroalimentacion_registrada, %{
-        proyecto: nombre_proyecto,
-        feedback: feedback.id
-      })
-
-      ProyectoFinalPrg3.Services.MetricsService.registrar_evento(:retroalimentacion_registrada, %{
-        proyecto_id: proyecto.id,
-        feedback_id: feedback.id,
-        nombre_proyecto: nombre_proyecto
-      })
-
-      {:ok, actualizado}
-    else
-      {:error, razon} -> {:error, razon}
-    end
-  end
-
-  @doc """
-  Archiva un proyecto (requiere permiso :archivar_proyecto).
-  """
-  def archivar_proyecto(nombre, id_usuario) do
-    if PermissionService.autorizado?(id_usuario, :archivar_proyecto) do
-      with {:ok, proyecto} <- obtener_proyecto(nombre) do
-        actualizado = %{proyecto | estado: :archivado, visibilidad: :privado}
-        ProjectStore.guardar_proyecto(actualizado)
-        BroadcastService.notificar(:proyecto_archivado, actualizado)
-        {:ok, actualizado}
-      end
-    else
-      {:error, :permiso_denegado}
+    case filtro do
+      :categoria -> Enum.filter(proyectos, &(&1.categoria == valor))
+      :estado -> Enum.filter(proyectos, &(&1.estado == valor))
+      :mentor_id -> Enum.filter(proyectos, &(&1.mentor_id == valor))
+      :equipo_id -> Enum.filter(proyectos, &(&1.equipo_id == valor))
+      _ -> proyectos
     end
   end
 
   # ============================================================
-  # AUXILIARES PRIVADOS
+  # AUX
   # ============================================================
 
   defp existe_proyecto?(nombre), do: ProjectStore.obtener_proyecto(nombre) != nil
-  
 end
