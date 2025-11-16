@@ -4,8 +4,6 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
   y permite exportarlos a JSON o TXT.
   """
 
-  @behaviour ProyectoFinalPrg3.Adapters.Logging.LoggerServiceBehaviour
-
   @log_dir "logs"
   @log_file "#{@log_dir}/event_log.csv"
 
