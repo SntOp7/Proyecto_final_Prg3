@@ -149,6 +149,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.FeedbackStore do
   |> Enum.map(fn
     [_, quoted, nil] -> quoted
     [_, nil, normal] -> normal
+    _ -> ""
   end)
 end
 
