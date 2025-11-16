@@ -14,13 +14,11 @@ defmodule ProyectoFinalPrg3.Services.PermissionService do
       :crear_equipo,
       :ver_canales
     ],
-
     "mentor" => [
       :ver_equipos,
       :ver_proyecto,
       :enviar_feedback
     ],
-
     "admin" => [
       :ver_equipos,
       :ver_proyecto,
@@ -41,18 +39,16 @@ defmodule ProyectoFinalPrg3.Services.PermissionService do
   def autorizado?(id_usuario, accion) do
     with {:ok, user} <- ParticipantManager.obtener_participante(id_usuario),
          rol when not is_nil(rol) <- user.rol,
-         permisos <- Map.get(@permissions, rol, []) do
-
-      permitido = accion in permisos
-
+         permisos <- Map.get(@permissions, rol, []),
+         true <- accion in permisos do
       LoggerService.registrar_evento("Verificación de permiso", %{
         usuario: id_usuario,
         accion: accion,
         rol: rol,
-        permitido: permitido
+        permitido: true
       })
 
-      permitido
+      {:ok, :permitido}
     else
       _ ->
         LoggerService.registrar_evento("Permiso denegado", %{
@@ -60,7 +56,7 @@ defmodule ProyectoFinalPrg3.Services.PermissionService do
           accion: accion
         })
 
-        false
+        {:error, :no_autorizado}
     end
   end
 
