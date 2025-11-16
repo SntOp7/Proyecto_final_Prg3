@@ -20,14 +20,14 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
   # PÚBLICOS
   # ===================================================================
 
-  # /register <nombre> <rol>
-  def ejecutar_comando(%{service: :auth_service, action: :register}, %{nombre: nombre, correo: correo, rol: rol}) do
+  # /register <nombre> <correo> <rol>
+  def ejecutar_comando(%{service: :auth_service, action: :register}, %{nombre: nombre, correo: correo, username: username, rol: rol, exp: exp}) do
     case rol do
       "participante" ->
-        ParticipantManager.registrar_participante(nombre, correo, 0, rol, 0)
+        ParticipantManager.registrar_participante(nombre, correo, username, rol, exp)
 
       "mentor" ->
-        MentorManager.registrar_mentor(nombre, correo, "mentor", rol, "")
+        MentorManager.registrar_mentor(nombre, correo, rol)
 
       _ ->
         "Rol no permitido"
@@ -91,7 +91,7 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
   end
 
   # /project <equipo>
-  def ejecutar_comando(%{service: :project_manager, action: :show_project}, [equipo]) do
+  def ejecutar_comando(%{service: :project_manager, action: :show_project}, %{equipo: equipo}) do
     with {:ok, eq} <- TeamManager.obtener_equipo(equipo),
          {:ok, proyecto} <- ProjectManager.obtener_proyecto_por_id(eq.id_proyecto) do
       {:ok, proyecto}
@@ -101,7 +101,7 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
   end
 
   # /join <equipo>
-  def ejecutar_comando(%{service: :team_manager, action: :join_team}, [equipo]) do
+  def ejecutar_comando(%{service: :team_manager, action: :join_team}, %{equipo: equipo}) do
     {:ok, user} = SessionManager.obtener_participante_actual()
 
     case TeamManager.unirse_a_equipo(equipo, user) do
@@ -118,7 +118,7 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
   end
 
   # /chat <equipo>
-  def ejecutar_comando(%{service: :chat_manager, action: :open_chat}, [equipo]) do
+  def ejecutar_comando(%{service: :chat_manager, action: :open_chat}, %{equipo: equipo}) do
     ChatService.ingresar_chat_equipo(equipo)
     {:ok, "Ingresaste al chat del equipo #{equipo}"}
   end
@@ -128,7 +128,7 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
   # ===================================================================
 
   # /feedback <equipo> <mensaje>
-  def ejecutar_comando(%{service: :mentor_manager, action: :feedback}, [equipo | mensaje]) do
+  def ejecutar_comando(%{service: :mentor_manager, action: :feedback}, %{equipo: equipo, mensaje: mensaje}) do
     mensaje = Enum.join(mensaje, " ")
     MentorManager.registrar_feedback(equipo, mensaje)
     {:ok, "Feedback enviado a #{equipo}"}
@@ -139,19 +139,19 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
   # ===================================================================
 
   # /assign_mentor <equipo> <id_mentor>
-  def ejecutar_comando(%{service: :admin_manager, action: :assign_mentor}, [equipo, id]) do
+  def ejecutar_comando(%{service: :admin_manager, action: :assign_mentor}, %{equipo: equipo,id: id}) do
     MentorManager.asignar_a_equipo(id, equipo)
     {:ok, "Mentor asignado a #{equipo}"}
   end
 
   # /delete_team <equipo>
-  def ejecutar_comando(%{service: :admin_manager, action: :delete_team}, [equipo]) do
+  def ejecutar_comando(%{service: :admin_manager, action: :delete_team}, %{equip: equipo}) do
     TeamManager.disolver_equipo(equipo)
     {:ok, "Equipo eliminado correctamente."}
   end
 
   # /delete_user <id>
-  def ejecutar_comando(%{service: :admin_manager, action: :delete_user}, [id]) do
+  def ejecutar_comando(%{service: :admin_manager, action: :delete_user}, %{id: id}) do
     ParticipantManager.eliminar_participante(id)
     {:ok, "Usuario eliminado correctamente."}
   end
