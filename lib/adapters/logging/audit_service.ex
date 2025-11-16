@@ -1,17 +1,11 @@
 defmodule ProyectoFinalPrg3.Adapters.Logging.AuditService do
   @moduledoc """
-  Servicio de auditoría del sistema.
-  Analiza los eventos generados por LoggerService:
+  Servicio de auditoría para leer, filtrar y exportar los registros
+  generados en `logs/event_log.csv`.
 
-  - Obtiene todos los eventos
-  - Filtra por tipo, rango, nodo
-  - Busca por texto
-  - Exporta resultados
-
-  No registra eventos.
+  Autores: Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez
+  Licencia: GNU GPLv3
   """
-
-  alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
 
   @log_file "logs/event_log.csv"
 
@@ -19,15 +13,63 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.AuditService do
   # LECTURA PRINCIPAL
   # ============================================================
 
+  @doc "Retorna todos los eventos registrados en el archivo de logs."
   def obtener_todos do
     if File.exists?(@log_file) do
       @log_file
       |> File.stream!()
-      |> Stream.drop(1)
-      |> Enum.map(&parse_csv_line/1)
-      |> Enum.filter(&is_map/1)
+      |> Stream.drop(1)               # Saltar encabezado
+      |> Enum.map(&parse_csv_line/1)  # Usar parser interno
+      |> Enum.filter(&is_map/1)       # Filtrar líneas inválidas
     else
       []
+    end
+  end
+
+  # ============================================================
+  # PARSEO ROBUSTO (sin dependencias privadas)
+  # ============================================================
+
+  defp parse_csv_line(linea) do
+    campos =
+      Regex.scan(~r/"([^"]*)"|([^,]+)/, linea)
+      |> Enum.map(fn
+        [_, quoted, _] when quoted != nil -> quoted
+        [_, _, normal] -> normal
+        _ -> ""
+      end)
+
+    case campos do
+      [id, timestamp, nodo, tipo, mensaje, datos_json] ->
+        datos =
+          case Jason.decode(datos_json) do
+            {:ok, mapa} -> mapa
+            _ -> %{}
+          end
+
+        %{
+          id: id,
+          timestamp: timestamp,
+          nodo: nodo,
+          tipo: safe_atom(tipo),
+          mensaje: mensaje,
+          datos: datos
+        }
+
+      invalid ->
+        IO.puts("[WARN] Línea CSV inválida ignorada: #{inspect(invalid)}")
+        :ignore
+    end
+  end
+
+  defp safe_atom(nil), do: :info
+  defp safe_atom(""), do: :info
+
+  defp safe_atom(str) do
+    try do
+      String.to_existing_atom(str)
+    rescue
+      _ -> :info
     end
   end
 
@@ -44,21 +86,23 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.AuditService do
   def buscar_por_texto(texto) do
     obtener_todos()
     |> Enum.filter(fn e ->
-      String.contains?(e.mensaje, texto) ||
+      String.contains?(e.mensaje, texto) or
         Jason.encode!(e.datos) |> String.contains?(texto)
     end)
   end
 
-  def filtrar_por_rango(fi_str, ff_str) do
-    with {:ok, fi, _} <- DateTime.from_iso8601(fi_str),
-         {:ok, ff, _} <- DateTime.from_iso8601(ff_str) do
+  def filtrar_por_rango(inicio, fin) do
+    with {:ok, fi, _} <- DateTime.from_iso8601(inicio),
+         {:ok, ff, _} <- DateTime.from_iso8601(fin) do
       obtener_todos()
-      |> Enum.filter(fn e ->
-        with {:ok, fecha, _} <- DateTime.from_iso8601(e.timestamp) do
-          DateTime.compare(fecha, fi) != :lt and
-            DateTime.compare(fecha, ff) != :gt
-        else
-          _ -> false
+      |> Enum.filter(fn evento ->
+        case DateTime.from_iso8601(evento.timestamp) do
+          {:ok, fecha, _} ->
+            DateTime.compare(fecha, fi) != :lt and
+              DateTime.compare(fecha, ff) != :gt
+
+          _ ->
+            false
         end
       end)
     else
@@ -67,27 +111,37 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.AuditService do
   end
 
   # ============================================================
-  # EXPORTACIÓN
+  # EXPORTACIONES
   # ============================================================
 
   def exportar_a_json(destino \\ "logs/audit_export.json") do
-    eventos = obtener_todos()
+    eventos =
+      obtener_todos()
+      |> Enum.filter(&is_map/1)
+
+    File.mkdir_p!("logs")
     File.write!(destino, Jason.encode!(eventos, pretty: true))
     {:ok, destino}
   end
 
   def exportar_a_txt(destino \\ "logs/audit_export.txt") do
-    contenido =
+    eventos =
       obtener_todos()
+      |> Enum.filter(&is_map/1)
+
+    contenido =
+      eventos
       |> Enum.map(fn e ->
         """
-        [#{e.timestamp}] #{e.tipo} | #{e.mensaje}
+        [#{e.timestamp}] (#{e.tipo}) #{e.mensaje}
         Nodo: #{e.nodo}
         Datos: #{Jason.encode!(e.datos)}
+        ----------------------------------------
         """
       end)
-      |> Enum.join("\n\n")
+      |> Enum.join("\n")
 
+    File.mkdir_p!("logs")
     File.write!(destino, contenido)
     {:ok, destino}
   end
