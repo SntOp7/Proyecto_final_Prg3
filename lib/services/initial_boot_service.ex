@@ -1,7 +1,30 @@
 defmodule ProyectoFinalPrg3.Services.InitialBootService do
   @moduledoc """
-  Servicio de inicialización del sistema.
-  Realiza todas las tareas que antes estaban en start.exs.
+  Servicio encargado del proceso de arranque e inicialización del sistema.
+
+  `InitialBootService` centraliza todas las tareas que anteriormente se realizaban
+  en `start.exs`, garantizando un proceso de inicio ordenado, trazable y seguro.
+  Este servicio se ejecuta al inicio de la aplicación y prepara los módulos
+  críticos para el funcionamiento del sistema.
+
+  Es utilizado principalmente por:
+
+    - El sistema de arranque (`Application`)
+    - Módulos que dependen de la carga inicial de repositorios
+    - Servicios de auditoría y registro de eventos
+
+  ## Funciones principales
+    - `start_link/1`: Inicia el proceso supervisor de arranque.
+    - `init/1`: Programa la ejecución diferida del proceso de boot.
+    - `handle_info/2`: Ejecuta las tareas de inicialización del sistema, incluyendo:
+        * Limpieza de logs
+        * Inicialización de repositorios de persistencia
+        * Registro del evento de inicio
+        * Exportación de auditorías
+
+  Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
+  Fecha: 2025-10-27
+  Licencia: GNU GPLv3
   """
 
   use GenServer
