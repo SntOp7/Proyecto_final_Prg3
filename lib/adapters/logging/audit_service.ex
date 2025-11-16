@@ -30,18 +30,9 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.AuditService do
     campos =
       Regex.scan(~r/"([^"]*)"|([^,]+)/, linea)
       |> Enum.map(fn
-        # Caso normal: viene en la forma [match, quoted, unquoted]
-        [_, quoted, _] when quoted != nil ->
-          quoted
-
-        [_, _, unquoted] ->
-          unquoted
-
-        # Caso defectuoso: la regex devolvió algo inesperado como ["\"uuid\"", "uuid"]
-        lista ->
-          lista
-          |> List.last()
-          |> String.trim("\"")
+        [_, quoted, nil] -> quoted
+        [_, nil, normal] -> normal
+        _ -> ""
       end)
 
     case campos do
@@ -61,8 +52,8 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.AuditService do
           datos: datos
         }
 
-      campos_invalidos ->
-        IO.puts("[WARN] Línea CSV inválida ignorada: #{inspect(campos_invalidos)}")
+      invalid ->
+        IO.puts("[WARN] Línea CSV inválida ignorada: #{inspect(invalid)}")
         :ignore
     end
   end
@@ -120,35 +111,36 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.AuditService do
   # ============================================================
 
   def exportar_a_json(destino \\ "logs/audit_export.json") do
-  eventos =
-    obtener_todos()
-    |> Enum.filter(&is_map/1)   # << FILTRA :ignore
+    eventos =
+      obtener_todos()
+      # << FILTRA :ignore
+      |> Enum.filter(&is_map/1)
 
-  File.mkdir_p!("logs")
-  File.write!(destino, Jason.encode!(eventos, pretty: true))
-  {:ok, destino}
-end
+    File.mkdir_p!("logs")
+    File.write!(destino, Jason.encode!(eventos, pretty: true))
+    {:ok, destino}
+  end
 
-def exportar_a_txt(destino \\ "logs/audit_export.txt") do
-  eventos =
-    obtener_todos()
-    |> Enum.filter(&is_map/1)   # << FILTRA :ignore
+  def exportar_a_txt(destino \\ "logs/audit_export.txt") do
+    eventos =
+      obtener_todos()
+      # << FILTRA :ignore
+      |> Enum.filter(&is_map/1)
 
-  contenido =
-    eventos
-    |> Enum.map(fn e ->
-      """
-      [#{e.timestamp}] (#{e.tipo}) #{e.mensaje}
-      Nodo: #{e.nodo}
-      Datos: #{Jason.encode!(e.datos)}
-      ----------------------------------------
-      """
-    end)
-    |> Enum.join("\n")
+    contenido =
+      eventos
+      |> Enum.map(fn e ->
+        """
+        [#{e.timestamp}] (#{e.tipo}) #{e.mensaje}
+        Nodo: #{e.nodo}
+        Datos: #{Jason.encode!(e.datos)}
+        ----------------------------------------
+        """
+      end)
+      |> Enum.join("\n")
 
-  File.mkdir_p!("logs")
-  File.write!(destino, contenido)
-  {:ok, destino}
-end
-
+    File.mkdir_p!("logs")
+    File.write!(destino, contenido)
+    {:ok, destino}
+  end
 end
