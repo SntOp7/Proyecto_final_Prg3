@@ -2,28 +2,40 @@ defmodule ProyectoFinalPrg3.Services.InitialBootService do
   @moduledoc """
   Servicio encargado del proceso de arranque e inicialización del sistema.
 
-  `InitialBootService` centraliza todas las tareas que anteriormente se realizaban
-  en `start.exs`, garantizando un proceso de inicio ordenado, trazable y seguro.
-  Este servicio se ejecuta al inicio de la aplicación y prepara los módulos
-  críticos para el funcionamiento del sistema.
+  `InitialBootService` prepara el entorno de ejecución según el **tipo de nodo**
+  configurado (`:central`, `:persistencia`, `:cli`). Se ejecuta automáticamente
+  bajo supervisión desde `Application` y reemplaza el antiguo flujo manual en
+  `start.exs`.
 
-  Es utilizado principalmente por:
+  ## Tipos de nodo
 
-    - El sistema de arranque (`Application`)
-    - Módulos que dependen de la carga inicial de repositorios
-    - Servicios de auditoría y registro de eventos
+  ### 🟦 Nodo CENTRAL (`:central`)
+  - Inicializa logs y auditoría
+  - Inicializa repositorios (CSV)
+  - Inicia nodo distribuido **y se conecta** a nodos remotos
+  - Habilita difusión distribuida
 
-  ## Funciones principales
-    - `start_link/1`: Inicia el proceso supervisor de arranque.
-    - `init/1`: Programa la ejecución diferida del proceso de boot.
-    - `handle_info/2`: Ejecuta las tareas de inicialización del sistema, incluyendo:
-        * Limpieza de logs
-        * Inicialización de repositorios de persistencia
-        * Registro del evento de inicio
-        * Exportación de auditorías
+  ### 🟩 Nodo PERSISTENCIA (`:persistencia`)
+  - Inicializa repositorios únicamente
+  - Inicia nodo distribuido **sin conectarse** a otros
+  - No genera auditoría visible
 
-  Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
-  Fecha: 2025-10-27
+  ### 🟨 Nodo CLI (`:cli`)
+  - No inicializa nodos distribuidos
+  - No inicializa repositorios
+  - Solo registra logs mínimos
+
+  ## Flujo general
+
+  1. Se inicia bajo supervisión
+  2. Se programa un arranque diferido
+  3. Se ejecuta lógica según tipo de nodo
+  4. Se inicializan repositorios cuando aplica
+  5. Se conecta a nodos cuando aplica
+  6. El sistema queda listo para operar
+
+  Autores: Sharif Giraldo, Juan Sebastián Hernández, Santiago Ospina Sánchez
+  Actualizado: 2025-11-16
   Licencia: GNU GPLv3
   """
 
@@ -31,86 +43,93 @@ defmodule ProyectoFinalPrg3.Services.InitialBootService do
 
   alias ProyectoFinalPrg3.Adapters.Logging.{LoggerService, AuditService}
   alias ProyectoFinalPrg3.Adapters.Persistence.PersistenceManager
+  alias ProyectoFinalPrg3.Adapters.Network.NodeManager
 
   # ============================================================
-  # INICIO DEL SERVICIO
-  # ============================================================
-
-  @doc """
-  Inicia el proceso supervisado encargado del arranque del sistema.
-
-  ## Flujo:
-    1. Registra el proceso bajo el nombre del módulo.
-    2. Delegado a `GenServer.start_link/3`.
-    3. Deja el sistema listo para recibir el mensaje `:boot`.
-
-  ## Retorna:
-    - `{:ok, pid}` si el proceso inicia correctamente.
-    - `{:error, razon}` si el proceso falla al iniciar.
-  """
-
-  def start_link(_args), do: GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
-
-  # ============================================================
-  # CONFIGURACIÓN INICIAL
+  # START LINK
   # ============================================================
 
   @doc """
-  Configura el estado inicial del servicio y programa la ejecución del proceso
-  de boot del sistema.
+  Inicia el proceso supervisado del boot del sistema.
 
-  ## Flujo:
-    1. Se recibe `:ok` como parámetro de inicio.
-    2. Se programa un mensaje diferido (`:boot`) para ejecutar en 10 ms.
-    3. Se retorna el estado inicial vacío.
-
-  ## Retorna:
-    - `{:ok, %{}}` indicando que el servicio fue inicializado correctamente.
+  No arranca inmediatamente: programa un `:boot` para ejecutarse después
+  de que el árbol de supervisión haya terminado de levantarse.
   """
+  def start_link(_args) do
+    GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
+  end
+
+  # ============================================================
+  # INIT
+  # ============================================================
 
   @impl true
   def init(:ok) do
-    Process.send_after(self(), :boot, 10)
+    Process.send_after(self(), :boot, 15)
     {:ok, %{}}
   end
 
   # ============================================================
-  # EJECUCIÓN DEL ARRANQUE DEL SISTEMA
+  # BOOT
   # ============================================================
-
-  @doc """
-  Ejecuta el flujo de inicialización del sistema tras recibir el mensaje `:boot`.
-
-  Este método realiza todas las tareas críticas necesarias para preparar
-  el sistema antes de aceptar solicitudes o ejecutar procesos dependientes.
-
-  ## Flujo:
-    1. Muestra mensaje visual de arranque en consola.
-    2. Limpia los logs anteriores para evitar ruido histórico.
-    3. Registra el evento de “inicio de sistema”.
-    4. Inicializa todos los repositorios de persistencia.
-    5. Registra que los repositorios fueron cargados.
-    6. Exporta auditorías pendientes a archivo de texto.
-    7. Informa al usuario que el sistema está listo.
-
-  ## Retorna:
-    - `{:noreply, state}` indicando que no se requiere respuesta al mensaje.
-  """
 
   @impl true
   def handle_info(:boot, state) do
     IO.puts("\n🚀 Iniciando sistema ProyectoFinalPrg3...\n")
 
+    tipo = Application.get_env(:proyecto_final_prg3, :tipo_nodo, :central)
+
     LoggerService.limpiar_logs()
-    LoggerService.registrar_evento("Inicio del sistema de hackathon", %{})
+    LoggerService.registrar_evento("Inicio del sistema", %{nodo: tipo})
 
-    PersistenceManager.inicializar()
-    LoggerService.registrar_evento("Repositorios cargados", %{})
+    inicializar_nodos(tipo)
 
-    AuditService.exportar_a_txt()
+    if tipo in [:central, :persistencia] do
+      PersistenceManager.inicializar()
+      LoggerService.registrar_evento("Repositorios cargados", %{})
+    end
 
-    IO.puts("✔ Sistema listo.\n")
+    if tipo == :central do
+      AuditService.exportar_a_txt()
+    end
+
+    IO.puts("✔ Sistema listo en nodo #{tipo}.\n")
 
     {:noreply, state}
+  end
+
+  # ============================================================
+  # LÓGICA PARA CADA TIPO DE NODO
+  # ============================================================
+
+  @doc """
+  Inicializa el nodo distribuido según el tipo:
+
+  - :cli → NO crea nodo distribuido
+  - :persistencia → crea nodo distribuido sin conectarse
+  - :central → crea nodo distribuido y se conecta al cluster
+  """
+  def inicializar_nodos(:cli) do
+    LoggerService.registrar_evento("Nodo CLI: sin capacidades distribuidas", %{})
+    :ok
+  end
+
+  def inicializar_nodos(:persistencia) do
+    iniciar_y_loggear(:persistencia, false)
+  end
+
+  def inicializar_nodos(:central) do
+    iniciar_y_loggear(:central, true)
+  end
+
+  defp iniciar_y_loggear(tipo, conectar?) do
+    case NodeManager.iniciar_nodo_local() do
+      :ok ->
+        LoggerService.registrar_evento("Nodo local iniciado", %{tipo: tipo})
+        if conectar?, do: NodeManager.conectarse_a_nodos()
+
+      {:error, razon} ->
+        LoggerService.registrar_evento("Error iniciando nodo", %{razon: razon})
+    end
   end
 end
