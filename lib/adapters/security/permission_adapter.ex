@@ -26,7 +26,7 @@ defmodule ProyectoFinalPrg3.Adapters.Security.PermissionAdapter do
   Licencia: GNU GPLv3
   """
 
-  alias ProyectoFinalPrg3.Services.AuthService
+  alias ProyectoFinalPrg3.Services.ParticipantManager
   alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
 
   # ============================================================
@@ -94,7 +94,7 @@ defmodule ProyectoFinalPrg3.Adapters.Security.PermissionAdapter do
     - `{:error, :no_autorizado}` si el usuario no tiene permisos suficientes.
   """
   def autorizado?(id_usuario, accion) when is_binary(id_usuario) and is_atom(accion) do
-    with {:ok, participante} <- AuthService.obtener_participante(id_usuario),
+    with {:ok, participante} <- ParticipantManager.obtener_participante(id_usuario),
          true <- tiene_permiso?(String.to_atom(participante.rol), accion) do
       LoggerService.registrar_evento("Permiso concedido", %{usuario: id_usuario, accion: accion})
       {:ok, :permitido}

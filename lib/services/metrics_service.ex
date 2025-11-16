@@ -34,8 +34,9 @@ defmodule ProyectoFinalPrg3.Services.MetricsService do
   Licencia: GNU GPLv3
   """
 
+  alias ProyectoFinalPrg3.Services.ParticipantManager
   alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
-  alias ProyectoFinalPrg3.Services.{AuthService, TeamManager, ProjectManager}
+  alias ProyectoFinalPrg3.Services.{TeamManager, ProjectManager}
 
   # ============================================================
   # ESTRUCTURA INTERNA DE MÉTRICAS
@@ -129,9 +130,10 @@ defmodule ProyectoFinalPrg3.Services.MetricsService do
 
   @doc false
   defp contar_usuarios do
-    if Code.ensure_loaded?(AuthService) and
-         function_exported?(AuthService, :listar_participantes, 0) do
-      AuthService.listar_participantes() |> length()
+    if Code.ensure_loaded?(ParticipantManager) and
+         function_exported?(ParticipantManager, :listar_participantes, 0) do
+      ParticipantManager.listar_participantes()
+      |> length()
     else
       0
     end
