@@ -26,7 +26,6 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
   alias ProyectoFinalPrg3.Services.{TeamManager, ProjectManager, ChatService}
   alias ProyectoFinalPrg3.Adapters.Security.SessionManager
   alias ProyectoFinalPrg3.Adapters.CLI.CommandRegistry
-  alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
 
   @spec ejecutar_comando(map(), list()) :: {:ok, any()} | {:error, String.t()}
 
