@@ -1,11 +1,12 @@
 defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRegistryBehaviour do
   @moduledoc """
-  Define el comportamiento esperado del registro de comandos del CLI.
-  Este behaviour permite crear mocks confiables para pruebas mediante Mox.
+  Behaviour del registro de comandos del CLI.
+
+  Obs: la implementación actual de CommandRegistry devuelve tuplas
+  `{:ok, map()}` o `{:error, :comando_no_encontrado}` — por eso el callback
+  corresponde a ese tipo.
   """
 
   @callback all() :: map()
-  @callback get(command :: String.t()) ::
-  {:ok, map()} | {:error, :comando_no_encontrado}
-
+  @callback get(String.t()) :: {:ok, map()} | {:error, :comando_no_encontrado}
 end

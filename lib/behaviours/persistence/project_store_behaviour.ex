@@ -1,7 +1,5 @@
 defmodule ProyectoFinalPrg3.Adapters.Persistence.ProjectStoreBehaviour do
-  @moduledoc """
-  Behaviour que define la interfaz de persistencia para proyectos.
-  """
+  @moduledoc "Behaviour para persistencia de proyectos."
 
   @callback guardar_proyecto(map()) :: {:ok, map()} | {:error, any()}
   @callback obtener_proyecto(String.t()) :: map() | nil
