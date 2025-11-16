@@ -5,7 +5,7 @@
                         'Elixir.Makeup.Lexers.ErlangLexer.Testing']},
               {optional_applications,[]},
               {applications,[kernel,stdlib,elixir,logger,makeup]},
-              {description,"Erlang lexer for the Makeup syntax highlighter.\n"},
+              {description,"Erlang lexer for the Makeup syntax highlighter.\r\n"},
               {registered,[]},
               {vsn,"1.0.2"},
               {mod,{'Elixir.Makeup.Lexers.ErlangLexer.Application',[]}}]}.

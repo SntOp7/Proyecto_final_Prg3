@@ -1,9 +1,0 @@
-id,timestamp,nodo,tipo,mensaje,datos
-"220c5a10-53db-4051-b222-a36762397682","2025-11-16T16:23:09.044000Z","nonode@nohost","info","Inicio del sistema","{'nodo':'central'}"
-"cb4c8e20-983f-4618-a3ca-15d6bfa90100","2025-11-16T16:23:09.067000Z","proyecto_final@PC-SANTIAGO","info","Nodo BEAM iniciado","{'nodo':'proyecto_final@PC-SANTIAGO'}"
-"d51c7561-3165-45c5-bfc4-528bf1d54dfb","2025-11-16T16:23:09.068000Z","proyecto_final@PC-SANTIAGO","central","Nodo local iniciado","{'tipo':'central'}"
-"9d345b75-7284-469a-a74c-9c3671517132","2025-11-16T16:23:09.108000Z","proyecto_final@PC-SANTIAGO","info","Error conectando al nodo","{'nodo':'persistencia@persistencia','razon':'rechazado'}"
-"5593fa98-566d-44a5-9752-5d826567f9cb","2025-11-16T16:23:09.114000Z","proyecto_final@PC-SANTIAGO","persistencia","Persistencia inicializada correctamente","{'tipo':'persistencia','fecha':'2025-11-16T16:23:09.114000Z'}"
-"1e7137bf-bb60-4658-a63d-0fd608527b02","2025-11-16T16:23:09.120000Z","proyecto_final@PC-SANTIAGO","info","Repositorios cargados","{}"
-"233aaaa9-0537-45da-9a7c-f150669be112","2025-11-16T16:23:16.214000Z","proyecto_final@PC-SANTIAGO","info","Ejecución de comando","{'argumentos':[],'comando':'/help'}"
-"8a066d74-74ad-4924-b109-4b831a38aed1","2025-11-16T16:23:16.218000Z","proyecto_final@PC-SANTIAGO","info","Ejecución CLI","{'args':[],'comando':{'description':'Mostrar comandos disponibles y su descripción','service':'command_service','action':'show_help'}}"
