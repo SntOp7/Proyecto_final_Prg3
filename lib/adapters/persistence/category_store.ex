@@ -147,6 +147,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.CategoryStore do
     |> Enum.map(fn
       [_, quoted, nil] -> quoted
       [_, nil, normal] -> normal
+      _ -> ""
     end)
   end
 end
