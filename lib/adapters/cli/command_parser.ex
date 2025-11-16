@@ -38,18 +38,28 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandParser do
     - `{:error, :comando_desconocido}` si no existe en el registro.
   """
   def parse(input) when is_binary(input) do
-    case String.split(String.trim(input), " ", trim: true) do
-      [] ->
-        {:error, :entrada_vacia}
+  case String.split(String.trim(input), " ", trim: true) do
+    [] ->
+      {:error, :entrada_vacia}
 
-      [command | args] ->
-        case CommandRegistry.get(command) do
-          {:ok, _cmd_info} ->
-            {:ok, %{command: command, args: args}}
+    [command | raw_args] ->
+      case CommandRegistry.get(command) do
+        {:ok, _cmd_info} ->
+          {:ok, %{command: command, args: parse_args(raw_args)}}
 
-          {:error, :comando_no_encontrado} ->
-            {:error, :comando_desconocido}
-        end
-    end
+        {:error, :comando_no_encontrado} ->
+          {:error, :comando_desconocido}
+      end
   end
+end
+
+defp parse_args(args) do
+  args
+  |> Enum.map(&String.split(&1, "=", parts: 2))
+  |> Enum.reduce(%{}, fn
+    [key, value], acc -> Map.put(acc, String.to_atom(key), value)
+    _, acc -> acc
+  end)
+end
+
 end
