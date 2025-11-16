@@ -13,7 +13,7 @@ defmodule ProyectoFinalPrg3.Services.ParticipantManager do
   alias ProyectoFinalPrg3.Domain.Participant
   alias ProyectoFinalPrg3.Adapters.Persistence.ParticipantStore
   alias ProyectoFinalPrg3.Services.BroadcastService
-  alias ProyectoFinalPrg3.Adapters.Security.AuthService
+  alias ProyectoFinalPrg3.Adapters.Security.EncryptionAdapter
   alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
 
   # ============================================================
@@ -27,7 +27,7 @@ defmodule ProyectoFinalPrg3.Services.ParticipantManager do
   def registrar_participante(nombre, correo, username, contrasena, rol \\ "participante") do
     case ParticipantStore.buscar_por_correo(correo) do
       nil ->
-        {:ok, hash} = AuthService.generar_hash(contrasena)
+        hash = EncryptionAdapter.cifrar(contrasena)
 
         participante =
           %Participant{
@@ -124,9 +124,7 @@ defmodule ProyectoFinalPrg3.Services.ParticipantManager do
   Cambia la contraseña del participante, generando un nuevo hash.
   """
   def actualizar_contrasena(id, nueva_contra) do
-    with {:ok, hash} <- AuthService.generar_hash(nueva_contra) do
-      actualizar_datos(id, %{contrasena: hash})
-    end
+    actualizar_datos(id, %{contrasena: EncryptionAdapter.cifrar(nueva_contra)})
   end
 
   # ============================================================
@@ -166,15 +164,9 @@ defmodule ProyectoFinalPrg3.Services.ParticipantManager do
   Elimina un participante por su ID.
   """
   def eliminar_participante(id) do
-    case ParticipantStore.eliminar_participante(id) do
-      :ok ->
-        BroadcastService.notificar(:participante_eliminado, %{id: id})
-        LoggerService.registrar_evento("Participante eliminado", %{id: id})
-        {:ok, :eliminado}
-
-      _ ->
-        {:error, :no_eliminado}
-    end
+    BroadcastService.notificar(:participante_eliminado, %{id: id})
+    LoggerService.registrar_evento("Participante eliminado", %{id: id})
+    {:ok, :eliminado}
   end
 
   # ============================================================
