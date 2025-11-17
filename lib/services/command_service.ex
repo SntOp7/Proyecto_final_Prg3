@@ -21,7 +21,6 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
 
   alias ProyectoFinalPrg3.Adapters.Security.SessionManager
   alias ProyectoFinalPrg3.Adapters.CLI.CommandRegistry
-  alias ProyectoFinalPrg3.Adapters.Network.AnnouncementChannel
 
   # ===================================================================
   # PÚBLICOS
@@ -359,8 +358,28 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
     if texto == "" do
       {:error, "El anuncio no puede estar vacío."}
     else
-      AnnouncementChannel.announce(texto)
-      {:ok, "📢 Anuncio enviado a todos los participantes."}
+      central =
+        Application.get_env(
+          :proyecto_final_prg3,
+          :central_node,
+          :central@central
+        )
+
+      case :rpc.call(
+             central,
+             ProyectoFinalPrg3.Adapters.Network.AnnouncementChannel,
+             :publish_remote,
+             [texto]
+           ) do
+        {:ok, _msg} ->
+          {:ok, "📢 Anuncio enviado desde CLI → CENTRAL."}
+
+        {:error, razon} ->
+          {:error, razon}
+
+        {:badrpc, razon} ->
+          {:error, "Error RPC: #{inspect(razon)}"}
+      end
     end
   end
 
