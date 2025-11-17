@@ -21,9 +21,10 @@ defmodule ProyectoFinalPrg3.Adapters.Network.MessageBroadcast do
     - `emitir/5`: Realiza un broadcast combinado (local + distribuido).
     - `formatear/3`: Genera un payload estándar para todos los canales.
 
-  Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
-  Fecha: 2025-10-27
-  Licencia: GNU GPLv3
+  Autores: [Sharif Giraldo Obando, Juan Sebastián Hernández y Santiago Ospina Sánchez]
+  Fecha de creación: 2025-11-16
+  Fecha de última modificación: 2025-11-16
+  Licencia: GNU GPL v3
   """
 
   alias ProyectoFinalPrg3.Adapters.Network.ChannelManager

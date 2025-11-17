@@ -19,9 +19,10 @@ defmodule ProyectoFinalPrg3.Channels.MentorshipChannel do
     - `enviar/4`: Difunde un mensaje local y distribuido al equipo.
     - Manejo de eventos PubSub mediante `handle_info/2`.
 
-  Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
-  Fecha: 2025-10-27
-  Licencia: GNU GPLv3
+  Autores: [Sharif Giraldo Obando, Juan Sebastián Hernández y Santiago Ospina Sánchez]
+  Fecha de creación: 2025-11-16
+  Fecha de última modificación: 2025-11-16
+  Licencia: GNU GPL v3
   """
 
   use GenServer
@@ -175,6 +176,10 @@ defmodule ProyectoFinalPrg3.Channels.MentorshipChannel do
     1. Extrae el rol, contenido y metadata del mensaje.
     2. Registra el evento en logs.
     3. Continúa sin responder a la fuente (`:noreply`).
+
+  ##Parametros:
+    - `mensaje`: Mapa con la estructura estándar del sistema.
+    - `state`: Estado actual del GenServer.
 
   ## Retorna:
     - `{:noreply, state}`

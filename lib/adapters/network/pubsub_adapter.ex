@@ -21,9 +21,10 @@ defmodule ProyectoFinalPrg3.Adapters.Network.PubSubAdapter do
     - `desuscribir/2`: Elimina la suscripción de un proceso.
     - Utilidad auxiliar: conversión segura de nombres de eventos a tópicos.
 
-  Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
-  Fecha: 2025-10-27
-  Licencia: GNU GPLv3
+  Autores: [Sharif Giraldo Obando, Juan Sebastián Hernández y Santiago Ospina Sánchez]
+  Fecha de creación: 2025-11-16
+  Fecha de última modificación: 2025-11-16
+  Licencia: GNU GPL v3
   """
 
   require Logger
