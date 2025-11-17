@@ -1,7 +1,18 @@
 defmodule ProyectoFinalPrg3.Application do
+  @moduledoc """
+  Módulo principal de la aplicación ProyectoFinalPrg3.
+  Proporciona la configuración y supervisión de los procesos principales según el tipo de nodo configurado.
+  Autores: [Sharif Giraldo Obando, Juan Sebastián Hernández y Santiago Ospina Sánchez]
+  Fecha de creación: 2025-11-16
+  Fecha de última modificación: 2025-11-16
+  Licencia: GNU GPL v3
+  """
   use Application
   require Logger
 
+  @doc"""
+  Función que inicia la aplicación ProyectoFinalPrg3, configurando y supervisando los procesos principales según el tipo de nodo.
+  """
   def start(_type, _args) do
     Logger.info("🚀 Iniciando aplicación ProyectoFinalPrg3...")
 
