@@ -159,6 +159,7 @@ defmodule CLI.Main do
     """
   end
 
+  @doc false
   defp formatear_item(%ProyectoFinalPrg3.Domain.Mentor{} = mentor) do
     """
 
@@ -166,6 +167,17 @@ defmodule CLI.Main do
        📧 Email: #{mentor.correo}
        🎭 Rol: #{mentor.rol}
        🆔 ID: #{mentor.id}
+    """
+  end
+
+  defp formatear_item(%ProyectoFinalPrg3.Domain.Progress{} = avance) do
+    """
+
+    📊 #{avance.titulo} (v#{avance.version})
+       💼 Proyecto: #{avance.proyecto_id}
+       📝 Descripción: #{avance.descripcion}
+       👤 Autor: #{avance.autor_id}
+       📅 Registrado: #{Calendar.strftime(avance.timestamp, "%Y-%m-%d %H:%M")}
     """
   end
 
