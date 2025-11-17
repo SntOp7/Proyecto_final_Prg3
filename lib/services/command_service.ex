@@ -351,13 +351,14 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
     end
   end
 
-  # /annoucement
+  # /announcement
   def ejecutar_comando(%{service: :announcement, action: :send}, %{mensaje: texto}) do
     texto = String.trim(texto)
 
     if texto == "" do
       {:error, "El anuncio no puede estar vacío."}
     else
+      # Nodo CENTRAL al cual haremos RPC
       central =
         Application.get_env(
           :proyecto_final_prg3,
@@ -365,20 +366,25 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
           :central@central
         )
 
-      case :rpc.call(
-             central,
-             ProyectoFinalPrg3.Adapters.Network.AnnouncementChannel,
-             :publish_remote,
-             [texto]
-           ) do
-        {:ok, _msg} ->
-          {:ok, "📢 Anuncio enviado desde CLI → CENTRAL."}
+      with {:ok, usuario} <- SessionManager.obtener_participante_actual() do
+        case :rpc.call(
+               central,
+               ProyectoFinalPrg3.Adapters.Network.AnnouncementChannel,
+               :publish_remote,
+               [texto, usuario]
+             ) do
+          {:ok, _msg} ->
+            {:ok, "📢 Anuncio enviado desde CLI → CENTRAL."}
 
-        {:error, razon} ->
-          {:error, razon}
+          {:error, razon} ->
+            {:error, razon}
 
-        {:badrpc, razon} ->
-          {:error, "Error RPC: #{inspect(razon)}"}
+          {:badrpc, razon} ->
+            {:error, "Error RPC: #{inspect(razon)}"}
+        end
+      else
+        {:error, _} ->
+          {:error, "Debes iniciar sesión."}
       end
     end
   end
