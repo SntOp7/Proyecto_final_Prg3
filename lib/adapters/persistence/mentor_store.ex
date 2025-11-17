@@ -87,7 +87,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.MentorStore do
       nombre: nombre,
       correo: correo,
       contrasena: contrasena,
-      especialidad: especialidad
+      especialidad: if(especialidad == "", do: nil, else: especialidad)
     }
   end
 
@@ -122,9 +122,11 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.MentorStore do
   # UTILIDADES
   # ============================================================
 
-  defp sanitize(texto) do
+  defp sanitize(texto) when is_binary(texto) do
     texto
     |> String.replace(",", ";")
     |> String.replace("\n", " ")
   end
+
+  defp sanitize(_), do: ""
 end
