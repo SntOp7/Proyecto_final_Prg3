@@ -38,6 +38,7 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
     case :ets.whereis(@tabla_chat_activo) do
       :undefined ->
         :ets.new(@tabla_chat_activo, [:named_table, :public, read_concurrency: true])
+
       _ ->
         :ok
     end
@@ -55,7 +56,6 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
     with {:ok, participante} <- SessionManager.obtener_participante_actual(),
          {:ok, equipo} <- TeamManager.obtener_equipo(nombre_equipo),
          true <- participante.id in equipo.participantes do
-
       :ets.insert(@tabla_chat_activo, {participante.id, nombre_equipo})
 
       LoggerService.registrar_evento("Ingreso a chat", %{
@@ -106,14 +106,14 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
   defp enviar_mensaje_valido(contenido) do
     with {:ok, participante} <- SessionManager.obtener_participante_actual(),
          {:ok, nombre_equipo} <- obtener_chat_activo(participante.id) do
-
-      mensaje = Message.nuevo(
-        UUID.uuid4(),
-        participante.id,
-        nombre_equipo,
-        contenido,
-        DateTime.utc_now()
-      )
+      mensaje =
+        Message.nuevo(
+          UUID.uuid4(),
+          participante.id,
+          nombre_equipo,
+          contenido,
+          DateTime.utc_now()
+        )
 
       ChatStore.agregar_mensaje(nombre_equipo, mensaje)
 
@@ -128,6 +128,7 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
     else
       {:error, :sin_chat_activo} ->
         {:error, "No estás en ningún chat. Usa /chat equipo=NombreEquipo"}
+
       error ->
         error
     end
@@ -143,13 +144,14 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
     if contenido == "" do
       {:error, "No se puede enviar un mensaje vacío."}
     else
-      mensaje = Message.nuevo(
-        UUID.uuid4(),
-        "sistema",
-        nombre_equipo,
-        "🤖 #{contenido}",
-        DateTime.utc_now()
-      )
+      mensaje =
+        Message.nuevo(
+          UUID.uuid4(),
+          "sistema",
+          nombre_equipo,
+          "🤖 #{contenido}",
+          DateTime.utc_now()
+        )
 
       ChatStore.agregar_mensaje(nombre_equipo, mensaje)
 
@@ -171,7 +173,6 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
 
     with {:ok, participante} <- SessionManager.obtener_participante_actual(),
          {:ok, nombre_equipo} <- obtener_chat_activo(participante.id) do
-
       :ets.delete(@tabla_chat_activo, participante.id)
 
       LoggerService.registrar_evento("Salida de chat", %{
@@ -194,14 +195,19 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
     with {:ok, participante} <- SessionManager.obtener_participante_actual(),
          {:ok, equipo} <- TeamManager.obtener_equipo(nombre_equipo),
          true <- participante.id in equipo.participantes do
+      canal_atom =
+        case nombre_equipo do
+          n when is_atom(n) -> n
+          n when is_binary(n) -> String.to_atom(n)
+        end
 
-      mensajes = ChatStore.obtener_mensajes(nombre_equipo, limite)
+      mensajes = ChatStore.obtener_mensajes(canal_atom, limite)
 
       if mensajes == [] do
         {:ok, "📭 No hay mensajes en este chat aún."}
       else
         texto = formatear_historial(mensajes)
-        {:ok, "\n📜 Historial del chat #{nombre_equipo}:\n#{texto}"}
+        {:ok, "\n📜 Historial del chat #{equipo.nombre}:\n#{texto}"}
       end
     else
       false -> {:error, "No perteneces a este equipo."}
@@ -235,6 +241,7 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
 
   defp obtener_chat_activo(participante_id) do
     init_tabla()
+
     case :ets.lookup(@tabla_chat_activo, participante_id) do
       [{^participante_id, equipo}] -> {:ok, equipo}
       [] -> {:error, :sin_chat_activo}
@@ -245,6 +252,7 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
 
   def chat_activo?(id) do
     init_tabla()
+
     case :ets.lookup(@tabla_chat_activo, id) do
       [{^id, _}] -> true
       _ -> false
