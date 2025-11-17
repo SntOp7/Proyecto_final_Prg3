@@ -21,12 +21,15 @@ defmodule ProyectoFinalPrg3.Application do
 
     children =
       case tipo_nodo do
-        # -----------------------------
-        # 🟦 NODO CENTRAL
-        # -----------------------------
         :central ->
           [
             {Phoenix.PubSub, name: ProyectoFinalPrg3.PubSub},
+
+            ProyectoFinalPrg3.Adapters.Network.AnnouncementChannel,
+            ProyectoFinalPrg3.Adapters.Network.ChannelManager,
+            ProyectoFinalPrg3.Adapters.Network.MentorshipChannel,
+
+            ProyectoFinalPrg3.Services.ChatService,
             ProyectoFinalPrg3.Services.InitialBootService
           ]
 
