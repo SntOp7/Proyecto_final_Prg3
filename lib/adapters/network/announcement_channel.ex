@@ -1,156 +1,133 @@
-defmodule ProyectoFinalPrg3.Channels.AnnouncementChannel do
+defmodule ProyectoFinalPrg3.Adapters.Network.AnnouncementChannel do
   @moduledoc """
-  Canal global utilizado para la difusión de mensajes de anuncio a todos los
-  participantes del sistema.
+  Canal global para la difusión de anuncios del sistema.
 
-  Este canal proporciona un mecanismo unificado para enviar anuncios generales
-  desde la organización hacia todos los procesos suscritos, usando PubSub
-  interno. Opera de manera local dentro del nodo, pero puede integrarse con
-  mensajería distribuida mediante `MessageBroadcast`.
+  Permite que la administración envíe mensajes que serán recibidos
+  por todos los participantes suscritos al canal interno. Los anuncios
+  se persisten igual que los mensajes de chat de equipos.
 
-  Es utilizado principalmente por:
-
-    - `BroadcastService`
-    - Paneles de administración de la Hackathon
-    - Interfaces o procesos que deban recibir anuncios globales
-
-  ## Funciones principales
-    - `subscribe/1`: Suscribe un proceso al canal global de anuncios.
-    - `announce/1`: Envía un mensaje de anuncio al sistema.
-    - Procesamiento de eventos PubSub a través de `handle_info/2`.
-
-  Autores: [Sharif Giraldo Obando, Juan Sebastián Hernández y Santiago Ospina Sánchez]
-  Fecha de creación: 2025-11-16
-  Fecha de última modificación: 2025-11-16
-  Licencia: GNU GPL v3
+  - Se usa PubSub interno para comunicación.
+  - Se utiliza `Message` del dominio para formato uniforme.
+  - Se almacena historial en `ChatStore`.
+  - Solo administradores pueden enviar anuncios.
   """
 
   use GenServer
 
+  alias ProyectoFinalPrg3.Adapters.Security.SessionManager
+  alias ProyectoFinalPrg3.Adapters.Persistence.ChatStore
+  alias ProyectoFinalPrg3.Domain.Message
   alias ProyectoFinalPrg3.Adapters.Network.PubSubAdapter
   alias ProyectoFinalPrg3.Adapters.Network.ChannelManager
+  alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
 
   @canal :announcement_channel
 
-  # ============================================================
-  # SUSCRIPCIÓN AL CANAL
-  # ============================================================
+  # ------------------------------------------------------------
+  # API PÚBLICA
+  # ------------------------------------------------------------
 
   @doc """
   Suscribe un proceso al canal global de anuncios.
-
-  ## Flujo:
-    1. Verifica el proceso objetivo (por defecto, `self()`).
-    2. Realiza una suscripción directa al canal PubSub interno.
-    3. Permite que el proceso reciba todos los anuncios futuros.
-
-  ## Parámetros:
-    - `pid` (opcional): Proceso a suscribir. Por defecto: `self()`.
-
-  ## Retorna:
-    - `:ok` – suscripción realizada con éxito.
-
-  ## Ejemplo:
-      iex> AnnouncementChannel.subscribe()
-      :ok
   """
   def subscribe(pid \\ self()) do
     PubSubAdapter.suscribir(@canal, pid)
   end
 
-  # ============================================================
-  # ENVÍO DE ANUNCIOS
-  # ============================================================
-
   @doc """
   Envía un anuncio global al sistema.
 
-  El mensaje será recibido por todos los procesos suscritos al canal interno
-  de anuncios. El envío se realiza mediante `ChannelManager.broadcast/2`,
-  asegurando consistencia con el sistema de mensajería interna.
-
-  ## Flujo:
-    1. Valida que el mensaje sea un texto.
-    2. Construye un payload estandarizado (`type: :announcement`).
-    3. Realiza un broadcast a través del ChannelManager.
-    4. Todos los suscriptores reciben el anuncio.
-
-  ## Parámetros:
-    - `message`: Texto del anuncio (string).
+  - Verifica que el usuario sea administrador.
+  - Crea un Message con formato uniforme.
+  - Persiste el anuncio en ChatStore.
+  - Realiza broadcast a todos los suscriptores.
 
   ## Retorna:
-    - `:ok` – broadcast enviado correctamente.
+    - `{:ok, mensaje}` si fue enviado correctamente.
+    - `{:error, razón}` si falla la validación.
   """
-  def announce(message) when is_binary(message) do
-    ChannelManager.broadcast(@canal, %{type: :announcement, text: message})
+  def announce(texto) when is_binary(texto) do
+    contenido = String.trim(texto)
+
+    cond do
+      contenido == "" ->
+        {:error, "El anuncio no puede estar vacío."}
+
+      true ->
+        enviar_anuncio_validado(contenido)
+    end
   end
 
-  # ============================================================
-  # INICIALIZACIÓN DEL SERVIDOR
-  # ============================================================
+  # ------------------------------------------------------------
+  # LÓGICA PRINCIPAL
+  # ------------------------------------------------------------
 
-  @doc """
-  Inicia el proceso GenServer del canal de anuncios.
+  defp enviar_anuncio_validado(contenido) do
+    with {:ok, usuario} <- SessionManager.obtener_participante_actual(),
+         true <- usuario.rol == :admin do
+      mensaje =
+        Message.nuevo(
+          UUID.uuid4(),
+          # remitente_id
+          "sistema",
+          # canal lógico
+          :canal_general,
+          # contenido
+          "📢 #{contenido}",
+          DateTime.utc_now()
+        )
 
-  ## Flujo:
-    1. Inicia el proceso con estado vacío.
-    2. Registra el proceso bajo el nombre del módulo.
-    3. Permite que el canal empiece a recibir mensajes PubSub.
+      # Persistir anuncio igual que chats
+      ChatStore.agregar_mensaje(@canal, mensaje)
 
-  ## Retorna:
-    - `{:ok, pid}` si el servidor inicia correctamente.
-    - `{:error, razon}` si ocurre un fallo.
-  """
+      # Difundir a todos los suscriptores
+      ChannelManager.broadcast(@canal, mensaje)
+
+      # Log administrativo
+      LoggerService.registrar_evento("Anuncio global enviado", %{
+        admin: usuario.id,
+        contenido: contenido
+      })
+
+      {:ok, mensaje}
+    else
+      false ->
+        {:error, "No tienes permisos para enviar anuncios."}
+
+      {:error, :no_sesion_activa} ->
+        {:error, "Debes iniciar sesión para enviar anuncios."}
+    end
+  end
+
+  # ------------------------------------------------------------
+  # GEN_SERVER
+  # ------------------------------------------------------------
+
   def start_link(_opts) do
     GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
   end
 
-  # ============================================================
-  # CONFIGURACIÓN INICIAL
-  # ============================================================
-
-  @doc """
-  Configura el estado inicial del canal y lo suscribe automáticamente
-  al canal PubSub de anuncios.
-
-  Esto permite que el propio proceso del canal reciba los anuncios y
-  ejecute lógica adicional (reenviar, persistir, depurar, etc.).
-
-  ## Retorna:
-    - `{:ok, state}` indicando estado inicial exitoso.
-  """
   @impl true
   def init(state) do
+    # El propio proceso del canal también escucha anuncios
     PubSubAdapter.suscribir(@canal, self())
     {:ok, state}
   end
 
-  # ============================================================
-  # RECEPCIÓN DE MENSAJES PUBSUB
-  # ============================================================
-
-  @doc """
-  Maneja los mensajes recibidos desde PubSub.
-
-  Actualmente, el canal simplemente imprime el mensaje recibido,
-  pero este método puede extenderse para:
-
-    - reenviar a websockets,
-    - registrar logs,
-    - disparar eventos internos,
-    - integrar con interfaces administrativas,
-    - procesar analíticas de uso.
-
-  ## Parámetros:
-    - `mensaje`: payload emitido en el canal PubSub.
-    - `state`: estado interno del canal.
-
-  ## Retorna:
-    - `{:noreply, state}` – continúa el ciclo del GenServer.
-  """
   @impl true
-  def handle_info(mensaje, state) do
-    IO.puts("[AnnouncementChannel] recibido: #{inspect(mensaje)}")
+  def handle_info(%Message{} = mensaje, state) do
+    for name <- :global.registered_names() do
+      case name do
+        {:cli_user, _id} ->
+          if pid = :global.whereis_name(name) do
+            send(pid, {:anuncio_global, mensaje})
+          end
+
+        _ ->
+          :ok
+      end
+    end
+
     {:noreply, state}
   end
 end
