@@ -8,47 +8,38 @@ defmodule ProyectoFinalPrg3.Adapters.Network.AnnouncementChannel do
   alias ProyectoFinalPrg3.Adapters.Network.ChannelManager
   alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
 
-  @canal :announcement_channel
+  # Canal OFICIAL de anuncios globales
+  @canal :canal_anuncios_globales
 
   # ------------------------------------------------------------
   # API pública
   # ------------------------------------------------------------
 
+  # Suscripción local (CLI)
   def subscribe(pid \\ self()) do
     PubSubAdapter.suscribir(@canal, pid)
   end
 
   # RPC desde CLI → CENTRAL
   def publish_remote(texto, usuario) do
-    enviar_anuncio_validado_remoto(texto, usuario)
+    enviar_validado(texto, usuario)
   end
 
-  # Anuncio local (solo CENTRAL lo usa)
-  def announce(texto) when is_binary(texto) do
-    contenido = String.trim(texto)
-
-    cond do
-      contenido == "" ->
-        {:error, "El anuncio no puede estar vacío."}
-
-      true ->
-        enviar_anuncio_validado(contenido)
-    end
-  end
-
-  # Validación usando SessionManager LOCAL (cuando el central envía anuncios)
-  defp enviar_anuncio_validado(contenido) do
+  # Validación local dentro de CENTRAL
+  def announce(texto) do
     with {:ok, usuario} <- SessionManager.obtener_participante_actual(),
          true <- usuario.rol == :admin do
-      construir_y_broadcast(contenido, usuario.id)
+      construir_y_broadcast(texto, usuario.id)
     else
-      false -> {:error, "No tienes permisos para enviar anuncios."}
-      {:error, :no_sesion_activa} -> {:error, "Debes iniciar sesión."}
+      _ -> {:error, "No tienes permisos para enviar anuncios."}
     end
   end
 
-  # Validación remota (CLI → CENTRAL)
-  defp enviar_anuncio_validado_remoto(texto, usuario) do
+  # ------------------------------------------------------------
+  # Validación remota y local
+  # ------------------------------------------------------------
+
+  defp enviar_validado(texto, usuario) do
     contenido = String.trim(texto)
 
     cond do
@@ -66,19 +57,24 @@ defmodule ProyectoFinalPrg3.Adapters.Network.AnnouncementChannel do
   # ------------------------------------------------------------
   # Construcción y difusión del mensaje
   # ------------------------------------------------------------
+
   defp construir_y_broadcast(contenido, admin_id) do
     mensaje =
       Message.nuevo(
         UUID.uuid4(),
-        "sistema",
-        :canal_general,
+        admin_id,
+        @canal,
         "📢 #{contenido}",
         DateTime.utc_now()
       )
 
+    # Persistencia
     ChatStore.agregar_mensaje(@canal, mensaje)
+
+    # Broadcast a todos los nodos
     ChannelManager.broadcast(@canal, mensaje)
 
+    # Log
     LoggerService.registrar_evento("Anuncio global enviado", %{
       admin: admin_id,
       contenido: contenido
@@ -100,6 +96,7 @@ defmodule ProyectoFinalPrg3.Adapters.Network.AnnouncementChannel do
     {:ok, state}
   end
 
+  # Cuando llega un anuncio desde PubSub → reenviar a todos los CLI
   def handle_info(%Message{} = mensaje, state) do
     for name <- :global.registered_names() do
       case name do
@@ -108,8 +105,7 @@ defmodule ProyectoFinalPrg3.Adapters.Network.AnnouncementChannel do
             send(pid, {:anuncio_global, mensaje})
           end
 
-        _ ->
-          :ok
+        _ -> :ok
       end
     end
 
