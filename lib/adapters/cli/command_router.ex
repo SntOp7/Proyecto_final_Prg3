@@ -1,6 +1,15 @@
 defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRouter do
   @moduledoc """
   Módulo responsable de enrutar y ejecutar los comandos ingresados en la CLI.
+  Este adaptador recibe la entrada del usuario, valida el comando,
+  verifica permisos y delega la ejecución al `CommandExecutor`.
+  Ejemplo de uso:
+      iex> CommandRouter.route("/help")
+      {:ok, "Comandos disponibles: ..."}
+  Autores: [Sharif Giraldo Obando, Juan Sebastián Hernández y Santiago Ospina Sánchez]
+  Fecha de creación: 2025-11-16
+  Fecha de última modificación: 2025-11-16
+  Licencia: GNU GPL v3
   """
 
   alias ProyectoFinalPrg3.Adapters.CLI.{CommandRegistry, CommandExecutor}
@@ -22,6 +31,14 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRouter do
   # FUNCIÓN PRINCIPAL
   # ============================================================
 
+  @doc """
+  Función principal para enrutar y ejecutar comandos CLI.
+  Parámetros:
+    - `input`: Línea de comando ingresada por el usuario.
+  Retorna:
+    - `{:ok, resultado}` si la ejecución fue exitosa.
+    - `{:error, mensaje}` en caso de error.
+  """
   def route(input) when is_binary(input) do
     case String.trim(input) do
       "" ->
@@ -55,9 +72,11 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRouter do
   # ============================================================
 
   # Comandos públicos: no requieren sesión
+  @doc false
   defp es_publico?(%{required_permission: nil}), do: true
   defp es_publico?(_), do: false
 
+  @doc false
   defp verificar_acceso(command_info) do
   if es_publico?(command_info) do
     :ok
@@ -76,6 +95,7 @@ end
   # VERIFICACIÓN DE PERMISOS POR ROL
   # ============================================================
 
+  @doc false
   defp verificar_permiso(%{required_permission: nil}), do: :ok
 
   defp verificar_permiso(%{required_permission: permiso}) do
@@ -95,6 +115,7 @@ end
   # EJECUCIÓN DEL COMANDO
   # ============================================================
 
+  @doc false
   defp ejecutar_comando(cmd, args, command_info) do
     try do
       LoggerService.registrar_evento("Ejecución de comando", %{comando: cmd, args: args})

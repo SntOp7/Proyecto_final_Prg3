@@ -16,9 +16,10 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandParser do
       iex> CommandParser.parse("")
       {:error, :entrada_vacia}
 
-  Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
-  Fecha: 2025-10-27
-  Licencia: GNU GPLv3
+  Autores: [Sharif Giraldo Obando, Juan Sebastián Hernández y Santiago Ospina Sánchez]
+  Fecha de creación: 2025-11-16
+  Fecha de última modificación: 2025-11-16
+  Licencia: GNU GPL v3
   """
 
   alias ProyectoFinalPrg3.Adapters.CLI.CommandRegistry
@@ -38,28 +39,28 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandParser do
     - `{:error, :comando_desconocido}` si no existe en el registro.
   """
   def parse(input) when is_binary(input) do
-  case String.split(String.trim(input), " ", trim: true) do
-    [] ->
-      {:error, :entrada_vacia}
+    case String.split(String.trim(input), " ", trim: true) do
+      [] ->
+        {:error, :entrada_vacia}
 
-    [command | raw_args] ->
-      case CommandRegistry.get(command) do
-        {:ok, _cmd_info} ->
-          {:ok, %{command: command, args: parse_args(raw_args)}}
+      [command | raw_args] ->
+        case CommandRegistry.get(command) do
+          {:ok, _cmd_info} ->
+            {:ok, %{command: command, args: parse_args(raw_args)}}
 
-        {:error, :comando_no_encontrado} ->
-          {:error, :comando_desconocido}
-      end
+          {:error, :comando_no_encontrado} ->
+            {:error, :comando_desconocido}
+        end
+    end
   end
-end
 
-defp parse_args(args) do
-  args
-  |> Enum.map(&String.split(&1, "=", parts: 2))
-  |> Enum.reduce(%{}, fn
-    [key, value], acc -> Map.put(acc, String.to_atom(key), value)
-    _, acc -> acc
-  end)
-end
-
+  @doc false
+  defp parse_args(args) do
+    args
+    |> Enum.map(&String.split(&1, "=", parts: 2))
+    |> Enum.reduce(%{}, fn
+      [key, value], acc -> Map.put(acc, String.to_atom(key), value)
+      _, acc -> acc
+    end)
+  end
 end

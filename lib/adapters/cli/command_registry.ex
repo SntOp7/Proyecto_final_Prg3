@@ -1,6 +1,26 @@
 defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRegistry do
   @moduledoc """
   Registro centralizado de comandos disponibles en la CLI.
+  Cada comando está asociado con su descripción, uso, servicio manejador,
+  acción a ejecutar y permisos requeridos.
+  Comandos Incluidos:
+    - `/help`
+    - `/register`
+    - `/login`
+    - `/logout`
+    - `/teams`
+    - `/project`
+    - `/join`
+    - `/create_team`
+    - `/create_project`
+    - `/chat`
+    - `/feedback`
+    - `/assign_mentor`
+    - `/delete_team`
+  Autores: [Sharif Giraldo Obando, Juan Sebastián Hernández y Santiago Ospina Sánchez]
+  Fecha de creación: 2025-11-16
+  Fecha de última modificación: 2025-11-16
+  Licencia: GNU GPL v3
   """
 
   @commands %{
