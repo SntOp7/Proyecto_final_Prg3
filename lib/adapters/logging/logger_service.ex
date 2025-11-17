@@ -159,26 +159,44 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
     end
   end
 
+  # ----------------------------------------------
+  # NORMALIZAR CUALQUIER TIPO DE DATO PARA JSON/CSV
+  # ----------------------------------------------
+
+  # Tuplas (como timestamps {megasegundos, segundos, microsegundos})
+  defp normalizar_para_json(tuple) when is_tuple(tuple) do
+    tuple
+    |> Tuple.to_list()
+    |> Enum.map(&normalizar_para_json/1)
+    |> Enum.join(",")
+  end
+
+  # Nulo
   defp normalizar_para_json(nil), do: %{}
 
+  # Bitstrings
   defp normalizar_para_json(d) when is_binary(d), do: d
 
+  # Structs
   defp normalizar_para_json(%_{} = struct) do
     struct
     |> Map.from_struct()
     |> normalizar_para_json()
   end
 
+  # Mapas
   defp normalizar_para_json(map) when is_map(map) do
     map
     |> Enum.map(fn {k, v} -> {to_string(k), normalizar_para_json(v)} end)
     |> Map.new()
   end
 
+  # Listas
   defp normalizar_para_json(list) when is_list(list) do
     Enum.map(list, &normalizar_para_json/1)
   end
 
+  # Cualquier otro tipo
   defp normalizar_para_json(other), do: to_string(other)
 
   @doc false
