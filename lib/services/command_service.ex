@@ -21,6 +21,7 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
 
   alias ProyectoFinalPrg3.Adapters.Security.SessionManager
   alias ProyectoFinalPrg3.Adapters.CLI.CommandRegistry
+  alias ProyectoFinalPrg3.Adapters.Network.AnnouncementChannel
 
   # ===================================================================
   # PÚBLICOS
@@ -357,9 +358,24 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
     end
   end
 
+  # /annoucement
+  def ejecutar_comando(%{service: :announcement, action: :send}, %{mensaje: texto}) do
+    texto = String.trim(texto)
+
+    if texto == "" do
+      {:error, "El anuncio no puede estar vacío."}
+    else
+      AnnouncementChannel.announce(texto)
+      {:ok, "📢 Anuncio enviado a todos los participantes."}
+    end
+  end
+
   # ===================================================================
   # DEFAULT
   # ===================================================================
+
+  def ejecutar_comando("anuncio", _),
+    do: {:error, "Uso correcto: /anuncio mensaje=\"Texto aquí\""}
 
   def ejecutar_comando(_, _) do
     {:error, "Comando no reconocido o argumentos incorrectos. Usa /help."}
@@ -389,23 +405,38 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
     end
   end
 
-  # ============================================================
-  # FILTRO DE VISIBILIDAD SEGÚN ROL
-  # ============================================================
+  # ==========================================
+  # VISIBILIDAD DE COMANDOS
+  # ==========================================
 
-  defp comando_visible?(nil, %{required_permission: nil}) do
-    true
+  defp comando_visible?(usuario, %{context: :solo_en_chat} = info) do
+    case usuario do
+      nil ->
+        false
+
+      _ ->
+        # Aquí NO LLAMAMOS ChatService.init ni ChatStore
+        case ChatService.obtener_chat_activo_usuario(usuario.id) do
+          {:ok, _} -> comando_visible_basico?(usuario, info)
+          _ -> false
+        end
+    end
   end
 
-  defp comando_visible?(nil, %{required_permission: _perm}) do
-    false
+  defp comando_visible?(usuario, info) do
+    comando_visible_basico?(usuario, info)
   end
 
-  defp comando_visible?(_usuario, %{required_permission: nil}) do
-    true
-  end
+  # ==========================================
+  # PERMISOS BASE
+  # ==========================================
 
-  defp comando_visible?(usuario, %{required_permission: permiso}) do
-    PermissionService.autorizado?(usuario.id, permiso)
+  defp comando_visible_basico?(nil, %{required_permission: nil}), do: true
+  defp comando_visible_basico?(nil, %{required_permission: _}), do: false
+  defp comando_visible_basico?(_usuario, %{required_permission: nil}), do: true
+
+  defp comando_visible_basico?(usuario, %{required_permission: permiso}) do
+    usuario &&
+      PermissionService.autorizado?(usuario.id, permiso)
   end
 end
