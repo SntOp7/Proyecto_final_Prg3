@@ -21,9 +21,10 @@ defmodule ProyectoFinalPrg3.Adapters.Security.PermissionAdapter do
       iex> PermissionAdapter.autorizado?("uuid-123", :crear_equipo)
       {:ok, :permitido}
 
-  Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
-  Fecha de creación: 2025-10-27
-  Licencia: GNU GPLv3
+  Autores: [Sharif Giraldo Obando, Juan Sebastián Hernández y Santiago Ospina Sánchez]
+  Fecha de creación: 2025-11-16
+  Fecha de última modificación: 2025-11-16
+  Licencia: GNU GPL v3
   """
 
   alias ProyectoFinalPrg3.Services.ParticipantManager
@@ -32,6 +33,7 @@ defmodule ProyectoFinalPrg3.Adapters.Security.PermissionAdapter do
   # ============================================================
   # DEFINICIÓN DE PERMISOS POR ROL
   # ============================================================
+
 
   @permisos %{
   admin: [
@@ -119,6 +121,10 @@ defmodule ProyectoFinalPrg3.Adapters.Security.PermissionAdapter do
 
   @doc """
   Devuelve la lista de acciones permitidas para un rol determinado.
+  ## Parámetros:
+    - `rol`: átomo que identifica el rol del usuario (`:admin`, `:mentor`, `:participante`).
+  ## Retorna:
+    - Lista de átomos que representan las acciones permitidas para el rol.
   """
   def listar_permisos(rol) when is_atom(rol), do: Map.get(@permisos, rol, [])
 end
