@@ -53,11 +53,8 @@ defmodule ProyectoFinalPrg3.Adapters.Network.NodeManager do
   @spec iniciar_nodo_local() :: :ok | {:error, any()}
   def iniciar_nodo_local do
     case Node.self() do
-      :nonode@nohost ->
-        iniciar_nodo_con_nombre()
-
-      _ ->
-        :ok
+      :nonode@nohost -> iniciar_nodo_con_nombre()
+      _ -> :ok
     end
   end
 
@@ -135,18 +132,38 @@ defmodule ProyectoFinalPrg3.Adapters.Network.NodeManager do
     - `{:error, :nodo_no_conectado}` si el nodo no está conectado.
     - `{:error, :rpc_fallo}` si hubo un error en la llamada RPC.
   """
-  def enviar_directo(nodo, payload) do
+def enviar_directo(nodo, payload) do
     if nodo not in Node.list() do
       LoggerService.registrar_evento("Nodo no conectado", %{destino: nodo})
       {:error, :nodo_no_conectado}
+
     else
       case :rpc.call(nodo, __MODULE__, :recibir_mensaje, [payload]) do
         {:badrpc, razon} ->
-          LoggerService.registrar_evento("Error RPC", %{destino: nodo, razon: inspect(razon)})
+          LoggerService.registrar_evento("Error RPC", %{
+            destino: nodo,
+            razon: inspect(razon)
+          })
+
           {:error, :rpc_fallo}
 
-        respuesta ->
-          LoggerService.registrar_evento("RPC enviado", %{destino: nodo, respuesta: respuesta})
+        {:ok, :recibido} ->
+          # ← YA NO enviamos la tupla al logger
+          LoggerService.registrar_evento("RPC enviado", %{
+            destino: nodo,
+            resultado: "OK",
+            estado: "recibido"
+          })
+
+          :ok
+
+        otra_respuesta ->
+          # fallback: convertir cualquier cosa a string
+          LoggerService.registrar_evento("RPC enviado (otros)", %{
+            destino: nodo,
+            respuesta: inspect(otra_respuesta)
+          })
+
           :ok
       end
     end
@@ -174,6 +191,7 @@ defmodule ProyectoFinalPrg3.Adapters.Network.NodeManager do
 
     {:ok, :recibido}
   end
+
 
   # ============================================================
   # 5. ESTADO DEL CLUSTER
