@@ -17,7 +17,7 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
 
   alias ProyectoFinalPrg3.Domain.Participant
   alias ProyectoFinalPrg3.Adapters.Security.{EncryptionAdapter, TokenManager, SessionManager}
-  alias ProyectoFinalPrg3.Adapters.Persistence.ParticipantStore
+  alias ProyectoFinalPrg3.Adapters.Persistence.{ParticipantStore, MentorStore}
   alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
 
   # ============================================================
@@ -83,17 +83,19 @@ defmodule ProyectoFinalPrg3.Services.AuthService do
     {:error, :contrasena_invalida}
   """
   def autenticar(correo, contrasena) do
-    case ParticipantStore.buscar_por_correo(correo) do
+    usuario = ParticipantStore.buscar_por_correo(correo) || MentorStore.buscar_por_correo(correo)
+
+    case usuario do
       nil ->
         {:error, :no_encontrado}
 
-      %Participant{} = participante ->
-        if EncryptionAdapter.verificar(contrasena, participante.contrasena) do
-          with {:ok, token} <- TokenManager.generar_token(participante.id),
-               :ok <- SessionManager.activar_sesion(participante.id, token) do
+      usuario ->
+        if EncryptionAdapter.verificar(contrasena, usuario.contrasena) do
+          with {:ok, token} <- TokenManager.generar_token(usuario.id),
+               :ok <- SessionManager.activar_sesion(usuario.id, token) do
             LoggerService.registrar_evento("Inicio de sesión", %{correo: correo})
 
-            {:ok, %{participante: participante, token: token}}
+            {:ok, %{participante: usuario, token: token}}
           else
             _ -> {:error, :error_en_sesion}
           end

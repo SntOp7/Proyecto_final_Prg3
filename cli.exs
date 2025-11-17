@@ -89,6 +89,17 @@ defmodule CLI.Main do
     """
   end
 
+  defp formatear_item(%ProyectoFinalPrg3.Domain.Mentor{} = mentor) do
+    """
+
+    👨‍🏫 #{mentor.nombre}
+       📧 Email: #{mentor.correo}
+       🎭 Rol: #{mentor.rol}
+       💼 Especialidad: #{mentor.especialidad || "No especificada"}
+       🆔 ID: #{mentor.id}
+    """
+  end
+
   defp formatear_item(item) do
     "\n" <> inspect(item, pretty: true, limit: :infinity)
   end
