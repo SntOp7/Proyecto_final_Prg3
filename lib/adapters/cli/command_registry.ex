@@ -122,7 +122,7 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRegistry do
 
     "/feedback" => %{
       description: "Enviar feedback a un equipo",
-      usage: "/feedback proyecto_id=proyecto123 mensaje=\"Buen trabajo, pero mejoren documentación\"",
+      usage: "/feedback proyecto=Titanes mensaje=\"Buen trabajo, pero mejoren documentación\"",
       service: :mentor_manager,
       action: :feedback,
       required_permission: :enviar_feedback
