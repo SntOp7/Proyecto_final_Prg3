@@ -1,11 +1,10 @@
-Mix.Task.run("app.start")
-
 IO.puts("🎮 CLI lista (/help para ver comandos)\n")
 
 defmodule CLI.Main do
   @moduledoc """
   Módulo principal para la interfaz de línea de comandos (CLI) del sistema.
   Permite la interacción con el usuario para ejecutar comandos y mostrar resultados.
+
   Autores: [Sharif Giraldo Obando, Juan Sebastián Hernández y Santiago Ospina Sánchez]
   Fecha de creación: 2025-11-16
   Fecha de última modificación: 2025-11-16
@@ -14,6 +13,10 @@ defmodule CLI.Main do
 
   @doc """
   Bucle principal de la interfaz de línea de comandos.
+
+  Este proceso NO ejecuta la aplicación completa.
+  Solo envía los comandos al nodo central usando CommandRouter,
+  el cual delega la lógica al sistema distribuido.
   """
   def loop do
     case IO.gets("> ") do
