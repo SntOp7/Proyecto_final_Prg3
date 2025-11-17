@@ -17,9 +17,10 @@ defmodule ProyectoFinalPrg3.Adapters.Network.ChannelManager do
     - `broadcast/2`: Envía un mensaje a todos los procesos suscritos.
     - `enviar/2`: Envía un mensaje a un destino específico (PID o etiqueta lógica).
 
-  Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
-  Fecha: 2025-10-27
-  Licencia: GNU GPLv3
+  Autores: [Sharif Giraldo Obando, Juan Sebastián Hernández y Santiago Ospina Sánchez]
+  Fecha de creación: 2025-11-16
+  Fecha de última modificación: 2025-11-16
+  Licencia: GNU GPL v3
   """
 
   alias ProyectoFinalPrg3.Adapters.Network.PubSubAdapter
@@ -30,6 +31,11 @@ defmodule ProyectoFinalPrg3.Adapters.Network.ChannelManager do
 
   ## Ejemplo
       ChannelManager.broadcast(:equipo_actualizado, %{equipo: "Rocket"})
+  ## Parámetros:
+    - `canal`: Átomo que identifica el canal o evento.
+    - `mensaje`: Cualquier estructura de datos que represente el mensaje.
+  ## Retorna:
+    - `:ok` – mensaje difundido con éxito.
   """
   def broadcast(canal, mensaje) when is_atom(canal) do
     PubSubAdapter.publicar(canal, mensaje)
@@ -47,6 +53,11 @@ defmodule ProyectoFinalPrg3.Adapters.Network.ChannelManager do
   ## Ejemplo
       ChannelManager.enviar(self(), %{msg: "Hola"})
       ChannelManager.enviar("equipo:123", %{msg: "Evento"})
+  ## Parámetros:
+    - `destino`: PID o etiqueta lógica (string/átomo).
+    - `mensaje`: Cualquier estructura de datos que represente el mensaje.
+  ## Retorna:
+    - `:ok` – mensaje enviado con éxito.
   """
   def enviar(destino, mensaje)
 

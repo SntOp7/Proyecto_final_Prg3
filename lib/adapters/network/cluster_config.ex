@@ -17,9 +17,10 @@ defmodule ProyectoFinalPrg3.Adapters.Network.ClusterConfig do
     - `inicializar/0`: Ejecuta las rutinas de conexión a nodos remotos.
     - `estado/0`: Retorna el estado actual del cluster usando `NodeManager`.
 
-  Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
-  Fecha: 2025-10-27
-  Licencia: GNU GPLv3
+  Autores: [Sharif Giraldo Obando, Juan Sebastián Hernández y Santiago Ospina Sánchez]
+  Fecha de creación: 2025-11-16
+  Fecha de última modificación: 2025-11-16
+  Licencia: GNU GPL v3
   """
 
   alias ProyectoFinalPrg3.Adapters.Network.NodeManager
@@ -41,6 +42,8 @@ defmodule ProyectoFinalPrg3.Adapters.Network.ClusterConfig do
     2. Conecta de manera manual a los nodos configurados.
     3. Consulta y registra el estado final del cluster.
     4. Deja el entorno distribuido listo para su uso.
+
+  ##Parametros: Ninguno.
 
   ## Retorna:
     - `:ok` — cuando el proceso ha finalizado correctamente.
@@ -89,6 +92,8 @@ defmodule ProyectoFinalPrg3.Adapters.Network.ClusterConfig do
 
   El estado es retornado directamente desde `NodeManager`, lo que garantiza
   consistencia con el resto de componentes que consultan la topología distribuida.
+
+  Parámetros: Ninguno.
 
   ## Retorna:
     Un mapa con la siguiente estructura:

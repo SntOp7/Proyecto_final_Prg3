@@ -19,9 +19,10 @@ defmodule ProyectoFinalPrg3.Channels.AnnouncementChannel do
     - `announce/1`: Envía un mensaje de anuncio al sistema.
     - Procesamiento de eventos PubSub a través de `handle_info/2`.
 
-  Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
-  Fecha: 2025-10-27
-  Licencia: GNU GPLv3
+  Autores: [Sharif Giraldo Obando, Juan Sebastián Hernández y Santiago Ospina Sánchez]
+  Fecha de creación: 2025-11-16
+  Fecha de última modificación: 2025-11-16
+  Licencia: GNU GPL v3
   """
 
   use GenServer
@@ -48,6 +49,10 @@ defmodule ProyectoFinalPrg3.Channels.AnnouncementChannel do
 
   ## Retorna:
     - `:ok` – suscripción realizada con éxito.
+
+  ## Ejemplo:
+      iex> AnnouncementChannel.subscribe()
+      :ok
   """
   def subscribe(pid \\ self()) do
     PubSubAdapter.suscribir(@canal, pid)
