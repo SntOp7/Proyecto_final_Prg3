@@ -21,6 +21,9 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.PersistenceManager do
   """
 
   alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
+  alias ProyectoFinalPrg3.Adapters.Persistence.ParticipantStore
+  alias ProyectoFinalPrg3.Domain.Participant
+  alias ProyectoFinalPrg3.Adapters.Security.EncryptionAdapter
 
   # Configuración de archivos CSV necesarios
 
@@ -60,6 +63,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.PersistenceManager do
   def inicializar do
     crear_directorio_data()
     crear_archivos_csv()
+    inicializar_usuarios_admin()
 
     LoggerService.registrar_evento("Persistencia inicializada correctamente", %{
       tipo: :persistencia,
@@ -67,6 +71,31 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.PersistenceManager do
     })
 
     :ok
+  end
+
+  defp inicializar_usuarios_admin do
+    admin_email = "admin@proyecto.local"
+
+    case ParticipantStore.buscar_por_correo(admin_email) do
+      nil ->
+        admin = %Participant{
+          id: UUID.uuid4(),
+          nombre: "Admin",
+          correo: admin_email,
+          username: "admin",
+          contrasena: EncryptionAdapter.cifrar("admin123"),
+          rol: :administrador,
+          equipo_id: nil,
+          estado: :activo,
+          mensajes: []
+        }
+
+        ParticipantStore.guardar_participante(admin)
+        LoggerService.registrar_evento("Administrador inicial creado", %{correo: admin_email})
+
+      _ ->
+        :ok
+    end
   end
 
   @doc """
