@@ -1,4 +1,12 @@
 defmodule ProyectoFinalPrg3.MixProject do
+  @moduledoc """
+  ProyectoFinalPrg3 es una aplicación desarrollada en Elixir que gestiona equipos, proyectos, participantes y mentores.
+  Proporciona funcionalidades para la administración y seguimiento de estos elementos en un entorno colaborativo.
+  Autores: [Sharif Giraldo Obando, Juan Sebastián Hernández y Santiago Ospina Sánchez]
+  Fecha de creación: 2025-11-16
+  Fecha de última modificación: 2025-11-16
+  Licencia: GNU GPL v3
+  """
   use Mix.Project
 
   def project do
@@ -20,16 +28,26 @@ defmodule ProyectoFinalPrg3.MixProject do
 
   defp deps do
     [
-      {:uuid, "~> 1.1"},             # UUIDs únicos
-      {:jason, "~> 1.4"},            # JSON encoding
-      {:phoenix_pubsub, "~> 2.1"},   # Comunicación PubSub
-      {:ex_doc, "~> 0.31", only: :dev, runtime: false},  # Documentación
-      {:ex_unit_notifier, "~> 1.2", only: :test},        # Notificaciones de test
-      {:csv, "~> 3.0"},                                  # Para manejo de archivos CSV
-      {:mox, "~> 1.1", only: :test},                     # Mocking en tests
-      {:excoveralls, "~> 0.17", only: :test},            # Cobertura de test
-      {:credo, "~> 1.7", only: [:dev, :test], runtime: false}, # Linter
-      {:dialyxir, "~> 1.4", only: [:dev], runtime: false}      # Analizador de tipos
+      # UUIDs únicos
+      {:uuid, "~> 1.1"},
+      # JSON encoding
+      {:jason, "~> 1.4"},
+      # Comunicación PubSub
+      {:phoenix_pubsub, "~> 2.1"},
+      # Documentación
+      {:ex_doc, "~> 0.31", only: :dev, runtime: false},
+      # Notificaciones de test
+      {:ex_unit_notifier, "~> 1.2", only: :test},
+      # Para manejo de archivos CSV
+      {:csv, "~> 3.0"},
+      # Mocking en tests
+      {:mox, "~> 1.1", only: :test},
+      # Cobertura de test
+      {:excoveralls, "~> 0.17", only: :test},
+      # Linter
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      # Analizador de tipos
+      {:dialyxir, "~> 1.4", only: [:dev], runtime: false}
     ]
   end
 end
