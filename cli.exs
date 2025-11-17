@@ -23,45 +23,57 @@ defmodule CLI.Main do
   - Comandos con prefijo `/`: se envían al CommandRouter
   - Texto sin prefijo: se envía como mensaje si el usuario está en un chat activo
   """
-  def loop do
-    case IO.gets("> ") do
-      nil ->
-        IO.puts("Saliendo...")
+  def loop(state \\ %{}) do
+    receive do
+      # ============================
+      # 🟦 ANUNCIOS DEL SISTEMA
+      # ============================
+      {:anuncio_global, mensaje} ->
+        IO.puts("""
 
-      line ->
-        linea_trim = String.trim(line)
+        🌐 [ANUNCIO GLOBAL]
+        #{mensaje.contenido}
+        """)
 
-        # Procesar la entrada
-        resultado = cond do
-          # Si está vacío, ignorar
-          linea_trim == "" ->
-            :ok
+        loop(state)
 
-          # Si empieza con /, es un comando
-          String.starts_with?(linea_trim, "/") ->
-            ProyectoFinalPrg3.Adapters.CLI.CommandRouter.route(linea_trim)
+      # ============================
+      # 🟩 OTROS MENSAJES FUTUROS
+      # ============================
+      other ->
+        IO.puts("📥 Mensaje del sistema: #{inspect(other)}")
+        loop(state)
+    after
+      0 ->
+        # Si no hay mensajes, procesamos la entrada del usuario
+        case IO.gets("> ") do
+          nil ->
+            IO.puts("Saliendo...")
 
-          # Si NO empieza con / pero está en un chat, enviar mensaje
-          true ->
-            enviar_mensaje_si_en_chat(linea_trim)
+          line ->
+            linea_trim = String.trim(line)
+
+            resultado =
+              cond do
+                linea_trim == "" ->
+                  :ok
+
+                String.starts_with?(linea_trim, "/") ->
+                  ProyectoFinalPrg3.Adapters.CLI.CommandRouter.route(linea_trim)
+
+                true ->
+                  enviar_mensaje_si_en_chat(linea_trim)
+              end
+
+            case resultado do
+              {:ok, msg} -> mostrar_resultado(msg)
+              {:error, msg} -> IO.puts("❌ #{msg}")
+              :ok -> :ok
+              other -> IO.inspect(other)
+            end
+
+            loop(state)
         end
-
-        # Mostrar resultado
-        case resultado do
-          {:ok, msg} ->
-            mostrar_resultado(msg)
-
-          {:error, msg} ->
-            IO.puts("❌ #{msg}")
-
-          :ok ->
-            :ok
-
-          other ->
-            IO.inspect(other)
-        end
-
-        loop()
     end
   end
 
