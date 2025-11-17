@@ -1,14 +1,11 @@
 defmodule ProyectoFinalPrg3.Adapters.CLI.CommandExecutor do
   @moduledoc """
   Adaptador responsable de ejecutar comandos provenientes del CLI.
-  Este módulo actúa como intermediario entre la interfaz de línea de comandos
-  y el servicio de comandos del sistema.
-  Proporciona una función `execute/2` que recibe la información del comando
-  y sus argumentos, delegando la ejecución al `CommandService`.
-  Fecha de creación: 2025-11-16
-  Fecha de última modificación: 2025-11-16
-  Licencia: GNU GPL v3
   """
+
+  alias ProyectoFinalPrg3.Adapters.Network.AnnouncementChannel
+  alias ProyectoFinalPrg3.Adapters.Security.SessionManager
+  alias ProyectoFinalPrg3.Adapters.Persistence.ChatStore
 
   @command_service Application.compile_env(
                      :proyecto_final_prg3,
@@ -26,15 +23,35 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandExecutor do
   # EJECUCIÓN PRINCIPAL
   # ============================================================
 
-  @doc """
-  Función principal para ejecutar comandos CLI.
-  Parámetros:
-    - `info`: Mapa con información del comando a ejecutar.
-    - `args`: Mapa con los argumentos del comando.
-  Retorna:
-    - `{:ok, resultado}` si la ejecución fue exitosa.
-    - `{:error, mensaje}` en caso de error.
-  """
+  # ---------------------------------------------
+  # 🔵 1. /announcement (solo administradores)
+  # ---------------------------------------------
+  def execute(%{name: :announcement}, args) do
+    with {:ok, usuario} <- SessionManager.obtener_participante_actual(),
+         mensaje when is_binary(mensaje) <- Map.get(args, "mensaje") do
+
+      AnnouncementChannel.publish_remote(mensaje, usuario)
+
+    else
+      _ -> {:error, "Debes enviar un mensaje válido para el anuncio."}
+    end
+  end
+
+  # ---------------------------------------------
+  # 🟣 2. /announcements (ver historial)
+  # ---------------------------------------------
+  def execute(%{name: :announcements}, _args) do
+    historial = ChatStore.obtener_mensajes(:canal_anuncios_globales, 50)
+
+    case historial do
+      [] -> {:ok, "📭 No hay anuncios globales registrados."}
+      _  -> {:ok, historial}
+    end
+  end
+
+  # ---------------------------------------------
+  # 🟢 3. Cualquier otro comando → CommandService
+  # ---------------------------------------------
   def execute(info, args) when is_map(info) and is_map(args) do
     try do
       @logger_service.registrar_evento("Ejecución CLI", %{comando: info, args: args})
