@@ -23,6 +23,7 @@ defmodule ProyectoFinalPrg3.Application do
       case tipo_nodo do
         :central ->
           [
+            ProyectoFinalPrg3.Adapters.Persistence.ChatStore,
             {Phoenix.PubSub, name: ProyectoFinalPrg3.PubSub},
             ProyectoFinalPrg3.Adapters.Network.AnnouncementChannel,
             ProyectoFinalPrg3.Adapters.Network.ChannelManager,
