@@ -47,13 +47,13 @@ defmodule ProyectoFinalPrg3.Services.InitialBootService do
   alias ProyectoFinalPrg3.Adapters.Network.NodeManager
 
   # ============================================================
-  # START LINK
+  # START
   # ============================================================
 
   @doc """
   Inicia el proceso supervisado del boot del sistema.
 
-  No arranca inmediatamente: programa un `:boot` para ejecutarse después
+  No arranca inmediatamente: programa un :boot para ejecutarse después
   de que el árbol de supervisión haya terminado de levantarse.
   """
   def start_link(_args) do
@@ -67,8 +67,7 @@ defmodule ProyectoFinalPrg3.Services.InitialBootService do
   @impl true
   def init(:ok) do
     :ets.new(:sesiones_activas, [:set, :named_table, :public])
-
-    Process.send_after(self(), :boot, 15)
+    Process.send_after(self(), :boot, 20)
     {:ok, %{}}
   end
 
@@ -85,9 +84,18 @@ defmodule ProyectoFinalPrg3.Services.InitialBootService do
     LoggerService.limpiar_logs()
     LoggerService.registrar_evento("Inicio del sistema", %{nodo: tipo})
 
-    inicializar_nodos(tipo)
+    # Inicializa nodos distribuidos según tipo
+    case inicializar_nodos(tipo) do
+      :ok ->
+        :ok
 
-    if tipo in [:central, :persistencia] do
+      {:error, razon} ->
+        Logger.error("❌ Fallo al iniciar nodo #{tipo}: #{inspect(razon)}")
+        IO.puts("❌ Sistema detenido: dependencia no disponible.\n")
+        System.stop(1)
+    end
+
+    if tipo == :persistencia do
       PersistenceManager.inicializar()
       LoggerService.registrar_evento("Repositorios cargados", %{})
     end
@@ -96,43 +104,91 @@ defmodule ProyectoFinalPrg3.Services.InitialBootService do
       AuditService.exportar_a_txt()
     end
 
-    IO.puts("✔ Sistema listo en nodo #{tipo}.\n")
-
     {:noreply, state}
   end
 
   # ============================================================
-  # LÓGICA PARA CADA TIPO DE NODO
+  # LÓGICA DE INICIALIZACIÓN POR TIPO DE NODO
   # ============================================================
 
   @doc """
   Inicializa el nodo distribuido según el tipo:
 
-  - :cli → NO crea nodo distribuido
-  - :persistencia → crea nodo distribuido sin conectarse
-  - :central → crea nodo distribuido y se conecta al cluster
+  - :cli → NO crea nodo distribuido, pero se conecta al CENTRAL obligatoriamente.
+  - :persistencia → crea nodo distribuido sin conectarse a otros.
+  - :central → crea nodo distribuido y se conecta al nodo persistencia.
   """
+
+  # ============================================================
+  # CLI NODE
+  # ============================================================
   def inicializar_nodos(:cli) do
     LoggerService.registrar_evento("Nodo CLI: sin capacidades distribuidas", %{})
-    :ok
+
+    central_node =
+      Application.get_env(:proyecto_final_prg3, :central_node, :central@central)
+
+    IO.puts("🔌 Conectando CLI → CENTRAL (#{inspect(central_node)})...")
+
+    case Node.connect(central_node) do
+      true ->
+        LoggerService.registrar_evento("CLI conectado al CENTRAL", %{nodo: central_node})
+        :ok
+
+      false ->
+        LoggerService.registrar_evento("Error conectando CLI al CENTRAL", %{nodo: central_node})
+        {:error, :central_no_disponible}
+    end
   end
 
+  # ============================================================
+  # PERSISTENCIA NODE
+  # ============================================================
   def inicializar_nodos(:persistencia) do
-    iniciar_y_loggear(:persistencia, false)
-  end
-
-  def inicializar_nodos(:central) do
-    iniciar_y_loggear(:central, true)
-  end
-
-  defp iniciar_y_loggear(tipo, conectar?) do
     case NodeManager.iniciar_nodo_local() do
       :ok ->
-        LoggerService.registrar_evento("Nodo local iniciado", %{tipo: tipo})
-        if conectar?, do: NodeManager.conectarse_a_nodos()
+        LoggerService.registrar_evento("Nodo PERSISTENCIA iniciado", %{})
+        :ok
 
       {:error, razon} ->
-        LoggerService.registrar_evento("Error iniciando nodo", %{razon: razon})
+        {:error, razon}
+    end
+  end
+
+  # ============================================================
+  # CENTRAL NODE
+  # ============================================================
+  def inicializar_nodos(:central) do
+    with :ok <- NodeManager.iniciar_nodo_local(),
+         true <- esperar_persistencia() do
+      LoggerService.registrar_evento("CENTRAL conectado → PERSISTENCIA", %{})
+      :ok
+    else
+      false ->
+        {:error, :persistencia_no_disponible}
+
+      {:error, r} ->
+        {:error, r}
+    end
+  end
+
+  # ============================================================
+  # FUNCIONES AUXILIARES
+  # ============================================================
+
+  @doc false
+  defp esperar_persistencia(intentos \\ 20)
+
+  defp esperar_persistencia(0), do: false
+
+  defp esperar_persistencia(n) do
+    [persistencia] = Application.get_env(:proyecto_final_prg3, :nodos, [])
+
+    if Node.connect(persistencia) do
+      true
+    else
+      Process.sleep(300)
+      esperar_persistencia(n - 1)
     end
   end
 end

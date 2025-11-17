@@ -1,6 +1,5 @@
 # -------------------------------------------------------------------
 #  Configuración base del sistema ProyectoFinalPrg3
-#  ÚNICO archivo de configuración para todo el proyecto.
 # -------------------------------------------------------------------
 
 import Config
@@ -29,22 +28,28 @@ config :proyecto_final_prg3, :persistencia,
   ruta_logs: "logs"
 
 # ================================================================
-# CONFIGURACIÓN DE NODOS DISTRIBUIDOS
-# Lista de nodos a los que se conectará el nodo CENTRAL
+# CONFIGURACIÓN DE NODOS PARA CLUSTER DISTRIBUIDO
+# ================================================================
+# Estos nombres deben coincidir con los usados al levantar los nodos:
+#   iex --sname persistencia -S mix
+#   iex --sname central -S mix
+#   mix run cli.exs
 # ================================================================
 
 config :proyecto_final_prg3,
   nodos: [
-    :"persistencia@#{:inet.gethostname() |> elem(1)}"
+    :persistencia@localhost
   ]
+
+config :proyecto_final_prg3,
+  central_node: :central@localhost
 
 # ================================================================
 # TIPO DE NODO ACTUAL
-# Cambia este valor manualmente al iniciar cada nodo.
 # ================================================================
 
 config :proyecto_final_prg3,
-  tipo_nodo: :central
+  tipo_nodo: :cli
 
 # valores válidos: :central | :persistencia | :cli
 
@@ -54,6 +59,9 @@ config :proyecto_final_prg3,
 
 config :proyecto_final_prg3, :broadcast, habilitado: true
 
-# iex.bat --sname persistencia -S mix
-# iex.bat --sname central -S mix
+# ================================================================
+# EJEMPLOS DE EJECUCIÓN
+# ================================================================
+# iex --sname persistencia -S mix
+# iex --sname central -S mix
 # mix run cli.exs

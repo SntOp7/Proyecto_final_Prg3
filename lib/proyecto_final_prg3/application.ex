@@ -7,10 +7,11 @@ defmodule ProyectoFinalPrg3.Application do
   Fecha de última modificación: 2025-11-16
   Licencia: GNU GPL v3
   """
+
   use Application
   require Logger
 
-  @doc"""
+  @doc """
   Función que inicia la aplicación ProyectoFinalPrg3, configurando y supervisando los procesos principales según el tipo de nodo.
   """
   def start(_type, _args) do
@@ -20,24 +21,34 @@ defmodule ProyectoFinalPrg3.Application do
 
     children =
       case tipo_nodo do
+        # -----------------------------
+        # 🟦 NODO CENTRAL
+        # -----------------------------
         :central ->
           [
             {Phoenix.PubSub, name: ProyectoFinalPrg3.PubSub},
             ProyectoFinalPrg3.Services.InitialBootService
           ]
 
+        # -----------------------------
+        # 🟩 NODO PERSISTENCIA
+        # -----------------------------
         :persistencia ->
           [
             ProyectoFinalPrg3.Services.InitialBootService
           ]
 
+        # -----------------------------
+        # 🟨 NODO CLI
+        # -----------------------------
         :cli ->
           [
             ProyectoFinalPrg3.Services.InitialBootService
           ]
       end
 
-    Supervisor.start_link(children,
+    Supervisor.start_link(
+      children,
       strategy: :one_for_one,
       name: ProyectoFinalPrg3.Supervisor
     )

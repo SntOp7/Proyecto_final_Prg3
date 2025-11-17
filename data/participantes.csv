@@ -1,1 +1,2 @@
-id,nombre,correo,username,rol,equipo_id,experiencia,fecha_registro,estado,ultima_conexion,mensajes,canales_asignados,token_sesion,perfil_url
+id,nombre,correo,username,contrasena,rol,equipo_id,estado,mensajes
+fccbad80-1c03-470f-af5f-a2c81da6cdd0,Admin,admin@proyecto.local,admin,240BE518FABD2724DDB6F04EEB1DA5967448D7E831C08C8FA822809F74C720A9,administrador,,activo,
