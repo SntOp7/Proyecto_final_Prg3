@@ -39,6 +39,7 @@ defmodule ProyectoFinalPrg3.Adapters.Security.PermissionAdapter do
   admin: [
     :crear_equipo,
     :eliminar_equipo,
+    :enviar_anuncio,
     :ver_todos_los_proyectos,
     :editar_proyecto,
     :asignar_mentor,
