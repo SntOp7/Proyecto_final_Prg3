@@ -134,6 +134,13 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRegistry do
       action: :delete_team,
       required_permission: :eliminar_equipo
     },
+    "/announcement" => %{
+      description: "Enviar un anuncio global visible para todos los participantes",
+      usage: "/announcement mensaje=\"La hackathon inicia en 10 minutos\"",
+      service: :announcement,
+      action: :send,
+      required_permission: :enviar_anuncio
+    },
 
     # ============================================================
     # CHAT
@@ -147,12 +154,21 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRegistry do
       required_permission: :ver_canales
     },
     "/salir_chat" => %{
-      description: "Salir del chat activo",
-      usage: "/salir_chat",
-      service: :chat_manager,
-      action: :leave_chat,
-      required_permission: nil
-    },
+  description: "Salir del chat activo",
+  usage: "/salir_chat",
+  service: :chat_manager,
+  action: :leave_chat,
+  required_permission: nil,
+  context: :solo_en_chat
+},
+"/historial" => %{
+  description: "Ver historial de mensajes del chat activo",
+  usage: "/historial",
+  service: :chat_manager,
+  action: :show_history,
+  required_permission: nil,
+  context: :solo_en_chat
+},
     "/progress" => %{
       description: "Registrar un avance en el proyecto",
       usage:
@@ -167,13 +183,6 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRegistry do
       service: :progress_manager,
       action: :list_progress,
       required_permission: :ver_proyecto
-    },
-    "/historial" => %{
-      description: "Ver historial de mensajes del chat activo",
-      usage: "/historial",
-      service: :chat_manager,
-      action: :show_history,
-      required_permission: nil
     }
   }
 
