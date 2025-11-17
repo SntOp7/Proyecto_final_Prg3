@@ -10,7 +10,8 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
     ChatService,
     MentorManager,
     ParticipantManager,
-    PermissionService
+    PermissionService,
+    ProgressManager
   }
 
   alias ProyectoFinalPrg3.Adapters.Security.SessionManager
@@ -172,12 +173,6 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
         IO.puts("Error obteniendo usuario: #{inspect(razon)}")
         {:error, "Debes iniciar sesión para crear un proyecto."}
     end
-  end
-
-  # /chat <equipo>
-  def ejecutar_comando(%{service: :chat_manager, action: :open_chat}, %{equipo: equipo}) do
-    ChatService.ingresar_chat_equipo(equipo)
-    {:ok, "Ingresaste al chat del equipo #{equipo}"}
   end
 
   # ===================================================================

@@ -1,11 +1,11 @@
 defmodule ProyectoFinalPrg3.Services.ChatService do
   @moduledoc """
-  Servicio principal de gestión del chat por equipos.
+  Servicio principal de gestión del chat por equipos
   """
 
   alias ProyectoFinalPrg3.Services.TeamManager
   alias ProyectoFinalPrg3.Adapters.Security.SessionManager
-  alias ProyectoFinalPrg3.Services.{BroadcastService, ParticipantManager}
+  alias ProyectoFinalPrg3.Services.BroadcastService
   alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
   alias ProyectoFinalPrg3.Adapters.Persistence.ChatStore
 

@@ -6,7 +6,7 @@ defmodule ProyectoFinalPrg3.Services.MentorManager do
 
   alias ProyectoFinalPrg3.Domain.{Mentor, Feedback}
   alias ProyectoFinalPrg3.Adapters.Persistence.{MentorStore, FeedbackStore}
-  alias ProyectoFinalPrg3.Services.{BroadcastService, TeamManager}
+  alias ProyectoFinalPrg3.Services.{BroadcastService, TeamManager, ProjectManager, ChatService}
 
   # ============================================================
   # REGISTRO DE MENTOR
@@ -63,9 +63,6 @@ defmodule ProyectoFinalPrg3.Services.MentorManager do
   # FEEDBACK
   # ============================================================
 
-  @doc """
-  Crea un feedback simple dirigido a un proyecto.
-  """
   @doc """
   Crea feedback y lo envía al chat del equipo.
   """

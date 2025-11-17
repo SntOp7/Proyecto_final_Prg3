@@ -17,7 +17,7 @@ defmodule ProyectoFinalPrg3.Services.ProgressManager do
   """
   def registrar_avance(proyecto_nombre, titulo, descripcion, version \\ "1.0") do
     with {:ok, participante} <- SessionManager.obtener_participante_actual(),
-         {:ok, proyecto} <- ProjectManager.obtener_proyecto_por_nombre(proyecto_nombre),
+         {:ok, proyecto} <- ProjectManager.obtener_proyecto(proyecto_nombre),
          {:ok, equipo} <- TeamManager.obtener_equipo_por_proyecto(proyecto.id),
          true <- participante.id in equipo.participantes do
 
@@ -62,7 +62,7 @@ defmodule ProyectoFinalPrg3.Services.ProgressManager do
   Lista todos los avances de un proyecto.
   """
   def listar_avances_proyecto(proyecto_nombre) do
-    with {:ok, proyecto} <- ProjectManager.obtener_proyecto_por_nombre(proyecto_nombre) do
+    with {:ok, proyecto} <- ProjectManager.obtener_proyecto(proyecto_nombre) do
       avances = ProgressStore.listar_por_proyecto(proyecto.id)
                 |> Enum.sort_by(& &1.fecha_registro, {:desc, DateTime})
 
