@@ -15,18 +15,19 @@ defmodule ProyectoFinalPrg3.Services.MentorManager do
   @doc """
   Registra un mentor nuevo con los campos del dominio.
   """
-  def registrar_mentor(nombre, correo, contrasena, rol, especialidad) do
+  def registrar_mentor(nombre, correo, contrasena, rol) do
     case MentorStore.buscar_por_correo(correo) do
       nil ->
+        contrasena_hash = :crypto.hash(:sha256, contrasena) |> Base.encode16()
+
         mentor =
           Mentor.nuevo(
             UUID.uuid4(),
             nombre,
             correo,
-            contrasena,
-            rol,
-            especialidad
-          )
+            contrasena_hash,
+            rol
+            )
 
         MentorStore.guardar_mentor(mentor)
         BroadcastService.notificar(:mentor_registrado, mentor)
