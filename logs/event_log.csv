@@ -1,4 +1,4 @@
 id,timestamp,nodo,tipo,mensaje,datos
-"fb90d193-3b02-41ed-a4d5-11213040a2e7","2025-11-17T03:36:44.656000Z","cli@JuanHernandez","info","Inicio del sistema","{'nodo':'cli'}"
-"039fb1bf-aaf9-4811-986b-b877b23f53c6","2025-11-17T03:36:44.666000Z","cli@JuanHernandez","info","Nodo CLI: sin capacidades distribuidas","{}"
-"ea31c482-24d0-4f4e-99da-97321ffbf6e9","2025-11-17T03:36:44.712000Z","cli@JuanHernandez","info","CLI conectado al nodo CENTRAL","{'nodo':'central@JuanHernandez'}"
+"3bc9c028-79ef-42b1-b088-3ac9f5b57b18","2025-11-17T04:12:51.302000Z","cli@JuanHernandez","info","Inicio del sistema","{'nodo':'cli'}"
+"209c2df4-0836-4bee-9ca7-5eea27b305c3","2025-11-17T04:12:51.316000Z","cli@JuanHernandez","info","Nodo CLI: sin capacidades distribuidas","{}"
+"af171705-adce-4a9e-8b37-882c330e426f","2025-11-17T04:12:51.359000Z","cli@JuanHernandez","error","Error conectando CLI al CENTRAL","{'nodo':'central@JuanHernandez'}"

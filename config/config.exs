@@ -28,30 +28,30 @@ config :proyecto_final_prg3, :persistencia,
   ruta_logs: "logs"
 
 # ================================================================
-# CONFIGURACIÓN DE NODOS PARA CLUSTER DISTRIBUIDO
-# ================================================================
-# Estos nombres deben coincidir con los usados al levantar los nodos:
-#   iex --sname persistencia -S mix
-#   iex --sname central -S mix
-#   mix run cli.exs
+# CONFIGURACIÓN DE NODOS PARA COMUNICACIÓN DISTRIBUIDA
 # ================================================================
 
+hostname = :inet.gethostname() |> elem(1) |> to_string()
+
+# Nodo persistencia al que CENTRAL debe conectarse
 config :proyecto_final_prg3,
   nodos: [
-    :persistencia@localhost
+    :"persistencia@#{hostname}"
   ]
 
+# Nodo central al que CLI debe conectarse
 config :proyecto_final_prg3,
-  central_node: :central@localhost
+  central_node: :"central@#{hostname}"
 
 # ================================================================
 # TIPO DE NODO ACTUAL
+# Cambia este valor manualmente antes de ejecutar cada nodo
 # ================================================================
 
 config :proyecto_final_prg3,
   tipo_nodo: :cli
 
-# valores válidos: :central | :persistencia | :cli
+# válidos: :central | :persistencia | :cli
 
 # ================================================================
 # BROADCAST
@@ -59,9 +59,6 @@ config :proyecto_final_prg3,
 
 config :proyecto_final_prg3, :broadcast, habilitado: true
 
-# ================================================================
-# EJEMPLOS DE EJECUCIÓN
-# ================================================================
-# iex --sname persistencia -S mix
-# iex --sname central -S mix
-# mix run cli.exs
+# iex.bat --sname persistencia -S mix
+# iex.bat --sname central -S mix
+# iex.bat --sname cli -S mix run cli.exs
