@@ -107,12 +107,21 @@ defmodule ProyectoFinalPrg3.Adapters.Security.SessionManager do
     - `{:error, :no_sesion_activa}` si no hay sesiones activas.
   """
   def obtener_participante_actual do
-    with [{id_usuario, _token, _ts} | _] <- :ets.tab2list(@table),
-         {:ok, participante} <- ParticipantManager.obtener_participante(id_usuario) do
-      {:ok, participante}
+    alias ProyectoFinalPrg3.Services.MentorManager
+
+    with [{id_usuario, _token, _ts} | _] <- :ets.tab2list(@table) do
+      case ParticipantManager.obtener_participante(id_usuario) do
+        {:ok, participante} ->
+          {:ok, participante}
+
+        {:error, _} ->
+          case MentorManager.obtener_mentor(id_usuario) do
+            {:ok, mentor} -> {:ok, mentor}
+            {:error, razon} -> {:error, razon}
+          end
+      end
     else
       [] -> {:error, :no_sesion_activa}
-      {:error, razon} -> {:error, razon}
     end
   end
 end
