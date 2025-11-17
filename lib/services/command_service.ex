@@ -282,6 +282,32 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
     end
   end
 
+  def ejecutar_comando(%{service: :chat_manager, action: :show_history}, _args) do
+    with {:ok, participante} <- SessionManager.obtener_participante_actual(),
+         {:ok, nombre_equipo} <- ChatService.obtener_chat_activo_usuario(participante.id),
+         {:ok, mensajes} <- ChatService.obtener_historial(nombre_equipo) do
+      if Enum.empty?(mensajes) do
+        {:ok, "📭 No hay mensajes en el chat aún."}
+      else
+        historial =
+          mensajes
+          |> Enum.map(fn msg ->
+            timestamp = Calendar.strftime(msg.timestamp, "%H:%M:%S")
+            "[#{timestamp}] #{msg.autor_nombre}: #{msg.contenido}"
+          end)
+          |> Enum.join("\n")
+
+        {:ok, "📜 HISTORIAL DEL CHAT\n" <> historial}
+      end
+    else
+      {:error, :sin_chat_activo} ->
+        {:error, "No estás en ningún chat. Usa /chat equipo=NombreEquipo"}
+
+      error ->
+        error
+    end
+  end
+
   # ===================================================================
   # DEFAULT
   # ===================================================================
