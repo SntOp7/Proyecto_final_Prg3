@@ -9,6 +9,8 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
   - Timestamps en zona horaria de Colombia
   """
 
+  use GenServer
+
   alias ProyectoFinalPrg3.Adapters.Persistence.ParticipantStore
   alias ProyectoFinalPrg3.Services.TeamManager
   alias ProyectoFinalPrg3.Adapters.Security.SessionManager
@@ -19,6 +21,12 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
   alias ProyectoFinalPrg3.Utils.DateTimeHelper
 
   @tabla_chat_activo :chat_activo
+
+  def start_link(_opts) do
+    GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
+  end
+
+   def init(state), do: {:ok, state}
 
   # ============================================================
   # INICIALIZACIÓN
