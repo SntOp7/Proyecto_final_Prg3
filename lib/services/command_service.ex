@@ -42,7 +42,6 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
          :ok <- validar_no_vacio(correo, "correo"),
          :ok <- validar_no_vacio(username, "username"),
          :ok <- validar_no_vacio(contrasenia, "contraseña") do
-
       rol_atom = String.to_atom(rol)
       contrasenia_str = to_string(contrasenia)
 
@@ -178,9 +177,9 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
     with :ok <- validar_no_vacio(n, "nombre"),
          :ok <- validar_no_vacio(d, "descripción"),
          {:ok, usuario} <- SessionManager.obtener_participante_actual() do
-
       case ProjectManager.crear_proyecto(n, d, c, e, usuario.id, nil) do
-        {:ok, _proyecto} -> {:ok, "Proyecto creado correctamente."}
+        # ← Cambiar esto: devolver el proyecto
+        {:ok, proyecto} -> {:ok, proyecto}
         error -> error
       end
     else
@@ -208,7 +207,6 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
     with :ok <- validar_no_vacio(mensaje_str, "mensaje"),
          {:ok, mentor} <- SessionManager.obtener_participante_actual(),
          {:ok, proyecto} <- ProjectManager.obtener_proyecto(nombre_proyecto) do
-
       MentorManager.registrar_feedback(mentor.id, proyecto.id, mensaje_str)
       {:ok, "✅ Feedback enviado al proyecto '#{nombre_proyecto}'"}
     else
@@ -278,7 +276,6 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
   def ejecutar_comando(%{service: :chat_manager, action: :show_history}, _args) do
     with {:ok, participante} <- SessionManager.obtener_participante_actual(),
          {:ok, nombre_equipo} <- ChatService.obtener_chat_activo_usuario(participante.id) do
-
       # ChatService.obtener_historial ya retorna el historial formateado
       ChatService.obtener_historial(nombre_equipo)
     else
@@ -309,7 +306,6 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
 
     with :ok <- validar_no_vacio(titulo_str, "título"),
          :ok <- validar_no_vacio(descripcion_str, "descripción") do
-
       case ProgressManager.registrar_avance(proyecto, titulo_str, descripcion_str, version) do
         {:ok, avance} -> {:ok, "✅ Avance registrado: #{avance.titulo} (v#{avance.version})"}
         {:error, razon} -> {:error, razon}
@@ -322,8 +318,42 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
         proyecto: proyecto
       }) do
     case ProgressManager.listar_avances_proyecto(proyecto) do
-      {:ok, avances} -> {:ok, avances}
-      {:error, razon} -> {:error, razon}
+      {:ok, avances} when is_list(avances) ->
+        if Enum.empty?(avances) do
+          {:ok, "📭 No hay avances registrados para este proyecto."}
+        else
+          # Formatear lista de avances
+          resultado =
+            avances
+            |> Enum.map(fn avance ->
+              fecha = Calendar.strftime(avance.fecha_registro, "%Y-%m-%d %H:%M")
+
+              estado_emoji =
+                case avance.estado do
+                  :pendiente -> "⏳"
+                  :revision -> "🔍"
+                  :aprobado -> "✅"
+                  _ -> "❓"
+                end
+
+              """
+              #{estado_emoji} #{avance.titulo} (v#{avance.version})
+                 📅 #{fecha}
+                 👤 Autor ID: #{avance.autor_id}
+                 📝 #{avance.descripcion}
+                 #{if avance.retroalimentacion, do: "💬 Feedback: #{avance.retroalimentacion}", else: ""}
+              """
+            end)
+            |> Enum.join("\n")
+
+          {:ok, "📊 AVANCES DEL PROYECTO\n\n" <> resultado}
+        end
+
+      {:ok, _} ->
+        {:ok, "📭 No hay avances registrados para este proyecto."}
+
+      {:error, razon} ->
+        {:error, razon}
     end
   end
 
