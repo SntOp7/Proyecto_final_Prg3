@@ -103,13 +103,6 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRegistry do
       action: :create_project,
       required_permission: :crear_proyecto
     },
-    "/chat" => %{
-      description: "Entrar al chat de un equipo",
-      usage: "/chat equipo=Titanes",
-      service: :chat_manager,
-      action: :open_chat,
-      required_permission: :ver_canales
-    },
 
     # ============================================================
     # COMANDOS EXCLUSIVOS PARA MENTORES
