@@ -14,38 +14,31 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.PersistenceManager do
   NO administra datos, NO hace CRUD, NO interactúa con los Stores individuales.
   Los Store siguen siendo los únicos responsables de leer/escribir datos.
 
-  Autores:
-    Sharif Giraldo,
-    Juan Sebastián Hernández,
-    Santiago Ospina Sánchez
-
-  Fecha: 2025-11-16
-  Licencia: GNU GPLv3
+  Autores: [Sharif Giraldo Obando, Juan Sebastián Hernández y Santiago Ospina Sánchez]
+  Fecha de creación: 2025-11-16
+  Fecha de última modificación: 2025-11-16
+  Licencia: GNU GPL v3
   """
 
   alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
 
+  # Configuración de archivos CSV necesarios
+
   @csv_files [
-    {:categorias,        "categorias.csv",
-      "id,nombre,descripcion,proyectos,fecha_creacion,creador_id,activo"},
-
-    {:feedback,          "feedback.csv",
-      "id,mentor_id,proyecto_id,equipo_id,avance_id,contenido,fecha_creacion,nivel,visibilidad,estado"},
-
-    {:mentores,          "mentores.csv",
-      "id,nombre,correo,especialidad,biografia,equipos_asignados,disponibilidad,canal_mentoria_id,fecha_registro,retroalimentaciones,rol,activo"},
-
-    {:participantes,     "participantes.csv",
-      "id,nombre,correo,username,rol,equipo_id,experiencia,fecha_registro,estado,ultima_conexion,mensajes,canales_asignados,token_sesion,perfil_url"},
-
-    {:progress,          "progress.csv",
-      "id,proyecto_id,equipo_id,titulo,descripcion,fecha_registro,autor_id,estado,retroalimentacion,adjuntos,version"},
-
-    {:proyectos,         "proyectos.csv",
-      "id,nombre,descripcion,categoria,estado,fecha_creacion,fecha_actualizacion,equipo_id,mentor_id,avances,retroalimentaciones,repositorio_url,puntaje,visibilidad,tags"},
-
-    {:equipos,           "equipos.csv",
-      "id,nombre,descripcion,categoria,id_proyecto,id_mentor,participantes,fecha_creacion,estado,canal_chat_id,puntaje,historial"}
+    {:categorias, "categorias.csv",
+     "id,nombre,descripcion,proyectos,fecha_creacion,creador_id,activo"},
+    {:feedback, "feedback.csv",
+     "id,mentor_id,proyecto_id,equipo_id,avance_id,contenido,fecha_creacion,nivel,visibilidad,estado"},
+    {:mentores, "mentores.csv",
+     "id,nombre,correo,especialidad,biografia,equipos_asignados,disponibilidad,canal_mentoria_id,fecha_registro,retroalimentaciones,rol,activo"},
+    {:participantes, "participantes.csv",
+     "id,nombre,correo,username,rol,equipo_id,experiencia,fecha_registro,estado,ultima_conexion,mensajes,canales_asignados,token_sesion,perfil_url"},
+    {:progress, "progress.csv",
+     "id,proyecto_id,equipo_id,titulo,descripcion,fecha_registro,autor_id,estado,retroalimentacion,adjuntos,version"},
+    {:proyectos, "proyectos.csv",
+     "id,nombre,descripcion,categoria,estado,fecha_creacion,fecha_actualizacion,equipo_id,mentor_id,avances,retroalimentaciones,repositorio_url,puntaje,visibilidad,tags"},
+    {:equipos, "equipos.csv",
+     "id,nombre,descripcion,categoria,id_proyecto,id_mentor,participantes,fecha_creacion,estado,canal_chat_id,puntaje,historial"}
   ]
 
   # ============================================================
@@ -60,6 +53,9 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.PersistenceManager do
     - Asegura encabezados correctos.
 
   Es la función principal llamada desde `InitBootService`.
+  Puede llamarse múltiples veces sin riesgo, ya que solo crea lo que falta.
+  Parámetros: Ninguno.
+  Retorna: `:ok`.
   """
   def inicializar do
     crear_directorio_data()
@@ -75,11 +71,11 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.PersistenceManager do
 
   @doc """
   Verifica integridad de todos los archivos:
-
-    - Existan
+    - Existencia de archivos CSV necesarios
     - Tengan encabezados válidos
-
   Si encuentra algún archivo incorrecto, lo repara automáticamente.
+  Parámetros: Ninguno.
+  Retorna: `:ok`.
   """
   def verificar_integridad do
     Enum.each(@csv_files, fn {_, nombre_archivo, encabezado} ->
@@ -112,10 +108,12 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.PersistenceManager do
   # PRIVADAS — creación y reparación
   # ============================================================
 
+  @doc false
   defp crear_directorio_data do
     File.mkdir_p!("data")
   end
 
+  @doc false
   defp crear_archivos_csv do
     Enum.each(@csv_files, fn {_key, nombre_archivo, encabezado} ->
       ruta = ruta(nombre_archivo)
@@ -126,6 +124,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.PersistenceManager do
     end)
   end
 
+  @doc false
   defp reparar_encabezado(ruta, encabezado) do
     {:ok, contenido} = File.read(ruta)
 
@@ -139,6 +138,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.PersistenceManager do
     File.write!(ruta, nuevo_contenido)
   end
 
+  @doc false
   defp encabezado_incorrecto?(ruta, encabezado_correcto) do
     case File.open(ruta, [:read]) do
       {:ok, file} ->
@@ -151,5 +151,6 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.PersistenceManager do
     end
   end
 
+  @doc false
   defp ruta(nombre_archivo), do: Path.join(["data", nombre_archivo])
 end
