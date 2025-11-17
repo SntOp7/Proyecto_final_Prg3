@@ -102,7 +102,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.MentorStore do
 
   @doc false
   defp parse_line(line) do
-    [id, nombre, correo, contrasena, especialidad] =
+    [id, nombre, correo, contrasena, rol] =
       line
       |> String.trim()
       |> String.split(",", parts: 5)
@@ -112,7 +112,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.MentorStore do
       nombre: nombre,
       correo: correo,
       contrasena: contrasena,
-      especialidad: if(especialidad == "", do: nil, else: especialidad)
+      rol: rol
     }
   end
 
@@ -133,14 +133,14 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.MentorStore do
          nombre: nombre,
          correo: correo,
          contrasena: contrasena,
-         especialidad: especialidad
+         rol: rol
        }) do
     [
       id,
       sanitize(nombre),
       correo,
       contrasena,
-      sanitize(especialidad)
+      rol
     ]
     |> Enum.join(",")
   end
