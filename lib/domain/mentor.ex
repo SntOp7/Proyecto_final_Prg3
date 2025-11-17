@@ -22,8 +22,6 @@ defmodule ProyectoFinalPrg3.Domain.Mentor do
     :contrasena,
     # Rol (mentor)
     :rol,
-    # Área profesional o técnica del mentor
-    :especialidad
   ]
 
   @doc """
@@ -35,19 +33,17 @@ defmodule ProyectoFinalPrg3.Domain.Mentor do
     - `correo`       → Correo electrónico.
     - `contrasena`   → Contraseña del mentor.
     - 'rol'         -> rol
-    - `especialidad` → Área de experiencia profesional.
 
   ## Ejemplo:
       iex> Mentor.nuevo("m1", "Ana Torres", "ana@hackathon.com", "1234", "mentor" "IA")
   """
-  def nuevo(id, nombre, correo, contrasena, rol, especialidad) do
+  def nuevo(id, nombre, correo, contrasena, rol) do
     %__MODULE__{
       id: id,
       nombre: nombre,
       correo: correo,
       contrasena: contrasena,
       rol: rol,
-      especialidad: especialidad
     }
   end
 end
