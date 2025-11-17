@@ -238,6 +238,56 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
   end
 
   # ===================================================================
+  # CHAT
+  # ===================================================================
+
+  # /chat <equipo>
+  def ejecutar_comando(%{service: :chat_manager, action: :open_chat}, %{equipo: equipo}) do
+    ChatService.ingresar_chat_equipo(equipo)
+  end
+
+  # /salir_chat
+  def ejecutar_comando(%{service: :chat_manager, action: :leave_chat}, _args) do
+    ChatService.salir_chat()
+  end
+
+  # Enviar mensaje (cuando el usuario está en un chat activo)
+  def ejecutar_comando(%{service: :chat_manager, action: :send_message}, %{mensaje: mensaje}) do
+    mensaje_str = if is_list(mensaje), do: Enum.join(mensaje, " "), else: mensaje
+    ChatService.enviar_mensaje(mensaje_str)
+  end
+
+  # ===================================================================
+  # PROGRESS (AVANCES)
+  # ===================================================================
+
+  # /progress proyecto=X titulo=Y descripcion=Z version=V
+  def ejecutar_comando(%{service: :progress_manager, action: :add_progress}, %{
+        proyecto: proyecto,
+        titulo: titulo,
+        descripcion: descripcion,
+        version: version
+      }) do
+    descripcion_str = if is_list(descripcion), do: Enum.join(descripcion, " "), else: descripcion
+    titulo_str = if is_list(titulo), do: Enum.join(titulo, " "), else: titulo
+
+    case ProgressManager.registrar_avance(proyecto, titulo_str, descripcion_str, version) do
+      {:ok, avance} -> {:ok, "✅ Avance registrado: #{avance.titulo} (v#{avance.version})"}
+      {:error, razon} -> {:error, razon}
+    end
+  end
+
+  # /avances proyecto=X
+  def ejecutar_comando(%{service: :progress_manager, action: :list_progress}, %{
+        proyecto: proyecto
+      }) do
+    case ProgressManager.listar_avances_proyecto(proyecto) do
+      {:ok, avances} -> {:ok, avances}
+      {:error, razon} -> {:error, razon}
+    end
+  end
+
+  # ===================================================================
   # DEFAULT
   # ===================================================================
 

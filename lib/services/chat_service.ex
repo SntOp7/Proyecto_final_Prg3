@@ -1,88 +1,150 @@
 defmodule ProyectoFinalPrg3.Services.ChatService do
   @moduledoc """
-  Servicio principal responsable de la **gestión del chat por equipos** dentro del sistema Hackathon.
-
-  Coordina:
-  - Validación de equipo y participante.
-  - Entrada al canal del chat del equipo.
-  - Integración con `BroadcastService` para notificaciones.
-  - Registro de eventos mediante `LoggerService`.
-
-  Actualmente implementa:
-    - Ingreso al chat del equipo.
-
-  Expandible para funcionalidades futuras:
-    - Enviar mensajes.
-    - Historial del chat.
-    - Salir del chat.
-    - Subsistemas de notificaciones.
-
-  ---
-  **Autores:** Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez
-  **Fecha:** 2025-11-03
-  **Licencia:** GNU GPLv3
+  Servicio principal de gestión del chat por equipos.
   """
 
   alias ProyectoFinalPrg3.Services.TeamManager
   alias ProyectoFinalPrg3.Adapters.Security.SessionManager
   alias ProyectoFinalPrg3.Services.{BroadcastService, ParticipantManager}
   alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
+  alias ProyectoFinalPrg3.Adapters.Persistence.ChatStore
+
+  @tabla_chat_activo :chat_activo
+
+  if :ets.whereis(@tabla_chat_activo) == :undefined do
+    :ets.new(@tabla_chat_activo, [:named_table, :public, read_concurrency: true])
+  end
 
   # ============================================================
-  # INGRESO AL CHAT DEL EQUIPO
+  # INGRESO AL CHAT
   # ============================================================
 
-  @doc """
-  Permite que un participante autenticado ingrese al chat de un equipo.
-
-  ## Flujo:
-    1. Verifica que exista una sesión activa.
-    2. Obtiene el equipo.
-    3. Valida que el participante pertenezca al equipo.
-    4. Registra en logs y notifica.
-    5. Retorna mensaje de ingreso.
-
-  ## Retorna:
-    - `{:ok, mensaje}`
-    - `{:error, razon}`
-  """
   def ingresar_chat_equipo(nombre_equipo) when is_binary(nombre_equipo) do
-    with {:ok, id_participante} <- obtener_sesion_actual(),
-         {:ok, _participante} <- ParticipantManager.obtener_participante(id_participante),
+    with {:ok, participante} <- SessionManager.obtener_participante_actual(),
          {:ok, equipo} <- TeamManager.obtener_equipo(nombre_equipo),
-         # ← Verificar directamente con el ID
-         true <- id_participante in equipo.participantes do
+         true <- participante.id in equipo.participantes do
+
+      :ets.insert(@tabla_chat_activo, {participante.id, nombre_equipo})
+
       LoggerService.registrar_evento("Ingreso a chat", %{
-        participante: id_participante,
+        participante: participante.id,
         equipo: equipo.nombre
       })
 
       BroadcastService.notificar(:ingreso_chat, %{
         equipo: equipo.nombre,
-        participante: id_participante
+        participante: participante.nombre
       })
 
-      {:ok, "Has ingresado al chat del equipo #{equipo.nombre}."}
+      {:ok, """
+      📱 Has ingresado al chat del equipo #{equipo.nombre}
+      💬 Escribe tus mensajes directamente
+      🚪 Usa /salir_chat para salir
+      """}
     else
-      {:error, :no_sesion} ->
-        {:error, "Debes iniciar sesión para acceder al chat."}
+      {:error, :no_sesion_activa} ->
+        {:error, "Debes iniciar sesión."}
 
       {:error, :no_encontrado} ->
         {:error, "El equipo '#{nombre_equipo}' no existe."}
 
       false ->
-        {:error, "No perteneces a este equipo, no puedes ingresar a su chat."}
+        {:error, "No perteneces a este equipo."}
     end
   end
 
   # ============================================================
-  # FUNCIONES AUXILIARES
+  # ENVIAR MENSAJE
   # ============================================================
 
-  defp obtener_sesion_actual do
-    case SessionManager.obtener_participante_actual() do
-      {:error, _} -> {:error, :no_sesion}
-      {:ok, participante} -> {:ok, participante.id}
+  def enviar_mensaje(contenido) do
+    with {:ok, participante} <- SessionManager.obtener_participante_actual(),
+         {:ok, nombre_equipo} <- obtener_chat_activo(participante.id) do
+
+      mensaje = %{
+        id: UUID.uuid4(),
+        autor_id: participante.id,
+        autor_nombre: participante.nombre,
+        contenido: contenido,
+        timestamp: DateTime.utc_now(),
+        tipo: :usuario
+      }
+
+      ChatStore.agregar_mensaje(nombre_equipo, mensaje)
+
+      BroadcastService.notificar(:nuevo_mensaje, %{
+        equipo: nombre_equipo,
+        mensaje: mensaje
+      })
+
+      {:ok, "✅ Mensaje enviado"}
+    else
+      {:error, :sin_chat_activo} ->
+        {:error, "No estás en ningún chat. Usa /chat equipo=NombreEquipo"}
+
+      error -> error
+    end
+  end
+
+  def enviar_mensaje_sistema(nombre_equipo, contenido) do
+    mensaje = %{
+      id: UUID.uuid4(),
+      autor_id: "sistema",
+      autor_nombre: "🤖 SISTEMA",
+      contenido: contenido,
+      timestamp: DateTime.utc_now(),
+      tipo: :sistema
+    }
+
+    ChatStore.agregar_mensaje(nombre_equipo, mensaje)
+
+    BroadcastService.notificar(:mensaje_sistema, %{
+      equipo: nombre_equipo,
+      mensaje: mensaje
+    })
+
+    {:ok, mensaje}
+  end
+
+  # ============================================================
+  # SALIR DEL CHAT
+  # ============================================================
+
+  def salir_chat do
+    with {:ok, participante} <- SessionManager.obtener_participante_actual(),
+         {:ok, nombre_equipo} <- obtener_chat_activo(participante.id) do
+
+      :ets.delete(@tabla_chat_activo, participante.id)
+
+      LoggerService.registrar_evento("Salida de chat", %{
+        participante: participante.id,
+        equipo: nombre_equipo
+      })
+
+      {:ok, "👋 Has salido del chat del equipo #{nombre_equipo}"}
+    else
+      {:error, :sin_chat_activo} ->
+        {:error, "No estás en ningún chat activo."}
+
+      error -> error
+    end
+  end
+
+  # ============================================================
+  # AUXILIARES
+  # ============================================================
+
+  defp obtener_chat_activo(participante_id) do
+    case :ets.lookup(@tabla_chat_activo, participante_id) do
+      [{^participante_id, nombre_equipo}] -> {:ok, nombre_equipo}
+      [] -> {:error, :sin_chat_activo}
+    end
+  end
+
+  def chat_activo?(participante_id) do
+    case :ets.lookup(@tabla_chat_activo, participante_id) do
+      [{^participante_id, _}] -> true
+      [] -> false
     end
   end
 end

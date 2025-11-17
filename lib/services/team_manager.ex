@@ -101,6 +101,17 @@ defmodule ProyectoFinalPrg3.Services.TeamManager do
     end
   end
 
+  @doc """
+  Obtiene el equipo asociado a un proyecto.
+  """
+  def obtener_equipo_por_proyecto(proyecto_id) do
+    case TeamStore.listar_equipos()
+         |> Enum.find(&(&1.id_proyecto == proyecto_id)) do
+      nil -> {:error, :equipo_no_encontrado}
+      equipo -> {:ok, equipo}
+    end
+  end
+
   # ============================================================
   # PARTICIPANTES
   # ============================================================

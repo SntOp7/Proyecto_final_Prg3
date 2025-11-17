@@ -27,7 +27,7 @@ defmodule ProyectoFinalPrg3.Services.MentorManager do
             correo,
             contrasena_hash,
             rol
-            )
+          )
 
         MentorStore.guardar_mentor(mentor)
         BroadcastService.notificar(:mentor_registrado, mentor)
@@ -66,8 +66,13 @@ defmodule ProyectoFinalPrg3.Services.MentorManager do
   @doc """
   Crea un feedback simple dirigido a un proyecto.
   """
+  @doc """
+  Crea feedback y lo envía al chat del equipo.
+  """
   def registrar_feedback(mentor_id, proyecto_id, contenido) do
-    with {:ok, mentor} <- obtener_mentor(mentor_id) do
+    with {:ok, mentor} <- obtener_mentor(mentor_id),
+         {:ok, _proyecto} <- ProjectManager.obtener_proyecto_por_id(proyecto_id),
+         {:ok, equipo} <- TeamManager.obtener_equipo_por_proyecto(proyecto_id) do
       feedback =
         Feedback.nuevo(
           UUID.uuid4(),
@@ -79,6 +84,14 @@ defmodule ProyectoFinalPrg3.Services.MentorManager do
 
       FeedbackStore.guardar_feedback(feedback)
       BroadcastService.notificar(:feedback_creado, feedback)
+
+      # Enviar al chat del equipo
+      mensaje_chat = """
+      📋 FEEDBACK DEL MENTOR #{mentor.nombre}
+      #{contenido}
+      """
+
+      ChatService.enviar_mensaje_sistema(equipo.nombre, mensaje_chat)
 
       {:ok, feedback}
     else

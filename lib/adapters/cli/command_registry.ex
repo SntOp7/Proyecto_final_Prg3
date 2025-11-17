@@ -35,15 +35,14 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRegistry do
       action: :show_help,
       required_permission: nil
     },
-
     "/register" => %{
       description: "Registrar un nuevo usuario",
-      usage: "/register nombre=JuanJose correo=juan@gmail.com username=JuanJo123 contrasenia=123 rol=participante/mentor",
+      usage:
+        "/register nombre=JuanJose correo=juan@gmail.com username=JuanJo123 contrasenia=123 rol=participante/mentor",
       service: :auth_service,
       action: :register,
       required_permission: nil
     },
-
     "/login" => %{
       description: "Iniciar sesión",
       usage: "/login correo=juan@gmail.com contrasenia=1234",
@@ -75,7 +74,6 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRegistry do
       action: :list_teams,
       required_permission: :ver_equipos
     },
-
     "/project" => %{
       description: "Ver información del proyecto de un equipo",
       usage: "/project equipo=Titanes",
@@ -83,7 +81,6 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRegistry do
       action: :show_project,
       required_permission: :ver_proyecto
     },
-
     "/join" => %{
       description: "Unirse a un equipo existente",
       usage: "/join equipo=Titanes",
@@ -91,7 +88,6 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRegistry do
       action: :join_team,
       required_permission: :unirse_equipo
     },
-
     "/create_team" => %{
       description: "Crear un equipo nuevo",
       usage: "/create_team nombre=Titanes categoria=web descripcion=\"Equipo de dev\"",
@@ -99,15 +95,14 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRegistry do
       action: :create_team,
       required_permission: :crear_equipo
     },
-
     "/create_project" => %{
       description: "Crear un proyecto nuevo",
-      usage: "/create_project nombre=Titanes descripcion=\"Equipo de dev\", categoria=web , equipo=Titanes",
+      usage:
+        "/create_project nombre=Titanes descripcion=\"Equipo de dev\", categoria=web , equipo=Titanes",
       service: :project_manager,
       action: :create_project,
       required_permission: :crear_proyecto
     },
-
     "/chat" => %{
       description: "Entrar al chat de un equipo",
       usage: "/chat equipo=Titanes",
@@ -139,13 +134,46 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRegistry do
       action: :assign_mentor,
       required_permission: :asignar_mentor
     },
-
     "/delete_team" => %{
       description: "Eliminar un equipo del sistema",
       usage: "/delete_team id_equipo=Titanes",
       service: :admin_manager,
       action: :delete_team,
       required_permission: :eliminar_equipo
+    },
+
+    # ============================================================
+    # CHAT
+    # ============================================================
+
+    "/chat" => %{
+      description: "Entrar al chat de un equipo",
+      usage: "/chat equipo=Innovadores",
+      service: :chat_manager,
+      action: :open_chat,
+      required_permission: :ver_canales
+    },
+    "/salir_chat" => %{
+      description: "Salir del chat activo",
+      usage: "/salir_chat",
+      service: :chat_manager,
+      action: :leave_chat,
+      required_permission: nil
+    },
+    "/progress" => %{
+      description: "Registrar un avance en el proyecto",
+      usage:
+        "/progress proyecto=\"Mi Proyecto\" titulo=\"Implementación API\" descripcion=\"Se completó la API REST\" version=1.0",
+      service: :progress_manager,
+      action: :add_progress,
+      required_permission: :crear_proyecto
+    },
+    "/avances" => %{
+      description: "Ver avances de un proyecto",
+      usage: "/avances proyecto=\"Mi Proyecto\"",
+      service: :progress_manager,
+      action: :list_progress,
+      required_permission: :ver_proyecto
     }
   }
 
