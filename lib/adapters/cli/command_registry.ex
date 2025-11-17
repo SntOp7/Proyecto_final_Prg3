@@ -167,6 +167,13 @@ defmodule ProyectoFinalPrg3.Adapters.CLI.CommandRegistry do
       service: :progress_manager,
       action: :list_progress,
       required_permission: :ver_proyecto
+    },
+    "/historial" => %{
+      description: "Ver historial de mensajes del chat activo",
+      usage: "/historial",
+      service: :chat_manager,
+      action: :show_history,
+      required_permission: nil
     }
   }
 
