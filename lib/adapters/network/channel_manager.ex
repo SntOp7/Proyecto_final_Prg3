@@ -26,6 +26,18 @@ defmodule ProyectoFinalPrg3.Adapters.Network.ChannelManager do
   alias ProyectoFinalPrg3.Adapters.Network.PubSubAdapter
   alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
 
+  use GenServer
+
+  ## API
+  def start_link(opts) do
+    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+  end
+
+  ## Callbacks
+  def init(_opts) do
+    {:ok, %{channels: %{}}}
+  end
+
   @doc """
   Envía un mensaje a **todos los suscritos** al evento o canal especificado.
 
