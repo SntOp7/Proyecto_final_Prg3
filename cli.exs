@@ -2,67 +2,78 @@ IO.puts("🎮 CLI lista (/help para ver comandos)\n")
 
 defmodule CLI.Main do
   @moduledoc """
-  Módulo principal para la interfaz de línea de comandos (CLI) del sistema.
-  Permite la interacción con el usuario para ejecutar comandos y mostrar resultados.
-  Soporta envío de mensajes directos cuando el usuario está en un chat activo.
-
-  Autores: [Sharif Giraldo Obando, Juan Sebastián Hernández y Santiago Ospina Sánchez]
-  Fecha de creación: 2025-11-16
-  Fecha de última modificación: 2025-11-16
-  Licencia: GNU GPL v3
+  Interfaz CLI para ProyectoFinalPrg3.
+  Maneja:
+  - Comandos con prefijo '/'
+  - Mensajes de chat
+  - Anuncios globales
   """
 
-  @doc """
-  Bucle principal de la interfaz de línea de comandos.
+  # ============================================================
+  # INICIO DEL CLI
+  # ============================================================
 
-  Este proceso NO ejecuta la aplicación completa.
-  Solo envía los comandos al nodo central usando CommandRouter,
-  el cual delega la lógica al sistema distribuido.
+  def start do
+    # 🔥 REGISTRAR EL CLI COMO PROCESO GLOBAL
+    # Esto permite que el CENTRAL le envíe mensajes:
+    #   send(pid, {:anuncio_global, mensaje})
+    :global.register_name({:cli_user, self()}, self())
 
-  Permite dos modos de interacción:
-  - Comandos con prefijo `/`: se envían al CommandRouter
-  - Texto sin prefijo: se envía como mensaje si el usuario está en un chat activo
-  """
-  def loop(state \\ %{}) do
+    # INICIAR BUCLE PRINCIPAL
+    loop(%{})
+  end
+
+  # ============================================================
+  # BUCLE PRINCIPAL
+  # ============================================================
+
+  def loop(state) do
     receive do
-      # ============================
-      # 🟦 ANUNCIOS DEL SISTEMA
-      # ============================
+      # ======================================================
+      # 🟦 ANUNCIOS GLOBALES DESDE EL CENTRAL
+      # ======================================================
       {:anuncio_global, mensaje} ->
         IO.puts("""
 
         🌐 [ANUNCIO GLOBAL]
         #{mensaje.contenido}
         """)
-
         loop(state)
 
-      # ============================
-      # 🟩 OTROS MENSAJES FUTUROS
-      # ============================
+      # ======================================================
+      # 🟩 MENSAJES DE CHAT (si decides implementarlo luego)
+      # ======================================================
+      {:mensaje_chat, mensaje} ->
+        IO.puts("\n💬 #{mensaje.autor}: #{mensaje.contenido}")
+        loop(state)
+
+      # ======================================================
+      # 🟨 CUALQUIER OTRO MENSAJE
+      # ======================================================
       other ->
         IO.puts("📥 Mensaje del sistema: #{inspect(other)}")
         loop(state)
     after
       0 ->
-        # Si no hay mensajes, procesamos la entrada del usuario
         case IO.gets("> ") do
           nil ->
             IO.puts("Saliendo...")
 
           line ->
-            linea_trim = String.trim(line)
+            linea = String.trim(line)
 
             resultado =
               cond do
-                linea_trim == "" ->
+                linea == "" ->
                   :ok
 
-                String.starts_with?(linea_trim, "/") ->
-                  ProyectoFinalPrg3.Adapters.CLI.CommandRouter.route(linea_trim)
+                # Comando tipo /login /register /announcement...
+                String.starts_with?(linea, "/") ->
+                  ProyectoFinalPrg3.Adapters.CLI.CommandRouter.route(linea)
 
+                # Texto → Chat
                 true ->
-                  enviar_mensaje_si_en_chat(linea_trim)
+                  enviar_mensaje_si_en_chat(linea)
               end
 
             case resultado do
@@ -78,10 +89,9 @@ defmodule CLI.Main do
   end
 
   # ============================================================
-  # ENVIAR MENSAJE SI ESTÁ EN CHAT
+  # ENVÍO DE MENSAJE A CHAT SI APLICA
   # ============================================================
 
-  @doc false
   defp enviar_mensaje_si_en_chat(texto) do
     alias ProyectoFinalPrg3.Adapters.Security.SessionManager
     alias ProyectoFinalPrg3.Services.ChatService
@@ -89,10 +99,8 @@ defmodule CLI.Main do
     case SessionManager.obtener_participante_actual() do
       {:ok, participante} ->
         if ChatService.chat_activo?(participante.id) do
-          # Está en un chat, enviar mensaje
           ChatService.enviar_mensaje(texto)
         else
-          # No está en chat, es comando inválido
           {:error, "Formato inválido. Usa /help para ver los comandos válidos."}
         end
 
@@ -105,10 +113,7 @@ defmodule CLI.Main do
   # FORMATEO DE RESULTADOS
   # ============================================================
 
-  @doc false
-  defp mostrar_resultado(msg) when is_binary(msg) do
-    IO.puts(msg)
-  end
+  defp mostrar_resultado(msg) when is_binary(msg), do: IO.puts(msg)
 
   defp mostrar_resultado(lista) when is_list(lista) do
     if Enum.empty?(lista) do
@@ -120,82 +125,72 @@ defmodule CLI.Main do
     end
   end
 
-  @doc false
-  defp mostrar_resultado(struct) when is_map(struct) do
-    IO.puts(formatear_item(struct))
-  end
+  defp mostrar_resultado(map) when is_map(map), do: IO.puts(formatear_item(map))
 
-  @doc false
-  defp mostrar_resultado(otro) do
-    IO.inspect(otro, pretty: true, limit: :infinity)
-  end
+  defp mostrar_resultado(otro), do: IO.inspect(otro, pretty: true, limit: :infinity)
 
   # ============================================================
-  # FORMATEO POR TIPO DE ENTIDAD
+  # FORMATEADORES DE ENTIDADES
   # ============================================================
 
-  @doc false
-  defp formatear_item(%ProyectoFinalPrg3.Domain.Team{} = equipo) do
+  defp formatear_item(%ProyectoFinalPrg3.Domain.Team{} = e) do
     """
 
-    🏆 #{equipo.nombre}
-       📂 Categoría: #{equipo.categoria}
-       📝 Descripción: #{equipo.descripcion}
-       👥 Participantes: #{length(equipo.participantes)}
-       📅 Creado: #{Calendar.strftime(equipo.fecha_creacion, "%Y-%m-%d %H:%M")}
-       ⚡ Estado: #{equipo.estado}
-    """
-  end
-
-  @doc false
-  defp formatear_item(%ProyectoFinalPrg3.Domain.Project{} = proyecto) do
-    """
-
-    💼 #{proyecto.nombre}
-       📂 Categoría: #{proyecto.categoria}
-       📝 Descripción: #{proyecto.descripcion}
-       🔗 Repositorio: #{proyecto.repositorio_url || "No definido"}
-       📅 Creado: #{Calendar.strftime(proyecto.fecha_creacion, "%Y-%m-%d %H:%M")}
-       ⚡ Estado: #{proyecto.estado}
+    🏆 #{e.nombre}
+       📂 Categoría: #{e.categoria}
+       📝 Descripción: #{e.descripcion}
+       👥 Participantes: #{length(e.participantes)}
+       📅 Creado: #{Calendar.strftime(e.fecha_creacion, "%Y-%m-%d %H:%M")}
+       ⚡ Estado: #{e.estado}
     """
   end
 
-  defp formatear_item(%ProyectoFinalPrg3.Domain.Participant{} = participante) do
+  defp formatear_item(%ProyectoFinalPrg3.Domain.Project{} = p) do
     """
 
-    👤 #{participante.nombre} (@#{participante.username})
-       📧 Email: #{participante.correo}
-       🎭 Rol: #{participante.rol}
-       🏆 Equipo: #{participante.equipo_id || "Sin equipo"}
-       ⚡ Estado: #{participante.estado}
-    """
-  end
-
-  @doc false
-  defp formatear_item(%ProyectoFinalPrg3.Domain.Mentor{} = mentor) do
-    """
-
-    👨‍🏫 #{mentor.nombre}
-       📧 Email: #{mentor.correo}
-       🎭 Rol: #{mentor.rol}
-       🆔 ID: #{mentor.id}
+    💼 #{p.nombre}
+       📂 Categoría: #{p.categoria}
+       📝 Descripción: #{p.descripcion}
+       🔗 Repositorio: #{p.repositorio_url || "No definido"}
+       📅 Creado: #{Calendar.strftime(p.fecha_creacion, "%Y-%m-%d %H:%M")}
+       ⚡ Estado: #{p.estado}
     """
   end
 
-  defp formatear_item(%ProyectoFinalPrg3.Domain.Progress{} = avance) do
+  defp formatear_item(%ProyectoFinalPrg3.Domain.Participant{} = u) do
     """
 
-    📊 #{avance.titulo} (v#{avance.version})
-       💼 Proyecto: #{avance.proyecto_id}
-       📝 Descripción: #{avance.descripcion}
-       👤 Autor: #{avance.autor_id}
-       📅 Registrado: #{Calendar.strftime(avance.timestamp, "%Y-%m-%d %H:%M")}
+    👤 #{u.nombre} (@#{u.username})
+       📧 Email: #{u.correo}
+       🎭 Rol: #{u.rol}
+       🏆 Equipo: #{u.equipo_id || "Sin equipo"}
+       ⚡ Estado: #{u.estado}
     """
   end
 
-  defp formatear_item(item) do
-    "\n" <> inspect(item, pretty: true, limit: :infinity)
+  defp formatear_item(%ProyectoFinalPrg3.Domain.Mentor{} = m) do
+    """
+
+    👨‍🏫 #{m.nombre}
+       📧 Email: #{m.correo}
+       🎭 Rol: #{m.rol}
+       🆔 ID: #{m.id}
+    """
   end
+
+  defp formatear_item(%ProyectoFinalPrg3.Domain.Progress{} = a) do
+    """
+
+    📊 #{a.titulo} (v#{a.version})
+       💼 Proyecto: #{a.proyecto_id}
+       📝 Descripción: #{a.descripcion}
+       👤 Autor: #{a.autor_id}
+       📅 Registrado: #{Calendar.strftime(a.timestamp, "%Y-%m-%d %H:%M")}
+    """
+  end
+
+  defp formatear_item(other),
+    do: "\n" <> inspect(other, pretty: true, limit: :infinity)
 end
 
-CLI.Main.loop()
+CLI.Main.start()
