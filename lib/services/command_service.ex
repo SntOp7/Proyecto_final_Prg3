@@ -49,8 +49,7 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
           nombre,
           correo,
           contrasenia_str,
-          rol_atom,
-          nil
+          rol_atom
         )
 
       _ ->
@@ -159,10 +158,8 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
         categoria: c,
         equipo: e
       }) do
-
     case SessionManager.obtener_participante_actual() do
       {:ok, usuario} ->
-
         resultado = ProjectManager.crear_proyecto(n, d, c, e, usuario.id, nil)
         IO.puts("Resultado: #{inspect(resultado)}")
 
@@ -189,13 +186,30 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
 
   # /feedback <proyecto_id> <mensaje>
   def ejecutar_comando(%{service: :mentor_manager, action: :feedback}, %{
-        proyecto_id: proyecto_id,
+        proyecto: nombre_proyecto,
         mensaje: mensaje
       }) do
-    mentor = SessionManager.obtener_participante_actual()
-    mensaje = Enum.join(mensaje, " ")
-    MentorManager.registrar_feedback(mentor.id, proyecto_id, mensaje)
-    {:ok, "Feedback enviado"}
+    with {:ok, mentor} <- SessionManager.obtener_participante_actual(),
+         {:ok, proyecto} <- ProjectManager.obtener_proyecto(nombre_proyecto) do
+      mensaje_str =
+        cond do
+          is_list(mensaje) -> Enum.join(mensaje, " ")
+          is_binary(mensaje) -> mensaje
+          true -> to_string(mensaje)
+        end
+
+      MentorManager.registrar_feedback(mentor.id, proyecto.id, mensaje_str)
+      {:ok, "Feedback enviado al proyecto '#{nombre_proyecto}'"}
+    else
+      {:error, :no_sesion_activa} ->
+        {:error, "Debes iniciar sesión para enviar feedback."}
+
+      {:error, :proyecto_no_encontrado} ->
+        {:error, "Proyecto '#{nombre_proyecto}' no encontrado."}
+
+      _ ->
+        {:error, "Error al enviar feedback."}
+    end
   end
 
   # ===================================================================
