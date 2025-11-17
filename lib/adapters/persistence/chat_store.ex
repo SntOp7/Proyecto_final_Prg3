@@ -83,15 +83,15 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ChatStore do
   def agregar_mensaje(canal_id, %Message{} = mensaje) do
     init_store()
 
-    canal_atom =
+    canal_str =
       case canal_id do
-        canal when is_atom(canal) -> canal
-        canal when is_binary(canal) -> String.to_atom(canal)
+        canal when is_atom(canal) -> Atom.to_string(canal)
+        canal when is_binary(canal) -> canal
       end
 
-    mensaje_normalizado = %{mensaje | canal_id: canal_atom}
+    mensaje_normalizado = %{mensaje | canal_id: canal_str}
 
-    :ets.insert(@table, {canal_atom, mensaje_normalizado})
+    :ets.insert(@table, {canal_str, mensaje_normalizado})
 
     Task.start(fn ->
       guardar_mensaje_csv(mensaje_normalizado)
@@ -101,16 +101,22 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ChatStore do
   end
 
   def agregar_mensaje(canal_id, remitente_id, contenido) do
+    canal_str =
+      case canal_id do
+        canal when is_atom(canal) -> Atom.to_string(canal)
+        canal when is_binary(canal) -> canal
+      end
+
     mensaje =
       Message.nuevo(
         UUID.uuid4(),
         remitente_id,
-        canal_id,
+        canal_str,
         contenido,
         DateTime.utc_now()
       )
 
-    agregar_mensaje(canal_id, mensaje)
+    agregar_mensaje(canal_str, mensaje)
     {:ok, mensaje}
   end
 
@@ -121,7 +127,13 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ChatStore do
   def obtener_mensajes(canal_id, limite \\ 50) do
     init_store()
 
-    :ets.lookup(@table, canal_id)
+    canal_str =
+      case canal_id do
+        c when is_atom(c) -> Atom.to_string(c)
+        c when is_binary(c) -> c
+      end
+
+    :ets.lookup(@table, canal_str)
     |> Enum.map(fn {_id, msg} -> msg end)
     |> Enum.sort_by(& &1.timestamp, {:desc, DateTime})
     |> Enum.take(limite)
@@ -132,7 +144,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ChatStore do
   Retorna el historial completo de los anuncios globales.
   """
   def obtener_anuncios_globales(limite \\ 50) do
-    obtener_mensajes(:canal_anuncios_globales, limite)
+    obtener_mensajes("canal_anuncios_globales", limite)
   end
 
   # ---------------------------------------------------------------------
@@ -144,7 +156,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ChatStore do
       [
         mensaje.id,
         mensaje.remitente_id,
-        mensaje.canal_id,
+        to_string(mensaje.canal_id),
         "\"#{escapar_csv(mensaje.contenido)}\"",
         DateTime.to_iso8601(mensaje.timestamp)
       ]
@@ -163,7 +175,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ChatStore do
   defp parsear_csv_completo(contenido) do
     contenido
     |> String.split("\n")
-    |> Enum.drop(1) # quitar header
+    |> Enum.drop(1)
     |> Enum.reject(&(&1 == ""))
     |> parsear_lineas_csv([])
   end
@@ -209,7 +221,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ChatStore do
           Message.nuevo(
             String.trim(id),
             String.trim(remitente),
-            canal |> String.trim() |> String.to_atom(),
+            canal |> String.trim(),
             contenido,
             timestamp
           )
