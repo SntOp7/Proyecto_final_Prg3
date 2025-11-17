@@ -20,18 +20,18 @@ defmodule ProyectoFinalPrg3.Services.ProgressManager do
          {:ok, proyecto} <- ProjectManager.obtener_proyecto(proyecto_nombre),
          {:ok, equipo} <- TeamManager.obtener_equipo_por_proyecto(proyecto.id),
          true <- participante.id in equipo.participantes do
-
-      avance = Progress.nuevo(
-        UUID.uuid4(),
-        proyecto.id,
-        equipo.id,
-        titulo,
-        descripcion,
-        DateTime.utc_now(),
-        participante.id,
-        :pendiente,
-        version
-      )
+      avance =
+        Progress.nuevo(
+          UUID.uuid4(),
+          proyecto.id,
+          equipo.id,
+          titulo,
+          descripcion,
+          DateTime.utc_now(),
+          participante.id,
+          :pendiente,
+          version
+        )
 
       ProgressStore.guardar_avance(avance)
       BroadcastService.notificar(:avance_registrado, avance)
@@ -63,8 +63,9 @@ defmodule ProyectoFinalPrg3.Services.ProgressManager do
   """
   def listar_avances_proyecto(proyecto_nombre) do
     with {:ok, proyecto} <- ProjectManager.obtener_proyecto(proyecto_nombre) do
-      avances = ProgressStore.listar_por_proyecto(proyecto.id)
-                |> Enum.sort_by(& &1.fecha_registro, {:desc, DateTime})
+      avances =
+        ProgressStore.listar_por_proyecto(proyecto.id)
+        |> Enum.sort_by(& &1.fecha_registro, {:desc, DateTime})
 
       {:ok, avances}
     end
@@ -84,7 +85,8 @@ defmodule ProyectoFinalPrg3.Services.ProgressManager do
   @doc """
   Actualiza el estado de un avance (pendiente -> revisión -> aprobado).
   """
-  def actualizar_estado(avance_id, nuevo_estado) when nuevo_estado in [:pendiente, :revision, :aprobado] do
+  def actualizar_estado(avance_id, nuevo_estado)
+      when nuevo_estado in [:pendiente, :revision, :aprobado] do
     with {:ok, avance} <- obtener_avance(avance_id) do
       avance_actualizado = %{avance | estado: nuevo_estado}
 
@@ -106,7 +108,6 @@ defmodule ProyectoFinalPrg3.Services.ProgressManager do
     with {:ok, mentor} <- SessionManager.obtener_participante_actual(),
          {:ok, avance} <- obtener_avance(avance_id),
          {:ok, equipo} <- TeamManager.obtener_por_id(avance.equipo_id) do
-
       avance_actualizado = %{avance | retroalimentacion: retroalimentacion}
 
       ProgressStore.guardar_avance(avance_actualizado)
