@@ -6,27 +6,41 @@ defmodule ProyectoFinalPrg3.Services.PermissionService do
   alias ProyectoFinalPrg3.Services.{ParticipantManager, MentorManager}
   alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
 
-  @permissions %{
-    participante: [
+  @permisos %{
+    admin: [
+      :crear_equipo,
+      :eliminar_equipo,
+      :enviar_anuncio,
+      :ver_todos_los_proyectos,
+      :editar_proyecto,
+      :asignar_mentor,
+      :gestionar_usuarios,
       :ver_equipos,
       :ver_proyecto,
       :crear_proyecto,
-      :unirse_equipo,
-      :crear_equipo,
       :ver_canales
     ],
     mentor: [
-      :ver_equipos,
       :ver_proyecto,
-      :enviar_feedback
+      :enviar_feedback,
+      :revisar_avance,
+      :comentar_equipo,
+      :ver_equipos,
+      :ver_canales
     ],
-    admin: [
+    participante: [
+      :registrarse,
+      :iniciar_sesion,
+      :unirse_equipo,
+      :enviar_mensaje,
+      :actualizar_perfil,
+      :subir_avance,
+      :editar_proyecto,
       :ver_equipos,
       :ver_proyecto,
       :crear_equipo,
-      :eliminar_equipo,
-      :asignar_mentor,
-      :gestionar_usuarios
+      :crear_proyecto,
+      :ver_canales
     ]
   }
 
@@ -42,12 +56,14 @@ defmodule ProyectoFinalPrg3.Services.PermissionService do
       case ParticipantManager.obtener_participante(id_usuario) do
         {:ok, user} ->
           user
+
         _ ->
           case MentorManager.obtener_mentor(id_usuario) do
             {:ok, mentor} -> mentor
             _ -> nil
           end
       end
+
     case usuario do
       nil ->
         LoggerService.registrar_evento("Permiso denegado", %{
@@ -55,21 +71,25 @@ defmodule ProyectoFinalPrg3.Services.PermissionService do
           accion: accion,
           razon: "usuario_no_encontrado"
         })
+
         false
+
       user ->
         rol_atom = if is_binary(user.rol), do: String.to_atom(user.rol), else: user.rol
-        permisos = Map.get(@permissions, rol_atom, [])
+        permisos = Map.get(@permisos, rol_atom, [])
         permitido = accion in permisos
+
         LoggerService.registrar_evento("Verificación de permiso", %{
           usuario: id_usuario,
           accion: accion,
           rol: rol_atom,
           permitido: permitido
         })
+
         permitido
     end
   end
 
-  def permisos_por_rol(rol), do: Map.get(@permissions, rol, [])
-  def listar_todos_los_permisos, do: @permissions
+  def permisos_por_rol(rol), do: Map.get(@permisos, rol, [])
+  def listar_todos_los_permisos, do: @permisos
 end
