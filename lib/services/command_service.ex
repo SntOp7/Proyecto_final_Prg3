@@ -1,6 +1,11 @@
 defmodule ProyectoFinalPrg3.Services.CommandService do
   @moduledoc """
   Intérprete central de comandos CLI.
+
+  Mejoras:
+  - Validación de parámetros con espacios (usando comillas)
+  - Validación de mensajes vacíos
+  - Mejor formateo de historial con timestamps legibles
   """
 
   alias ProyectoFinalPrg3.Services.{
@@ -21,7 +26,7 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
   # PÚBLICOS
   # ===================================================================
 
-  # /register <nombre> <correo> <rol>
+  # /register nombre="..." correo=... username=... contrasenia=... rol=...
   def ejecutar_comando(
         %{service: :auth_service, action: :register},
         %{
@@ -32,33 +37,40 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
           rol: rol
         }
       ) do
-    rol_atom = String.to_atom(rol)
-    contrasenia_str = to_string(contrasenia)
+    # Validar que no haya campos vacíos
+    with :ok <- validar_no_vacio(nombre, "nombre"),
+         :ok <- validar_no_vacio(correo, "correo"),
+         :ok <- validar_no_vacio(username, "username"),
+         :ok <- validar_no_vacio(contrasenia, "contraseña") do
 
-    case rol_atom do
-      :participante ->
-        ParticipantManager.registrar_participante(
-          nombre,
-          correo,
-          username,
-          contrasenia_str,
-          rol_atom
-        )
+      rol_atom = String.to_atom(rol)
+      contrasenia_str = to_string(contrasenia)
 
-      :mentor ->
-        MentorManager.registrar_mentor(
-          nombre,
-          correo,
-          contrasenia_str,
-          rol_atom
-        )
+      case rol_atom do
+        :participante ->
+          ParticipantManager.registrar_participante(
+            nombre,
+            correo,
+            username,
+            contrasenia_str,
+            rol_atom
+          )
 
-      _ ->
-        {:error, "Rol no permitido"}
+        :mentor ->
+          MentorManager.registrar_mentor(
+            nombre,
+            correo,
+            contrasenia_str,
+            rol_atom
+          )
+
+        _ ->
+          {:error, "Rol no permitido. Usa: participante o mentor"}
+      end
     end
   end
 
-  # /login <id_usuario>
+  # /login correo=... contrasenia=...
   def ejecutar_comando(%{service: :auth_service, action: :login}, %{
         correo: correo,
         contrasenia: contrasenia
@@ -122,7 +134,7 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
     {:ok, TeamManager.listar_equipos()}
   end
 
-  # /project <equipo>
+  # /project equipo=...
   def ejecutar_comando(%{service: :project_manager, action: :show_project}, %{equipo: equipo}) do
     with {:ok, eq} <- TeamManager.obtener_equipo(equipo),
          {:ok, proyecto} <- ProjectManager.obtener_proyecto_por_id(eq.id_proyecto) do
@@ -132,7 +144,7 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
     end
   end
 
-  # /join <equipo>
+  # /join equipo=...
   def ejecutar_comando(%{service: :team_manager, action: :join_team}, %{equipo: equipo}) do
     {:ok, user} = SessionManager.obtener_participante_actual()
 
@@ -143,35 +155,40 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
     end
   end
 
-  # /create_team <nombre> <categoria> <descripcion>
+  # /create_team nombre="..." categoria=... descripcion="..."
   def ejecutar_comando(%{service: :team_manager, action: :create_team}, %{
         nombre: n,
         categoria: c,
         descripcion: d
       }) do
-    TeamManager.crear_equipo(n, c, d)
-    {:ok, "Equipo creado correctamente."}
+    with :ok <- validar_no_vacio(n, "nombre"),
+         :ok <- validar_no_vacio(d, "descripción") do
+      TeamManager.crear_equipo(n, c, d)
+      {:ok, "Equipo creado correctamente."}
+    end
   end
 
+  # /create_project nombre="..." descripcion="..." categoria=... equipo=...
   def ejecutar_comando(%{service: :project_manager, action: :create_project}, %{
         nombre: n,
         descripcion: d,
         categoria: c,
         equipo: e
       }) do
-    case SessionManager.obtener_participante_actual() do
-      {:ok, usuario} ->
-        resultado = ProjectManager.crear_proyecto(n, d, c, e, usuario.id, nil)
-        IO.puts("Resultado: #{inspect(resultado)}")
+    with :ok <- validar_no_vacio(n, "nombre"),
+         :ok <- validar_no_vacio(d, "descripción"),
+         {:ok, usuario} <- SessionManager.obtener_participante_actual() do
 
-        case resultado do
-          {:ok, _proyecto} -> {:ok, "Proyecto creado correctamente."}
-          error -> error
-        end
-
-      {:error, razon} ->
-        IO.puts("Error obteniendo usuario: #{inspect(razon)}")
+      case ProjectManager.crear_proyecto(n, d, c, e, usuario.id, nil) do
+        {:ok, _proyecto} -> {:ok, "Proyecto creado correctamente."}
+        error -> error
+      end
+    else
+      {:error, :no_sesion_activa} ->
         {:error, "Debes iniciar sesión para crear un proyecto."}
+
+      error ->
+        error
     end
   end
 
@@ -179,28 +196,30 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
   # MENTOR
   # ===================================================================
 
-  # /feedback <proyecto_id> <mensaje>
+  # /feedback proyecto="..." mensaje="..."
   def ejecutar_comando(%{service: :mentor_manager, action: :feedback}, %{
         proyecto: nombre_proyecto,
         mensaje: mensaje
       }) do
-    with {:ok, mentor} <- SessionManager.obtener_participante_actual(),
+    # Normalizar mensaje
+    mensaje_str = normalizar_texto(mensaje)
+
+    # Validar que no esté vacío
+    with :ok <- validar_no_vacio(mensaje_str, "mensaje"),
+         {:ok, mentor} <- SessionManager.obtener_participante_actual(),
          {:ok, proyecto} <- ProjectManager.obtener_proyecto(nombre_proyecto) do
-      mensaje_str =
-        cond do
-          is_list(mensaje) -> Enum.join(mensaje, " ")
-          is_binary(mensaje) -> mensaje
-          true -> to_string(mensaje)
-        end
 
       MentorManager.registrar_feedback(mentor.id, proyecto.id, mensaje_str)
-      {:ok, "Feedback enviado al proyecto '#{nombre_proyecto}'"}
+      {:ok, "✅ Feedback enviado al proyecto '#{nombre_proyecto}'"}
     else
       {:error, :no_sesion_activa} ->
         {:error, "Debes iniciar sesión para enviar feedback."}
 
       {:error, :proyecto_no_encontrado} ->
         {:error, "Proyecto '#{nombre_proyecto}' no encontrado."}
+
+      {:error, msg} when is_binary(msg) ->
+        {:error, msg}
 
       _ ->
         {:error, "Error al enviar feedback."}
@@ -211,7 +230,7 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
   # ADMIN
   # ===================================================================
 
-  # /assign_mentor <equipo> <id_mentor>
+  # /assign_mentor equipo=... id_mentor=...
   def ejecutar_comando(%{service: :admin_manager, action: :assign_mentor}, %{
         equipo: equipo,
         id_mentor: id
@@ -220,13 +239,13 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
     {:ok, "Mentor asignado a #{equipo}"}
   end
 
-  # /delete_team <equipo>
+  # /delete_team id_equipo=...
   def ejecutar_comando(%{service: :admin_manager, action: :delete_team}, %{id_equip: id_equipo}) do
     TeamManager.disolver_equipo(id_equipo)
     {:ok, "Equipo eliminado correctamente."}
   end
 
-  # /delete_user <id>
+  # /delete_user id=...
   def ejecutar_comando(%{service: :admin_manager, action: :delete_user}, %{id: id}) do
     ParticipantManager.eliminar_participante(id)
     {:ok, "Usuario eliminado correctamente."}
@@ -236,7 +255,7 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
   # CHAT
   # ===================================================================
 
-  # /chat <equipo>
+  # /chat equipo=...
   def ejecutar_comando(%{service: :chat_manager, action: :open_chat}, %{equipo: equipo}) do
     ChatService.ingresar_chat_equipo(equipo)
   end
@@ -247,32 +266,58 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
   end
 
   # Enviar mensaje (cuando el usuario está en un chat activo)
+  # Nota: Este comando NO se llama directamente, se maneja en el CLI
   def ejecutar_comando(%{service: :chat_manager, action: :send_message}, %{mensaje: mensaje}) do
-    mensaje_str = if is_list(mensaje), do: Enum.join(mensaje, " "), else: mensaje
+    mensaje_str = normalizar_texto(mensaje)
+
+    # La validación de vacío la hace ChatService.enviar_mensaje/1
     ChatService.enviar_mensaje(mensaje_str)
+  end
+
+  # /historial
+  def ejecutar_comando(%{service: :chat_manager, action: :show_history}, _args) do
+    with {:ok, participante} <- SessionManager.obtener_participante_actual(),
+         {:ok, nombre_equipo} <- ChatService.obtener_chat_activo_usuario(participante.id) do
+
+      # ChatService.obtener_historial ya retorna el historial formateado
+      ChatService.obtener_historial(nombre_equipo)
+    else
+      {:error, :sin_chat_activo} ->
+        {:error, "No estás en ningún chat. Usa /chat equipo=NombreEquipo"}
+
+      {:error, :no_sesion_activa} ->
+        {:error, "Debes iniciar sesión."}
+
+      error ->
+        error
+    end
   end
 
   # ===================================================================
   # PROGRESS (AVANCES)
   # ===================================================================
 
-  # /progress proyecto=X titulo=Y descripcion=Z version=V
+  # /progress proyecto=... titulo="..." descripcion="..." version=...
   def ejecutar_comando(%{service: :progress_manager, action: :add_progress}, %{
         proyecto: proyecto,
         titulo: titulo,
         descripcion: descripcion,
         version: version
       }) do
-    descripcion_str = if is_list(descripcion), do: Enum.join(descripcion, " "), else: descripcion
-    titulo_str = if is_list(titulo), do: Enum.join(titulo, " "), else: titulo
+    descripcion_str = normalizar_texto(descripcion)
+    titulo_str = normalizar_texto(titulo)
 
-    case ProgressManager.registrar_avance(proyecto, titulo_str, descripcion_str, version) do
-      {:ok, avance} -> {:ok, "✅ Avance registrado: #{avance.titulo} (v#{avance.version})"}
-      {:error, razon} -> {:error, razon}
+    with :ok <- validar_no_vacio(titulo_str, "título"),
+         :ok <- validar_no_vacio(descripcion_str, "descripción") do
+
+      case ProgressManager.registrar_avance(proyecto, titulo_str, descripcion_str, version) do
+        {:ok, avance} -> {:ok, "✅ Avance registrado: #{avance.titulo} (v#{avance.version})"}
+        {:error, razon} -> {:error, razon}
+      end
     end
   end
 
-  # /avances proyecto=X
+  # /avances proyecto=...
   def ejecutar_comando(%{service: :progress_manager, action: :list_progress}, %{
         proyecto: proyecto
       }) do
@@ -282,38 +327,36 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
     end
   end
 
-  def ejecutar_comando(%{service: :chat_manager, action: :show_history}, _args) do
-    with {:ok, participante} <- SessionManager.obtener_participante_actual(),
-         {:ok, nombre_equipo} <- ChatService.obtener_chat_activo_usuario(participante.id),
-         {:ok, mensajes} <- ChatService.obtener_historial(nombre_equipo) do
-      if Enum.empty?(mensajes) do
-        {:ok, "📭 No hay mensajes en el chat aún."}
-      else
-        historial =
-          mensajes
-          |> Enum.map(fn msg ->
-            timestamp = Calendar.strftime(msg.timestamp, "%H:%M:%S")
-            "[#{timestamp}] #{msg.autor_nombre}: #{msg.contenido}"
-          end)
-          |> Enum.join("\n")
-
-        {:ok, "📜 HISTORIAL DEL CHAT\n" <> historial}
-      end
-    else
-      {:error, :sin_chat_activo} ->
-        {:error, "No estás en ningún chat. Usa /chat equipo=NombreEquipo"}
-
-      error ->
-        error
-    end
-  end
-
   # ===================================================================
   # DEFAULT
   # ===================================================================
 
   def ejecutar_comando(_, _) do
     {:error, "Comando no reconocido o argumentos incorrectos. Usa /help."}
+  end
+
+  # ===================================================================
+  # FUNCIONES AUXILIARES
+  # ===================================================================
+
+  @doc """
+  Normaliza texto que puede venir como string o lista.
+  """
+  def normalizar_texto(texto) when is_list(texto), do: Enum.join(texto, " ")
+  def normalizar_texto(texto) when is_binary(texto), do: texto
+  def normalizar_texto(texto), do: to_string(texto)
+
+  @doc """
+  Valida que un campo no esté vacío después de hacer trim.
+  """
+  def validar_no_vacio(valor, nombre_campo) do
+    valor_limpio = valor |> to_string() |> String.trim()
+
+    if valor_limpio == "" do
+      {:error, "El campo '#{nombre_campo}' no puede estar vacío."}
+    else
+      :ok
+    end
   end
 
   # ============================================================
