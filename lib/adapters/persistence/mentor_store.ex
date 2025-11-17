@@ -4,6 +4,11 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.MentorStore do
 
   Guarda únicamente los campos definidos en el dominio:
   id, nombre, correo, contrasena, especialidad.
+  Proporciona operaciones CRUD y consultas específicas.
+  Autores: [Sharif Giraldo Obando, Juan Sebastián Hernández y Santiago Ospina Sánchez]
+  Fecha de creación: 2025-11-16
+  Fecha de última modificación: 2025-11-16
+  Licencia: GNU GPL v3
   """
 
   alias ProyectoFinalPrg3.Domain.Mentor
@@ -17,6 +22,10 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.MentorStore do
 
   @doc """
   Guarda o actualiza un mentor basado en su id.
+  Parámetros:
+    - `mentor`: Struct %Mentor{} a guardar o actualizar.
+  Retorna:
+    - `{:ok, mentor}` confirmando la operación.
   """
   def guardar_mentor(%Mentor{} = mentor) do
     lista =
@@ -30,6 +39,10 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.MentorStore do
 
   @doc """
   Obtiene un mentor por su ID.
+  Parámetros:
+    - `id`: Identificador único del mentor.
+  Retorna:
+    - Mentor encontrado o nil si no existe.
   """
   def obtener_por_id(id) do
     listar_mentores()
@@ -38,6 +51,10 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.MentorStore do
 
   @doc """
   Obtiene un mentor por correo.
+  Parámetros:
+    - `correo`: Correo electrónico del mentor.
+  Retorna:
+    - Mentor encontrado o nil si no existe.
   """
   def buscar_por_correo(correo) do
     listar_mentores()
@@ -46,6 +63,9 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.MentorStore do
 
   @doc """
   Lista todos los mentores almacenados.
+  Parámetros: Ninguno.
+  Retorna:
+    - Lista de mentores.
   """
   def listar_mentores do
     if File.exists?(@ruta) do
@@ -62,6 +82,10 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.MentorStore do
 
   @doc """
   Elimina un mentor por ID.
+  Parámetros:
+    - `id`: Identificador único del mentor.
+  Retorna:
+    - `:ok`.
   """
   def eliminar_mentor(id) do
     nuevos =
@@ -76,6 +100,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.MentorStore do
   # SERIALIZACIÓN
   # ============================================================
 
+  @doc false
   defp parse_line(line) do
     [id, nombre, correo, contrasena, especialidad] =
       line
@@ -91,6 +116,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.MentorStore do
     }
   end
 
+  @doc false
   defp escribir_mentores(lista) do
     contenido =
       lista
@@ -101,6 +127,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.MentorStore do
     File.write!(@ruta, @headers <> contenido <> "\n")
   end
 
+  @doc false
   defp to_csv(%Mentor{
          id: id,
          nombre: nombre,
@@ -122,11 +149,13 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.MentorStore do
   # UTILIDADES
   # ============================================================
 
+  @doc false
   defp sanitize(texto) when is_binary(texto) do
     texto
     |> String.replace(",", ";")
     |> String.replace("\n", " ")
   end
 
+  @doc false
   defp sanitize(_), do: ""
 end

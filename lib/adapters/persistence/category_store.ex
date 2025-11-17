@@ -2,6 +2,11 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.CategoryStore do
   @moduledoc """
   Persistencia de categorías en archivo CSV.
   Alineado al dominio Category (id, nombre, descripcion).
+  Proporciona funciones para guardar, obtener, listar y eliminar categorías.
+  Autores: [Sharif Giraldo Obando, Juan Sebastián Hernández y Santiago Ospina Sánchez]
+  Fecha de creación: 2025-11-16
+  Fecha de última modificación: 2025-11-16
+  Licencia: GNU GPL v3
   """
 
   alias ProyectoFinalPrg3.Domain.Category
@@ -14,6 +19,10 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.CategoryStore do
 
   @doc """
   Guarda o actualiza una categoría. Se identifica por `id`.
+  Parametros:
+    - `categoria`: Struct %Category{} a guardar o actualizar.
+  Retorna:
+    - `{:ok, categoria}` confirmando la operación.
   """
   def guardar_categoria(%Category{} = categoria) do
     categorias =
@@ -30,7 +39,13 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.CategoryStore do
 
   @doc """
   Obtiene una categoría por su id.
-  Retorna {:ok, categoria} o nil si no existe.
+
+  Parámetros:
+    - `id`: Identificador único de la categoría.
+
+  Retorna:
+    - `{:ok, categoria}` si se encuentra la categoría.
+    - `nil` si no existe.
   """
   def obtener_categoria(id) do
     case Enum.find(listar_categorias(), &(&1.id == id)) do
@@ -41,6 +56,11 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.CategoryStore do
 
   @doc """
   Obtiene una categoría por su nombre (case-insensitive).
+  Parámetros:
+    - `nombre`: Nombre de la categoría.
+  Retorna:
+    - `categoria` si se encuentra.
+    - `nil` si no existe.
   """
   def obtener_categoria_por_nombre(nombre) do
     nombre = String.downcase(nombre)
@@ -56,6 +76,9 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.CategoryStore do
 
   @doc """
   Devuelve todas las categorías como structs %Category{}
+  Parámetros: Ninguno.
+  Retorna:
+    - Lista de categorías.
   """
   def listar_categorias do
     case File.read(@ruta) do
@@ -77,6 +100,10 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.CategoryStore do
 
   @doc """
   Elimina una categoría por su id.
+  Parámetros:
+    - `id`: Identificador único de la categoría a eliminar.
+  Retorna:
+    - `:ok` al completar la operación.
   """
   def eliminar_categoria(id) do
     categorias =
@@ -91,6 +118,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.CategoryStore do
   # CSV (INTERNO)
   # ------------------------------------------------------------
 
+  @doc false
   defp persistir(categorias) do
     encabezado = "id,nombre,descripcion"
 
@@ -103,6 +131,8 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.CategoryStore do
     File.write!(@ruta, encabezado <> "\n" <> filas)
   end
 
+
+  @doc false
   defp serializar(%Category{id: id, nombre: nombre, descripcion: descripcion}) do
     [
       id,
@@ -116,6 +146,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.CategoryStore do
   # PARSING
   # ------------------------------------------------------------
 
+  @doc false
   defp parsear_linea(linea) do
     [id, nombre, descripcion] =
       linea
@@ -133,6 +164,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.CategoryStore do
   # ------------------------------------------------------------
 
   # Manejo seguro de comas en descripción y nombre
+  @doc false
   defp escapar(texto) when is_binary(texto) do
     if String.contains?(texto, ",") do
       "\"" <> texto <> "\""
@@ -142,6 +174,7 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.CategoryStore do
   end
 
   # Permite parsear campos con comas dentro de comillas
+  @doc false
   defp split_csv(linea) do
     Regex.scan(~r/"([^"]*)"|([^,]+)/, linea)
     |> Enum.map(fn
