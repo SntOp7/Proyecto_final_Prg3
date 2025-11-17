@@ -21,6 +21,7 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
 
   alias ProyectoFinalPrg3.Adapters.Security.SessionManager
   alias ProyectoFinalPrg3.Adapters.CLI.CommandRegistry
+  alias ProyectoFinalPrg3.Adapters.Persistence.ChatStore
 
   # ===================================================================
   # PÚBLICOS
@@ -386,6 +387,25 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
         {:error, _} ->
           {:error, "Debes iniciar sesión."}
       end
+    end
+  end
+
+  # /announcements
+  def ejecutar_comando(%{service: :announcement, action: :list}, _args) do
+    anuncios = ChatStore.obtener_anuncios_globales()
+
+    if Enum.empty?(anuncios) do
+      {:ok, "📭 No hay anuncios globales registrados."}
+    else
+      texto =
+        anuncios
+        |> Enum.map(fn msg ->
+          fecha = Calendar.strftime(msg.timestamp, "%Y-%m-%d %H:%M")
+          "📢 #{msg.contenido}    (#{fecha})"
+        end)
+        |> Enum.join("\n\n")
+
+      {:ok, "\n🌐 HISTORIAL DE ANUNCIOS\n\n" <> texto}
     end
   end
 
