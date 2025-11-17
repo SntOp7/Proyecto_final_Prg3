@@ -9,7 +9,7 @@ defmodule ProyectoFinalPrg3.Adapters.Network.AnnouncementChannel do
   alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
 
   # Canal OFICIAL de anuncios globales
-  @canal :canal_anuncios_globales
+  @canal"canal_anuncios_globales"
 
   # ------------------------------------------------------------
   # API pública
