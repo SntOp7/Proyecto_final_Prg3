@@ -3,6 +3,18 @@ Mix.Task.run("app.start")
 IO.puts("🎮 CLI lista (/help para ver comandos)\n")
 
 defmodule CLI.Main do
+  @moduledoc """
+  Módulo principal para la interfaz de línea de comandos (CLI) del sistema.
+  Permite la interacción con el usuario para ejecutar comandos y mostrar resultados.
+  Autores: [Sharif Giraldo Obando, Juan Sebastián Hernández y Santiago Ospina Sánchez]
+  Fecha de creación: 2025-11-16
+  Fecha de última modificación: 2025-11-16
+  Licencia: GNU GPL v3
+  """
+
+  @doc """
+  Bucle principal de la interfaz de línea de comandos.
+  """
   def loop do
     case IO.gets("> ") do
       nil ->
@@ -28,6 +40,7 @@ defmodule CLI.Main do
   # FORMATEO DE RESULTADOS
   # ============================================================
 
+  @doc false
   defp mostrar_resultado(msg) when is_binary(msg) do
     IO.puts(msg)
   end
@@ -42,10 +55,12 @@ defmodule CLI.Main do
     end
   end
 
+  @doc false
   defp mostrar_resultado(struct) when is_map(struct) do
     IO.puts(formatear_item(struct))
   end
 
+  @doc false
   defp mostrar_resultado(otro) do
     IO.inspect(otro, pretty: true, limit: :infinity)
   end
@@ -54,6 +69,7 @@ defmodule CLI.Main do
   # FORMATEO POR TIPO DE ENTIDAD
   # ============================================================
 
+  @doc false
   defp formatear_item(%ProyectoFinalPrg3.Domain.Team{} = equipo) do
     """
 
@@ -66,6 +82,7 @@ defmodule CLI.Main do
     """
   end
 
+  @doc false
   defp formatear_item(%ProyectoFinalPrg3.Domain.Project{} = proyecto) do
     """
 
