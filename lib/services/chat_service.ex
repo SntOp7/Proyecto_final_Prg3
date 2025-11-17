@@ -1,13 +1,22 @@
 defmodule ProyectoFinalPrg3.Services.ChatService do
   @moduledoc """
   Servicio principal de gestión del chat por equipos.
+
+  Mejoras:
+  - Usa el struct Message del dominio
+  - Validación de mensajes vacíos
+  - Persistencia automática con ChatStore
+  - Timestamps en zona horaria de Colombia
   """
 
+  alias ProyectoFinalPrg3.Adapters.Persistence.ParticipantStore
   alias ProyectoFinalPrg3.Services.TeamManager
   alias ProyectoFinalPrg3.Adapters.Security.SessionManager
   alias ProyectoFinalPrg3.Services.BroadcastService
   alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
   alias ProyectoFinalPrg3.Adapters.Persistence.ChatStore
+  alias ProyectoFinalPrg3.Domain.Message
+  alias ProyectoFinalPrg3.Utils.DateTimeHelper
 
   @tabla_chat_activo :chat_activo
 
@@ -16,17 +25,20 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
   # ============================================================
 
   @doc """
-  Asegura que la tabla ETS de chats activos existe.
+  Asegura que las tablas necesarias existen.
   """
   def init_tabla do
+    # Inicializar tabla de chats activos
     case :ets.whereis(@tabla_chat_activo) do
       :undefined ->
         :ets.new(@tabla_chat_activo, [:named_table, :public, read_concurrency: true])
-        :ok
-
       _ ->
         :ok
     end
+
+    # Inicializar ChatStore (ETS + CSV)
+    ChatStore.init()
+    :ok
   end
 
   # ============================================================
@@ -34,12 +46,12 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
   # ============================================================
 
   def ingresar_chat_equipo(nombre_equipo) when is_binary(nombre_equipo) do
-    # Asegurar que existe
     init_tabla()
 
     with {:ok, participante} <- SessionManager.obtener_participante_actual(),
          {:ok, equipo} <- TeamManager.obtener_equipo(nombre_equipo),
          true <- participante.id in equipo.participantes do
+
       :ets.insert(@tabla_chat_activo, {participante.id, nombre_equipo})
 
       LoggerService.registrar_evento("Ingreso a chat", %{
@@ -55,7 +67,8 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
       {:ok,
        """
        📱 Has ingresado al chat del equipo #{equipo.nombre}
-       💬 Escribe tus mensajes directamente
+       💬 Escribe tus mensajes directamente (sin prefijo /)
+       📜 Usa /historial para ver mensajes anteriores
        🚪 Usa /salir_chat para salir
        """}
     else
@@ -74,29 +87,54 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
   # ENVIAR MENSAJE
   # ============================================================
 
+  @doc """
+  Envía un mensaje al chat activo del usuario.
+  Valida que el mensaje no esté vacío.
+  """
   def enviar_mensaje(contenido) do
-    # Asegurar que existe
     init_tabla()
 
+    # Validar contenido
+    contenido_limpio = String.trim(contenido)
+
+    cond do
+      contenido_limpio == "" ->
+        {:error, "No puedes enviar mensajes vacíos."}
+
+      String.length(contenido_limpio) > 1000 ->
+        {:error, "El mensaje es demasiado largo (máximo 1000 caracteres)."}
+
+      true ->
+        enviar_mensaje_valido(contenido_limpio)
+    end
+  end
+
+  defp enviar_mensaje_valido(contenido) do
     with {:ok, participante} <- SessionManager.obtener_participante_actual(),
          {:ok, nombre_equipo} <- obtener_chat_activo(participante.id) do
-      mensaje = %{
-        id: UUID.uuid4(),
-        autor_id: participante.id,
-        autor_nombre: participante.nombre,
-        contenido: contenido,
-        timestamp: DateTime.utc_now(),
-        tipo: :usuario
-      }
 
+      # Crear mensaje usando el struct del dominio
+      mensaje = Message.nuevo(
+        UUID.uuid4(),
+        participante.id,
+        nombre_equipo,
+        contenido,
+        DateTime.utc_now()
+      )
+
+      # Guardar en ChatStore (ETS + CSV automáticamente)
       ChatStore.agregar_mensaje(nombre_equipo, mensaje)
 
+      # Notificar a otros usuarios
       BroadcastService.notificar(:nuevo_mensaje, %{
         equipo: nombre_equipo,
-        mensaje: mensaje
+        autor: participante.nombre,
+        mensaje: contenido,
+        timestamp: mensaje.timestamp
       })
 
-      {:ok, "✅ Mensaje enviado"}
+      # Retornar confirmación simple
+      {:ok, "✅"}
     else
       {:error, :sin_chat_activo} ->
         {:error, "No estás en ningún chat. Usa /chat equipo=NombreEquipo"}
@@ -106,24 +144,32 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
     end
   end
 
+  @doc """
+  Envía un mensaje del sistema al chat de un equipo.
+  """
   def enviar_mensaje_sistema(nombre_equipo, contenido) do
-    mensaje = %{
-      id: UUID.uuid4(),
-      autor_id: "sistema",
-      autor_nombre: "🤖 SISTEMA",
-      contenido: contenido,
-      timestamp: DateTime.utc_now(),
-      tipo: :sistema
-    }
+    contenido_limpio = String.trim(contenido)
 
-    ChatStore.agregar_mensaje(nombre_equipo, mensaje)
+    if contenido_limpio == "" do
+      {:error, "No se puede enviar un mensaje vacío."}
+    else
+      mensaje = Message.nuevo(
+        UUID.uuid4(),
+        "sistema",
+        nombre_equipo,
+        "🤖 #{contenido_limpio}",
+        DateTime.utc_now()
+      )
 
-    BroadcastService.notificar(:mensaje_sistema, %{
-      equipo: nombre_equipo,
-      mensaje: mensaje
-    })
+      ChatStore.agregar_mensaje(nombre_equipo, mensaje)
 
-    {:ok, mensaje}
+      BroadcastService.notificar(:mensaje_sistema, %{
+        equipo: nombre_equipo,
+        mensaje: contenido_limpio
+      })
+
+      {:ok, mensaje}
+    end
   end
 
   # ============================================================
@@ -131,11 +177,11 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
   # ============================================================
 
   def salir_chat do
-    # Asegurar que existe
     init_tabla()
 
     with {:ok, participante} <- SessionManager.obtener_participante_actual(),
          {:ok, nombre_equipo} <- obtener_chat_activo(participante.id) do
+
       :ets.delete(@tabla_chat_activo, participante.id)
 
       LoggerService.registrar_evento("Salida de chat", %{
@@ -153,20 +199,62 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
     end
   end
 
+  # ============================================================
+  # HISTORIAL
+  # ============================================================
+
   @doc """
   Obtiene el historial de mensajes de un equipo.
   Requiere que el usuario pertenezca al equipo.
+  Formatea los mensajes con timestamps legibles.
   """
   def obtener_historial(nombre_equipo, limite \\ 50) do
     with {:ok, participante} <- SessionManager.obtener_participante_actual(),
          {:ok, equipo} <- TeamManager.obtener_equipo(nombre_equipo),
          true <- participante.id in equipo.participantes do
+
       mensajes = ChatStore.obtener_mensajes(nombre_equipo, limite)
-      {:ok, mensajes}
+
+      if Enum.empty?(mensajes) do
+        {:ok, "📭 No hay mensajes en este chat aún."}
+      else
+        mensajes_formateados = formatear_historial(mensajes)
+        {:ok, "\n📜 Historial del chat #{nombre_equipo}:\n#{mensajes_formateados}"}
+      end
     else
-      false -> {:error, "No perteneces a este equipo."}
-      {:error, :no_sesion_activa} -> {:error, "Debes iniciar sesión."}
-      error -> error
+      false ->
+        {:error, "No perteneces a este equipo."}
+
+      {:error, :no_sesion_activa} ->
+        {:error, "Debes iniciar sesión."}
+
+      error ->
+        error
+    end
+  end
+
+  defp formatear_historial(mensajes) do
+    mensajes
+    |> Enum.map(fn mensaje ->
+      # Obtener nombre del autor
+      nombre = obtener_nombre_autor(mensaje.remitente_id)
+
+      # Formatear timestamp
+      timestamp = DateTimeHelper.formato_chat(mensaje.timestamp)
+
+      # Formatear línea
+      "[#{timestamp}] #{nombre}: #{mensaje.contenido}"
+    end)
+    |> Enum.join("\n")
+  end
+
+  defp obtener_nombre_autor("sistema"), do: "🤖 Sistema"
+
+  defp obtener_nombre_autor(remitente_id) do
+
+    case ParticipantStore.obtener_participante(remitente_id) do
+      {:ok, participante} -> participante.nombre
+      _ -> "Usuario"
     end
   end
 
@@ -175,7 +263,6 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
   # ============================================================
 
   defp obtener_chat_activo(participante_id) do
-    # Asegurar que existe
     init_tabla()
 
     case :ets.lookup(@tabla_chat_activo, participante_id) do
@@ -196,8 +283,10 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
     end
   end
 
+  @doc """
+  Verifica si un participante tiene un chat activo.
+  """
   def chat_activo?(participante_id) do
-    # Asegurar que existe
     init_tabla()
 
     case :ets.lookup(@tabla_chat_activo, participante_id) do
