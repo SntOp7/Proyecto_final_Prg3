@@ -217,17 +217,52 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
     File.write!(@log_file, encabezado)
   end
 
-  @doc false
-  defp mostrar_en_consola(%{tipo: :error} = e),
-    do: IO.puts(IO.ANSI.red() <> "[ERROR] #{e.timestamp} | #{e.mensaje}" <> IO.ANSI.reset())
+  defp mostrar_en_consola(evento) do
+    nodo_central = Application.get_env(:proyecto_final_prg3, :nodo_central)
+    tipo_nodo = Application.get_env(:proyecto_final_prg3, :tipo_nodo)
 
-  @doc false
-  defp mostrar_en_consola(%{tipo: :warning} = e),
-    do: IO.puts(IO.ANSI.yellow() <> "[WARN] #{e.timestamp} | #{e.mensaje}" <> IO.ANSI.reset())
+    # Solo mostrar en consola si estamos en el nodo central
+    if tipo_nodo == :central do
+      case evento.tipo do
+        :error ->
+          IO.puts(
+            IO.ANSI.red() <> "[ERROR] #{evento.timestamp} | #{evento.mensaje}" <> IO.ANSI.reset()
+          )
 
-  @doc false
-  defp mostrar_en_consola(e),
-    do: IO.puts(IO.ANSI.cyan() <> "[INFO] #{e.timestamp} | #{e.mensaje}" <> IO.ANSI.reset())
+        :warning ->
+          IO.puts(
+            IO.ANSI.yellow() <>
+              "[WARN] #{evento.timestamp} | #{evento.mensaje}" <> IO.ANSI.reset()
+          )
+
+        _ ->
+          IO.puts(
+            IO.ANSI.cyan() <> "[INFO] #{evento.timestamp} | #{evento.mensaje}" <> IO.ANSI.reset()
+          )
+      end
+    else
+      # Si estamos en CLI o persistencia, enviar logs al nodo central
+      try do
+        if Node.alive?() and nodo_central do
+          :rpc.call(nodo_central, IO, :puts, [formatear_log_remoto(evento)])
+        end
+      rescue
+        _ -> :ok
+      end
+    end
+  end
+
+  defp formatear_log_remoto(evento) do
+    color =
+      case evento.tipo do
+        :error -> IO.ANSI.red()
+        :warning -> IO.ANSI.yellow()
+        _ -> IO.ANSI.cyan()
+      end
+
+    tipo_str = String.upcase(to_string(evento.tipo))
+    "#{color}[#{tipo_str}] #{evento.timestamp} | #{evento.mensaje}#{IO.ANSI.reset()}"
+  end
 
   @doc false
   defp inferir_tipo(msg) do
