@@ -20,6 +20,20 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
   alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
   alias ProyectoFinalPrg3.Services.MetricsService
 
+  # ==========================================
+  # UTILIDADES DE NODO
+  # ==========================================
+
+  @central Application.compile_env(:proyecto_final_prg3, :central_node)
+
+  defp soy_central? do
+    Node.self() == @central
+  end
+
+  defp reenviar_al_central(fun, args) do
+    :rpc.call(@central, __MODULE__, fun, args)
+  end
+
   # ============================================================
   # DIFUSIÓN DE EVENTOS
   # ============================================================
@@ -34,19 +48,23 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
   def notificar(evento, data, tipo \\ :info) when is_atom(evento) do
     mensaje = construir_mensaje(tipo, evento, data)
 
-    # Log local (historial del sistema)
     LoggerService.registrar_evento("Difusión: #{evento}", mensaje)
-
     MetricsService.registrar_evento(:error_sistema, %{contexto: evento, detalle: mensaje})
 
-    # Difusión segura hacia red y nodos
-    safe_broadcast(fn ->
-      PubSubAdapter.publicar(evento, mensaje)
-      ChannelManager.broadcast(evento, mensaje)
-      NodeManager.enviar_a_nodos(evento, mensaje)
-    end)
+    # Si NO somos el nodo central → reenviar por RPC
+    if not soy_central?() do
+      return = reenviar_al_central(:notificar, [evento, data, tipo])
+      return
+    else
+      # Solo CENTRAL hace broadcast real
+      safe_broadcast(fn ->
+        PubSubAdapter.publicar(evento, mensaje)
+        ChannelManager.broadcast(evento, mensaje)
+        NodeManager.enviar_a_nodos(evento, mensaje)
+      end)
 
-    {:ok, mensaje}
+      {:ok, mensaje}
+    end
   end
 
   @doc """
@@ -63,12 +81,18 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
 
     LoggerService.registrar_evento("Mensaje directo enviado", payload)
 
-    safe_broadcast(fn ->
-      ChannelManager.enviar(destino, payload)
-      NodeManager.enviar_directo(destino, payload)
-    end)
+    # CLI y Persistencia → reenviar al nodo central
+    if not soy_central?() do
+      return = reenviar_al_central(:enviar_directo, [destino, mensaje, tipo])
+      return
+    else
+      safe_broadcast(fn ->
+        ChannelManager.enviar(destino, payload)
+        NodeManager.enviar_directo(destino, payload)
+      end)
 
-    {:ok, payload}
+      {:ok, payload}
+    end
   end
 
   @doc """
@@ -76,43 +100,61 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
   Útil para difusión grupal (equipos, proyectos o mentores asignados).
   """
   def notificar_grupo(evento, lista_destinos, contenido) do
-    Enum.each(lista_destinos, fn destino ->
-      enviar_directo(destino, %{evento: evento, data: contenido})
-    end)
+    if not soy_central?() do
+      reenviar_al_central(:notificar_grupo, [evento, lista_destinos, contenido])
+    else
+      Enum.each(lista_destinos, fn destino ->
+        enviar_directo(destino, %{evento: evento, data: contenido})
+      end)
 
-    LoggerService.registrar_evento("Difusión grupal completada", %{
-      evento: evento,
-      cantidad_destinos: length(lista_destinos),
-      fecha: DateTime.utc_now()
-    })
+      LoggerService.registrar_evento("Difusión grupal completada", %{
+        evento: evento,
+        cantidad_destinos: length(lista_destinos),
+        fecha: DateTime.utc_now()
+      })
 
-    :ok
+      :ok
+    end
   end
 
   # ============================================================
-  # SUSCRIPCIÓN Y CONTROL DE EVENTOS
+  # SUSCRIPCIÓN
   # ============================================================
 
   @doc """
   Permite que un proceso se suscriba a eventos específicos dentro del sistema.
   """
   def suscribirse(evento, pid \\ self()) when is_atom(evento) and is_pid(pid) do
-    PubSubAdapter.suscribir(evento, pid)
-    LoggerService.registrar_evento("Suscripción añadida", %{evento: evento, pid: inspect(pid)})
-    {:ok, :suscrito}
+    if not soy_central?() do
+      # nodos no centrales no tienen PubSub
+      {:ok, :suscrito}
+    else
+      PubSubAdapter.suscribir(evento, pid)
+
+      LoggerService.registrar_evento("Suscripción añadida", %{evento: evento, pid: inspect(pid)})
+
+      {:ok, :suscrito}
+    end
   end
 
   @doc """
   Cancela una suscripción existente a un evento.
   """
   def cancelar_suscripcion(evento, pid \\ self()) when is_atom(evento) and is_pid(pid) do
-    PubSubAdapter.desuscribir(evento, pid)
-    LoggerService.registrar_evento("Suscripción cancelada", %{evento: evento, pid: inspect(pid)})
+    if soy_central?() do
+      PubSubAdapter.desuscribir(evento, pid)
+
+      LoggerService.registrar_evento("Suscripción cancelada", %{
+        evento: evento,
+        pid: inspect(pid)
+      })
+    end
+
     {:ok, :cancelado}
   end
 
   # ============================================================
-  # TRAZABILIDAD Y ALERTAS DE PROYECTOS
+  # TRAZABILIDAD Y ALERTAS
   # ============================================================
 
   @doc """
@@ -124,12 +166,16 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
 
     LoggerService.registrar_evento("Evento de proyecto: #{evento}", payload)
 
-    safe_broadcast(fn ->
-      PubSubAdapter.publicar(:evento_proyecto, payload)
-      ChannelManager.broadcast(:evento_proyecto, payload)
-    end)
+    if not soy_central?() do
+      reenviar_al_central(:registrar_evento_proyecto, [evento, proyecto_nombre, detalles])
+    else
+      safe_broadcast(fn ->
+        PubSubAdapter.publicar(:evento_proyecto, payload)
+        ChannelManager.broadcast(:evento_proyecto, payload)
+      end)
 
-    {:ok, payload}
+      {:ok, payload}
+    end
   end
 
   @doc """
@@ -140,16 +186,20 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
     LoggerService.registrar_evento("ERROR", mensaje)
     MetricsService.registrar_evento(:error_sistema, %{contexto: contexto, detalle: detalle})
 
-    safe_broadcast(fn ->
-      PubSubAdapter.publicar(:error_sistema, mensaje)
-      ChannelManager.broadcast(:error_sistema, mensaje)
-    end)
+    if not soy_central?() do
+      reenviar_al_central(:notificar_error, [contexto, detalle])
+    else
+      safe_broadcast(fn ->
+        PubSubAdapter.publicar(:error_sistema, mensaje)
+        ChannelManager.broadcast(:error_sistema, mensaje)
+      end)
 
-    {:error, mensaje}
+      {:error, mensaje}
+    end
   end
 
   # ============================================================
-  # FUNCIONES AUXILIARES
+  # AUXILIARES
   # ============================================================
 
   defp construir_mensaje(tipo, evento, data) do
@@ -178,7 +228,7 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
   end
 
   # ============================================================
-  # INTEGRACIÓN CON SUPERVISIÓN
+  # SUPERVISIÓN
   # ============================================================
 
   @doc """
@@ -195,10 +245,13 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
   Inicializa el servicio de broadcast. Si no existe el sistema PubSub, lo arranca nuevamente.
   """
   def inicializar_supervision do
-    {:ok, _pid} =
-      Phoenix.PubSub.PG2.start_link(name: ProyectoFinalPrg3.PubSub)
+    if soy_central?() do
+      {:ok, _pid} =
+        Phoenix.PubSub.PG2.start_link(name: ProyectoFinalPrg3.PubSub)
 
-    LoggerService.registrar_evento("BroadcastService reiniciado", %{estado: :ok})
+      LoggerService.registrar_evento("BroadcastService reiniciado", %{estado: :ok})
+    end
+
     :ok
   end
 end

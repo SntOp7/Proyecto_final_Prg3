@@ -59,6 +59,8 @@ defmodule ProyectoFinalPrg3.Services.ProjectManager do
               TeamManager.vincular_proyecto(equipo.nombre, proyecto.id)
 
               IO.puts("PROYECTO CREADO EXITOSAMENTE\n")
+
+              {:ok, proyecto}
             rescue
               e ->
                 IO.puts("ERROR EN: #{inspect(e)}")

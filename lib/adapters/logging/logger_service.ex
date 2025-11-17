@@ -111,7 +111,6 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
       nodo: Atom.to_string(Node.self()),
       tipo: Map.get(data, :tipo, inferir_tipo(mensaje)),
       mensaje: mensaje,
-      # <---- FIX
       datos: normalizar_datos(data)
     }
   end
@@ -120,7 +119,6 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
   defp normalizar_datos(data) when is_struct(data) do
     data
     |> Map.from_struct()
-    # nunca loguear contraseñas
     |> Map.drop([:contrasena])
   end
 
@@ -130,37 +128,58 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
     |> Map.drop([:contrasena])
   end
 
-  # -------------------------------------------------------
-
   @doc false
   defp guardar_en_archivo(evento) do
-    File.mkdir_p!(@log_dir)
-    unless File.exists?(@log_file), do: inicializar_csv()
+    if Application.get_env(:proyecto_final_prg3, :tipo_nodo) == :central do
+      File.mkdir_p!(@log_dir)
+      unless File.exists?(@log_file), do: inicializar_csv()
 
-    json =
-      if is_binary(evento.datos),
-        do: evento.datos,
-        # ← ahora siempre seguro
-        else: Jason.encode!(evento.datos)
+      json =
+        evento.datos
+        |> normalizar_para_json()
+        |> Jason.encode!()
 
-    fila_vals = [
-      evento.id,
-      evento.timestamp,
-      evento.nodo,
-      evento.tipo,
-      evento.mensaje,
-      json
-    ]
+      fila_vals =
+        [
+          evento.id,
+          evento.timestamp,
+          evento.nodo,
+          evento.tipo,
+          evento.mensaje,
+          json
+        ]
+        |> Enum.map(&to_string/1)
+        |> Enum.map(&escape/1)
 
-    linea =
-      fila_vals
-      |> Enum.map(&escape/1)
-      |> Enum.join(",")
+      linea = Enum.join(fila_vals, ",") <> "\n"
 
-    linea = linea <> "\n"
-
-    File.write!(@log_file, linea, [:append])
+      File.open!(@log_file, [:append, :binary], fn file ->
+        IO.binwrite(file, linea)
+      end)
+    end
   end
+
+  defp normalizar_para_json(nil), do: %{}
+
+  defp normalizar_para_json(d) when is_binary(d), do: d
+
+  defp normalizar_para_json(%_{} = struct) do
+    struct
+    |> Map.from_struct()
+    |> normalizar_para_json()
+  end
+
+  defp normalizar_para_json(map) when is_map(map) do
+    map
+    |> Enum.map(fn {k, v} -> {to_string(k), normalizar_para_json(v)} end)
+    |> Map.new()
+  end
+
+  defp normalizar_para_json(list) when is_list(list) do
+    Enum.map(list, &normalizar_para_json/1)
+  end
+
+  defp normalizar_para_json(other), do: to_string(other)
 
   @doc false
   defp parse_line(linea) do
@@ -217,42 +236,33 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
     File.write!(@log_file, encabezado)
   end
 
+  # ============================================================
+  # NUEVO BLOQUE: MOSTRAR EN CONSOLA POR NODO
+  # ============================================================
+
   defp mostrar_en_consola(evento) do
-    nodo_central = Application.get_env(:proyecto_final_prg3, :nodo_central)
     tipo_nodo = Application.get_env(:proyecto_final_prg3, :tipo_nodo)
+    nodo_evento = evento.nodo |> String.to_atom()
 
-    # Solo mostrar en consola si estamos en el nodo central
-    if tipo_nodo == :central do
-      case evento.tipo do
-        :error ->
-          IO.puts(
-            IO.ANSI.red() <> "[ERROR] #{evento.timestamp} | #{evento.mensaje}" <> IO.ANSI.reset()
-          )
+    cond do
+      # CENTRAL → logs generados por CENTRAL
+      tipo_nodo == :central and nodo_evento == Node.self() ->
+        imprimir(evento)
 
-        :warning ->
-          IO.puts(
-            IO.ANSI.yellow() <>
-              "[WARN] #{evento.timestamp} | #{evento.mensaje}" <> IO.ANSI.reset()
-          )
+      # PERSISTENCIA → solo logs generados por persistencia
+      tipo_nodo == :persistencia and nodo_evento == Node.self() ->
+        imprimir(evento)
 
-        _ ->
-          IO.puts(
-            IO.ANSI.cyan() <> "[INFO] #{evento.timestamp} | #{evento.mensaje}" <> IO.ANSI.reset()
-          )
-      end
-    else
-      # Si estamos en CLI o persistencia, enviar logs al nodo central
-      try do
-        if Node.alive?() and nodo_central do
-          :rpc.call(nodo_central, IO, :puts, [formatear_log_remoto(evento)])
-        end
-      rescue
-        _ -> :ok
-      end
+      # CLI → solo logs generados por CLI
+      tipo_nodo == :cli and nodo_evento == Node.self() ->
+        imprimir(evento)
+
+      true ->
+        :ok
     end
   end
 
-  defp formatear_log_remoto(evento) do
+  defp imprimir(evento) do
     color =
       case evento.tipo do
         :error -> IO.ANSI.red()
@@ -261,7 +271,8 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
       end
 
     tipo_str = String.upcase(to_string(evento.tipo))
-    "#{color}[#{tipo_str}] #{evento.timestamp} | #{evento.mensaje}#{IO.ANSI.reset()}"
+
+    IO.puts("#{color}[#{tipo_str}] #{evento.timestamp} | #{evento.mensaje}#{IO.ANSI.reset()}")
   end
 
   @doc false

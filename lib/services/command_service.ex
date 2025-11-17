@@ -181,7 +181,7 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
       case ProjectManager.crear_proyecto(n, d, c, e, usuario.id, nil) do
         # ← Cambiar esto: devolver el proyecto
         {:ok, proyecto} -> {:ok, proyecto}
-        error -> error
+        {:error, error} -> {:error, error}
       end
     else
       {:error, :no_sesion_activa} ->
@@ -214,14 +214,11 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
       {:error, :no_sesion_activa} ->
         {:error, "Debes iniciar sesión para enviar feedback."}
 
-      {:error, :proyecto_no_encontrado} ->
+      {:error, :no_encontrado} ->
         {:error, "Proyecto '#{nombre_proyecto}' no encontrado."}
 
       {:error, msg} when is_binary(msg) ->
         {:error, msg}
-
-      _ ->
-        {:error, "Error al enviar feedback."}
     end
   end
 
@@ -349,9 +346,6 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
 
           {:ok, "📊 AVANCES DEL PROYECTO\n\n" <> resultado}
         end
-
-      {:ok, _} ->
-        {:ok, "📭 No hay avances registrados para este proyecto."}
 
       {:error, razon} ->
         {:error, razon}

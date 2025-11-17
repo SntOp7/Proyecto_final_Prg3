@@ -68,6 +68,8 @@ defmodule ProyectoFinalPrg3.Services.ProgressManager do
         |> Enum.sort_by(& &1.fecha_registro, {:desc, DateTime})
 
       {:ok, avances}
+    else
+      {:error, error} -> {:error, error}
     end
   end
 
