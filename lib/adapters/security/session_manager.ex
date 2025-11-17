@@ -41,6 +41,11 @@ defmodule ProyectoFinalPrg3.Adapters.Security.SessionManager do
 
     LoggerService.registrar_evento("Sesión activada", %{usuario: id_usuario})
 
+    if Process.whereis(ProyectoFinalPrg3.PubSub) do
+      ProyectoFinalPrg3.Adapters.Network.AnnouncementChannel.subscribe()
+      :global.register_name({:cli_user, id_usuario}, self())
+    end
+
     :ok
   end
 
@@ -107,17 +112,26 @@ defmodule ProyectoFinalPrg3.Adapters.Security.SessionManager do
     - `{:error, :no_sesion_activa}` si no hay sesiones activas.
   """
   def obtener_participante_actual do
-    alias ProyectoFinalPrg3.Services.MentorManager
+    alias ProyectoFinalPrg3.Services.{MentorManager, AdminManager}
 
     with [{id_usuario, _token, _ts} | _] <- :ets.tab2list(@table) do
       case ParticipantManager.obtener_participante(id_usuario) do
         {:ok, participante} ->
           {:ok, participante}
 
-        {:error, _} ->
+        _ ->
           case MentorManager.obtener_mentor(id_usuario) do
-            {:ok, mentor} -> {:ok, mentor}
-            {:error, razon} -> {:error, razon}
+            {:ok, mentor} ->
+              {:ok, mentor}
+
+            _ ->
+              case AdminManager.obtener_admin(id_usuario) do
+                {:ok, admin} ->
+                  {:ok, admin}
+
+                _ ->
+                  {:error, :no_sesion_activa}
+              end
           end
       end
     else
