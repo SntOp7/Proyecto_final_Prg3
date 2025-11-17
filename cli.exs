@@ -112,7 +112,6 @@ defmodule CLI.Main do
     👨‍🏫 #{mentor.nombre}
        📧 Email: #{mentor.correo}
        🎭 Rol: #{mentor.rol}
-       💼 Especialidad: #{mentor.especialidad || "No especificada"}
        🆔 ID: #{mentor.id}
     """
   end
