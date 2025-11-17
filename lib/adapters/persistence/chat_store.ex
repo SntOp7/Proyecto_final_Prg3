@@ -1,42 +1,53 @@
-# ============================================================
-# CHAT STORE UNIFICADO - ETS + CSV en un solo módulo
-# ============================================================
-
 defmodule ProyectoFinalPrg3.Adapters.Persistence.ChatStore do
   @moduledoc """
-  Almacena mensajes de chat usando ETS (memoria) con persistencia automática en CSV.
+  Almacena mensajes de chat usando ETS con persistencia automática en CSV.
 
   Características:
-  - Acceso rápido en memoria con ETS
-  - Persistencia automática en CSV
-  - Carga automática al iniciar
-  - Todo en un solo módulo
+  - ETS en memoria (rápido)
+  - Persistencia automática en CSV (seguro)
+  - Carga de historial al iniciar
+  - Parsing correcto incluso con comillas o saltos de línea
   """
 
+  use GenServer
   alias ProyectoFinalPrg3.Domain.Message
 
   @table :chat_mensajes
   @mensajes_file "data/mensajes.csv"
   @headers "id,remitente_id,canal_id,contenido,timestamp\n"
 
-  # ============================================================
-  # INICIALIZACIÓN
-  # ============================================================
+  # ---------------------------------------------------------------------
+  # PUBLIC API
+  # ---------------------------------------------------------------------
+
+  def start_link(_) do
+    GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
+  end
+
+  @impl true
+  def init(state) do
+    init_store()
+    {:ok, state}
+  end
 
   @doc """
-  Inicializa ETS y carga mensajes desde CSV si existen.
+  Función pública para asegurar que ETS + CSV están inicializados.
   """
-  def init do
+  def init_store do
     case :ets.whereis(@table) do
       :undefined ->
         :ets.new(@table, [:named_table, :public, :bag])
         asegurar_archivo_csv()
         cargar_mensajes_desde_csv()
-        :ok
+
       _ ->
         :ok
     end
   end
+
+  # ---------------------------------------------------------------------
+  # ARCHIVOS / PERSISTENCIA
+  # ---------------------------------------------------------------------
 
   defp asegurar_archivo_csv do
     unless File.exists?(@mensajes_file) do
@@ -48,133 +59,67 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ChatStore do
   defp cargar_mensajes_desde_csv do
     case File.read(@mensajes_file) do
       {:ok, contenido} ->
-        # Parsear CSV respetando comillas (contenido puede tener saltos de línea)
         mensajes = parsear_csv_completo(contenido)
 
-        # Cargar en ETS
         Enum.each(mensajes, fn mensaje ->
           :ets.insert(@table, {mensaje.canal_id, mensaje})
         end)
 
-        if length(mensajes) > 0 do
-          IO.puts("✅ #{length(mensajes)} mensajes cargados desde persistencia")
-          # Debug: mostrar canales únicos
-          canales = mensajes |> Enum.map(& &1.canal_id) |> Enum.uniq()
-          IO.puts("   Canales encontrados: #{Enum.join(canales, ", ")}")
-        else
+        if mensajes == [] do
           IO.puts("⚠️  No se encontraron mensajes válidos en el CSV")
+        else
+          IO.puts("✅ #{length(mensajes)} mensajes cargados desde persistencia")
         end
 
-      {:error, _} ->
+      _ ->
         :ok
     end
   end
 
-  # Parser CSV que respeta comillas y saltos de línea dentro de campos
-  defp parsear_csv_completo(contenido) do
-    lineas = String.split(contenido, "\n")
-    |> Enum.drop(1)  # Saltar header
-    |> Enum.reject(&(&1 == ""))
+  # ---------------------------------------------------------------------
+  # AGREGAR MENSAJE
+  # ---------------------------------------------------------------------
 
-    parsear_lineas_csv(lineas, [])
-  end
-
-  defp parsear_lineas_csv([], acumulado), do: Enum.reverse(acumulado)
-
-  defp parsear_lineas_csv([linea | resto], acumulado) do
-    # Contar comillas en la línea
-    num_comillas = linea |> String.graphemes() |> Enum.count(&(&1 == "\""))
-
-    cond do
-      # Si hay un número par de comillas, la línea está completa
-      rem(num_comillas, 2) == 0 ->
-        case parsear_linea_csv_completa(linea) do
-          nil -> parsear_lineas_csv(resto, acumulado)
-          mensaje -> parsear_lineas_csv(resto, [mensaje | acumulado])
-        end
-
-      # Si hay número impar, necesitamos juntar con la siguiente línea
-      true ->
-        case resto do
-          [siguiente | resto_resto] ->
-            linea_completa = linea <> "\n" <> siguiente
-            parsear_lineas_csv([linea_completa | resto_resto], acumulado)
-
-          [] ->
-            acumulado
-        end
-    end
-  end
-
-  defp parsear_linea_csv_completa(linea) do
-    # Parsear: id,remitente_id,canal_id,"contenido",timestamp
-    # Usar regex para extraer campos correctamente
-    case Regex.run(~r/^([^,]+),([^,]+),([^,]+),"(.+)",(.+)$/, linea) do
-      [_, id, remitente_id, canal_id, contenido, timestamp_str] ->
-        # Desescapar comillas dobles
-        contenido_limpio = String.replace(contenido, "\"\"", "\"")
-
-        case DateTime.from_iso8601(String.trim(timestamp_str)) do
-          {:ok, timestamp, _} ->
-            Message.nuevo(
-              String.trim(id),
-              String.trim(remitente_id),
-              String.trim(canal_id),
-              contenido_limpio,
-              timestamp
-            )
-          _ ->
-            nil
-        end
-
-      _ ->
-        nil
-    end
-  end
-
-  # ============================================================
-  # OPERACIONES PRINCIPALES
-  # ============================================================
-
-  @doc """
-  Agrega un mensaje al canal (lo guarda en ETS y CSV).
-
-  Acepta:
-  - Struct Message completo
-  - Datos individuales (canal_id, remitente_id, contenido)
-  """
   def agregar_mensaje(canal_id, %Message{} = mensaje) do
-    init()
+    init_store()
 
-    # Guardar en ETS (rápido)
-    :ets.insert(@table, {canal_id, mensaje})
+    canal_atom =
+      case canal_id do
+        canal when is_atom(canal) -> canal
+        canal when is_binary(canal) -> String.to_atom(canal)
+      end
 
-    # Guardar en CSV (asíncrono para no bloquear)
+    mensaje_normalizado = %{mensaje | canal_id: canal_atom}
+
+    :ets.insert(@table, {canal_atom, mensaje_normalizado})
+
     Task.start(fn ->
-      guardar_mensaje_csv(mensaje)
+      guardar_mensaje_csv(mensaje_normalizado)
     end)
 
     :ok
   end
 
-  def agregar_mensaje(canal_id, remitente_id, contenido) when is_binary(contenido) do
-    mensaje = Message.nuevo(
-      UUID.uuid4(),
-      remitente_id,
-      canal_id,
-      contenido,
-      DateTime.utc_now()
-    )
+  def agregar_mensaje(canal_id, remitente_id, contenido) do
+    mensaje =
+      Message.nuevo(
+        UUID.uuid4(),
+        remitente_id,
+        canal_id,
+        contenido,
+        DateTime.utc_now()
+      )
 
     agregar_mensaje(canal_id, mensaje)
     {:ok, mensaje}
   end
 
-  @doc """
-  Obtiene los últimos N mensajes de un canal.
-  """
+  # ---------------------------------------------------------------------
+  # OBTENER MENSAJES
+  # ---------------------------------------------------------------------
+
   def obtener_mensajes(canal_id, limite \\ 50) do
-    init()
+    init_store()
 
     :ets.lookup(@table, canal_id)
     |> Enum.map(fn {_id, msg} -> msg end)
@@ -184,38 +129,122 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ChatStore do
   end
 
   @doc """
-  Elimina todos los mensajes de un canal (solo de ETS).
-  Nota: No elimina del CSV para mantener historial.
+  Retorna el historial completo de los anuncios globales.
   """
-  def limpiar_chat(canal_id) do
-    init()
-    :ets.match_delete(@table, {canal_id, :_})
-    :ok
+  def obtener_anuncios_globales(limite \\ 50) do
+    obtener_mensajes(:canal_anuncios_globales, limite)
   end
 
-  # ============================================================
-  # PERSISTENCIA CSV
-  # ============================================================
+  # ---------------------------------------------------------------------
+  # CSV WRITER
+  # ---------------------------------------------------------------------
 
   defp guardar_mensaje_csv(%Message{} = mensaje) do
-    linea = [
-      mensaje.id,
-      mensaje.remitente_id,
-      mensaje.canal_id,
-      "\"#{escapar_csv(mensaje.contenido)}\"",
-      DateTime.to_iso8601(mensaje.timestamp)
-    ]
-    |> Enum.join(",")
-    |> Kernel.<>("\n")
+    linea =
+      [
+        mensaje.id,
+        mensaje.remitente_id,
+        mensaje.canal_id,
+        "\"#{escapar_csv(mensaje.contenido)}\"",
+        DateTime.to_iso8601(mensaje.timestamp)
+      ]
+      |> Enum.join(",")
+      |> Kernel.<>("\n")
 
     File.write!(@mensajes_file, linea, [:append])
-  rescue
-    e ->
-      IO.puts("⚠️  Error guardando mensaje en CSV: #{inspect(e)}")
   end
 
-  defp escapar_csv(texto) do
-    texto |> String.replace("\"", "\"\"")
+  defp escapar_csv(txt), do: String.replace(txt, "\"", "\"\"")
+
+  # ---------------------------------------------------------------------
+  # CSV PARSER
+  # ---------------------------------------------------------------------
+
+  defp parsear_csv_completo(contenido) do
+    contenido
+    |> String.split("\n")
+    |> Enum.drop(1) # quitar header
+    |> Enum.reject(&(&1 == ""))
+    |> parsear_lineas_csv([])
+  end
+
+  defp parsear_lineas_csv([], acc), do: Enum.reverse(acc)
+
+  defp parsear_lineas_csv([linea | resto], acc) do
+    num_comillas =
+      linea
+      |> String.graphemes()
+      |> Enum.count(&(&1 == "\""))
+
+    cond do
+      rem(num_comillas, 2) == 0 ->
+        case parsear_linea_csv(linea) do
+          nil -> parsear_lineas_csv(resto, acc)
+          msg -> parsear_lineas_csv(resto, [msg | acc])
+        end
+
+      true ->
+        case resto do
+          [sig | tail] ->
+            parsear_lineas_csv([linea <> "\n" <> sig | tail], acc)
+
+          [] ->
+            acc
+        end
+    end
+  end
+
+  defp parsear_linea_csv(linea) do
+    columnas = split_csv_line(linea)
+
+    case columnas do
+      [id, remitente, canal, contenido_raw, timestamp_str] ->
+        contenido =
+          contenido_raw
+          |> String.trim_leading("\"")
+          |> String.trim_trailing("\"")
+          |> String.replace("\"\"", "\"")
+
+        with {:ok, timestamp, _} <- DateTime.from_iso8601(String.trim(timestamp_str)) do
+          Message.nuevo(
+            String.trim(id),
+            String.trim(remitente),
+            canal |> String.trim() |> String.to_atom(),
+            contenido,
+            timestamp
+          )
+        else
+          _ -> nil
+        end
+
+      _ ->
+        nil
+    end
+  end
+
+  # Dividir CSV respetando comillas
+  defp split_csv_line(linea) do
+    do_split(String.graphemes(linea), [], "", false)
+  end
+
+  defp do_split([], acc, buf, _), do: acc ++ [buf]
+
+  defp do_split([char | rest], acc, buf, en_comillas) do
+    case {char, en_comillas} do
+      {",", false} ->
+        do_split(rest, acc ++ [buf], "", false)
+
+      {"\"", false} ->
+        do_split(rest, acc, buf <> char, true)
+
+      {"\"", true} ->
+        case rest do
+          ["\"" | rr] -> do_split(rr, acc, buf <> "\"", true)
+          _ -> do_split(rest, acc, buf <> "\"", false)
+        end
+
+      _ ->
+        do_split(rest, acc, buf <> char, en_comillas)
+    end
   end
 end
-
