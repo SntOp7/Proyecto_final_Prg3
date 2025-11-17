@@ -1,4 +1,4 @@
-defmodule ProyectoFinalPrg3.Channels.MentorshipChannel do
+defmodule ProyectoFinalPrg3.Adapters.Network.MentorshipChannel do
   @moduledoc """
   Canal privado de comunicación entre mentores y equipos.
 
@@ -29,6 +29,7 @@ defmodule ProyectoFinalPrg3.Channels.MentorshipChannel do
 
   alias ProyectoFinalPrg3.Adapters.Network.{PubSubAdapter, MessageBroadcast}
   alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
+
 
   # ============================================================
   # API PÚBLICA
