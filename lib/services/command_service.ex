@@ -228,12 +228,21 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
 
   # /assign_mentor equipo=... id_mentor=...
   def ejecutar_comando(%{service: :admin_manager, action: :assign_mentor}, %{
-        equipo: equipo,
-        id_mentor: id
-      }) do
-    MentorManager.asignar_a_equipo(id, equipo)
-    {:ok, "Mentor asignado a #{equipo}"}
+      equipo: equipo,
+      id_mentor: id
+    }) do
+  case MentorManager.asignar_a_equipo(id, equipo) do
+    {:ok, _equipo_actualizado} ->
+      {:ok, "Mentor asignado a #{equipo}"}
+
+    {:error, razon} ->
+      {:error, "No se pudo asignar el mentor: #{inspect(razon)}"}
+
+    otro ->
+      {:error, "Error inesperado: #{inspect(otro)}"}
   end
+end
+
 
   # /delete_team id_equipo=...
   def ejecutar_comando(%{service: :admin_manager, action: :delete_team}, %{id_equip: id_equipo}) do
