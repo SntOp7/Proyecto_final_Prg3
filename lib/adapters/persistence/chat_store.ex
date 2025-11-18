@@ -65,12 +65,6 @@ defmodule ProyectoFinalPrg3.Adapters.Persistence.ChatStore do
           :ets.insert(@table, {mensaje.canal_id, mensaje})
         end)
 
-        if mensajes == [] do
-          IO.puts("⚠️  No se encontraron mensajes válidos en el CSV")
-        else
-          IO.puts("✅ #{length(mensajes)} mensajes cargados desde persistencia")
-        end
-
       _ ->
         :ok
     end
