@@ -49,6 +49,10 @@ defmodule ProyectoFinalPrg3.Adapters.Network.ChannelManager do
   ## Retorna:
     - `:ok` – mensaje difundido con éxito.
   """
+  def broadcast(canal, mensaje) when is_binary(canal) do
+    broadcast(String.to_atom(canal), mensaje)
+  end
+
   def broadcast(canal, mensaje) when is_atom(canal) do
     PubSubAdapter.publicar(canal, mensaje)
     LoggerService.registrar_evento("Broadcast realizado", %{canal: canal, mensaje: mensaje})
