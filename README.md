@@ -1260,4 +1260,6 @@ Hecho con ❤️ por el equipo de trabajo
 
 [⬆ Volver arriba](#-sistema-de-gestión-de-hackathon-colaborativa)
 
+![alt text](image.png)
+
 </div>
