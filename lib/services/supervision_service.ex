@@ -24,9 +24,10 @@ defmodule ProyectoFinalPrg3.Services.SupervisionService do
       iex> SupervisionManager.verificar_estado(:metrics)
       {:ok, :activo}
 
-  Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
-  Fecha de creación: 2025-11-03
-  Licencia: GNU GPLv3
+  Autores: [Sharif Giraldo Obando, Juan Sebastián Hernández y Santiago Ospina Sánchez]
+  Fecha de creación: 2025-11-16
+  Fecha de última modificación: 2025-11-16
+  Licencia: GNU GPL v3
   """
 
   alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
@@ -41,6 +42,8 @@ defmodule ProyectoFinalPrg3.Services.SupervisionService do
 
   @doc """
   Inicia el supervisor en memoria mediante un `Agent` interno si aún no está activo.
+  Retorna:
+    - :ok al completar la inicialización.
   """
   def iniciar do
     unless Process.whereis(@agent_name) do
@@ -55,6 +58,11 @@ defmodule ProyectoFinalPrg3.Services.SupervisionService do
   Registra un proceso supervisado bajo un identificador lógico (`:metrics`, `:session_manager`, etc.).
 
   Si el proceso ya está registrado, actualiza su referencia.
+  Parámetros:
+    - nombre: Átomo que identifica el proceso (ej. :metrics).
+    - modulo: Módulo del proceso supervisado (ej. MetricsService).
+  Retorna:
+    - :ok al completar el registro.
   """
   def registrar_proceso(nombre, modulo) when is_atom(nombre) and is_atom(modulo) do
     iniciar()
@@ -70,6 +78,8 @@ defmodule ProyectoFinalPrg3.Services.SupervisionService do
 
   @doc """
   Lista todos los procesos actualmente bajo supervisión.
+  Retorna:
+    - Mapa con los procesos registrados y sus módulos.
   """
   def listar_procesos do
     iniciar()
@@ -87,6 +97,8 @@ defmodule ProyectoFinalPrg3.Services.SupervisionService do
   - `{:ok, :activo}` si el proceso está disponible.
   - `{:restarted, modulo}` si fue reiniciado.
   - `{:error, :no_registrado}` si no está en la tabla de supervisión.
+  Parámetros:
+    - nombre: Átomo que identifica el proceso a verificar.
   """
   def verificar_estado(nombre) when is_atom(nombre) do
     iniciar()
@@ -108,6 +120,8 @@ defmodule ProyectoFinalPrg3.Services.SupervisionService do
   @doc """
   Revisa todos los procesos registrados y reinicia los que no estén activos.
   Retorna un resumen de los procesos revisados.
+  Parámetros:
+    - Ninguno.
   """
   def verificar_todos do
     iniciar()

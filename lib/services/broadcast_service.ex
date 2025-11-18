@@ -10,10 +10,10 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
 
   Este módulo es usado por gestores como `TeamManager`, `ProjectManager`, `MentorManager`, etc.
 
-  Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
-  Fecha de creación: 2025-10-26
-  Última modificación: 2025-10-27
-  Licencia: GNU GPLv3
+  Autores: [Sharif Giraldo Obando, Juan Sebastián Hernández y Santiago Ospina Sánchez]
+  Fecha de creación: 2025-11-16
+  Fecha de última modificación: 2025-11-16
+  Licencia: GNU GPL v3
   """
 
   alias ProyectoFinalPrg3.Adapters.Network.{PubSubAdapter, ChannelManager, NodeManager}
@@ -26,10 +26,12 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
 
   @central Application.compile_env(:proyecto_final_prg3, :central_node)
 
+  @doc false
   defp soy_central? do
     Node.self() == @central
   end
 
+  @doc false
   defp reenviar_al_central(fun, args) do
     :rpc.call(@central, __MODULE__, fun, args)
   end
@@ -44,6 +46,12 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
 
   ## Ejemplo:
       BroadcastService.notificar(:proyecto_creado, %{nombre: "SmartHub", categoria: "IA"})
+  ## Parámetros:
+    - evento: Átomo que identifica el evento.
+    - data: Datos asociados al evento (mapa o cualquier estructura).
+    - tipo: Tipo de notificación (:info, :warning, :error, etc.).
+  ## Retorna:
+    - {:ok, mensaje} con el contenido de la notificación.
   """
   def notificar(evento, data, tipo \\ :info) when is_atom(evento) do
     mensaje = construir_mensaje(tipo, evento, data)
@@ -55,6 +63,13 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
 
   @doc """
   Envía un mensaje directo a un destino específico (por ejemplo, a un canal o a un nodo).
+  Útil para comunicaciones puntuales o privadas.
+  ## Parámetros:
+    - destino: Identificador del destino (string o átomo).
+    - mensaje: Contenido del mensaje (cualquier estructura).
+    - tipo: Tipo de mensaje (:directo, :notificación, etc.).
+  ## Retorna:
+    - {:ok, payload} con el contenido enviado.
   """
   def enviar_directo(destino, mensaje, tipo \\ :directo) do
     payload = %{
@@ -84,6 +99,12 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
   @doc """
   Notifica simultáneamente un mismo evento a múltiples destinos.
   Útil para difusión grupal (equipos, proyectos o mentores asignados).
+  ## Parámetros:
+    - evento: Átomo que identifica el evento.
+    - lista_destinos: Lista de destinos (strings o átomos).
+    - contenido: Datos asociados al evento.
+  ## Retorna:
+    - :ok al completar la difusión.
   """
   def notificar_grupo(evento, lista_destinos, contenido) do
     if not soy_central?() do
@@ -109,6 +130,11 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
 
   @doc """
   Permite que un proceso se suscriba a eventos específicos dentro del sistema.
+  ## Parámetros:
+    - evento: Átomo que identifica el evento.
+    - pid: PID del proceso que se suscribe (por defecto, el proceso actual).
+  ## Retorna:
+    - {:ok, :suscrito} al completar la suscripción.
   """
   def suscribirse(evento, pid \\ self()) when is_atom(evento) and is_pid(pid) do
     if not soy_central?() do
@@ -125,6 +151,11 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
 
   @doc """
   Cancela una suscripción existente a un evento.
+  ## Parámetros:
+    - evento: Átomo que identifica el evento.
+    - pid: PID del proceso que cancela la suscripción (por defecto, el proceso actual).
+  ## Retorna:
+    - {:ok, :cancelado} al completar la cancelación.
   """
   def cancelar_suscripcion(evento, pid \\ self()) when is_atom(evento) and is_pid(pid) do
     if soy_central?() do
@@ -146,6 +177,12 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
   @doc """
   Registra un evento especial para trazabilidad de proyectos.
   Usado por `ProjectManager` para registrar avances, evaluaciones y cambios.
+  ## Parámetros:
+    - evento: Átomo que identifica el evento.
+    - proyecto_nombre: Nombre del proyecto asociado (string).
+    - detalles: Detalles adicionales del evento (mapa o cualquier estructura).
+  ## Retorna:
+    - {:ok, payload} con el contenido del evento registrado.
   """
   def registrar_evento_proyecto(evento, proyecto_nombre, detalles) do
     payload = construir_mensaje(:proyecto, evento, %{proyecto: proyecto_nombre, data: detalles})
@@ -166,6 +203,11 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
 
   @doc """
   Envía una alerta o error del sistema con prioridad alta.
+  ## Parámetros:
+    - contexto: Contexto o módulo donde ocurrió el error (string o átomo).
+    - detalle: Detalle o mensaje del error (string o cualquier estructura).
+  ## Retorna:
+    - {:error, mensaje} con el contenido de la notificación de error.
   """
   def notificar_error(contexto, detalle) do
     mensaje = construir_mensaje(:error, :error_sistema, %{contexto: contexto, detalle: detalle})
@@ -188,6 +230,7 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
   # AUXILIARES
   # ============================================================
 
+  @doc false
   defp construir_mensaje(tipo, evento, data) do
     %{
       tipo: tipo,
@@ -198,6 +241,7 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
     }
   end
 
+  @doc false
   defp safe_broadcast(fun) do
     try do
       fun.()
@@ -219,6 +263,8 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
 
   @doc """
   Registra el servicio de broadcast dentro del `SupervisionManager` para monitoreo.
+  ## Retorna:
+    - :ok al completar el registro.
   """
   def registrar_supervision do
     ProyectoFinalPrg3.Services.SupervisionService.registrar_proceso(
@@ -229,6 +275,8 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
 
   @doc """
   Inicializa el servicio de broadcast. Si no existe el sistema PubSub, lo arranca nuevamente.
+  ## Retorna:
+    - :ok al completar la inicialización.
   """
   def inicializar_supervision do
     if soy_central?() do

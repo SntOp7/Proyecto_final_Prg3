@@ -29,9 +29,10 @@ defmodule ProyectoFinalPrg3.Services.MetricsService do
         proyectos_en_desarrollo: 5
       }
 
-  Autores: [Sharif Giraldo, Juan Sebastián Hernández y Santiago Ospina Sánchez]
-  Fecha de creación: 2025-11-03
-  Licencia: GNU GPLv3
+  Autores: [Sharif Giraldo Obando, Juan Sebastián Hernández y Santiago Ospina Sánchez]
+  Fecha de creación: 2025-11-16
+  Fecha de última modificación: 2025-11-16
+  Licencia: GNU GPL v3
   """
 
   alias ProyectoFinalPrg3.Services.ParticipantManager
@@ -54,6 +55,8 @@ defmodule ProyectoFinalPrg3.Services.MetricsService do
 
   @doc """
   Inicializa o restablece las métricas internas a sus valores por defecto.
+  Retorna:
+    - :ok al completar la inicialización.
   """
   def inicializar do
     put_metrics(@metrics)
@@ -73,6 +76,8 @@ defmodule ProyectoFinalPrg3.Services.MetricsService do
     - `datos`: mapa opcional con información adicional sobre el evento.
 
   Cada evento se guarda en una lista interna y puede ser consultado más adelante.
+  Retorna:
+    - :ok al completar el registro.
   """
   def registrar_evento(tipo_evento, datos \\ %{}) when is_atom(tipo_evento) do
     metricas = get_metrics()
@@ -212,6 +217,10 @@ defmodule ProyectoFinalPrg3.Services.MetricsService do
 
 @doc """
 Registra este servicio en el `SupervisionManager` para permitir supervisión y reinicio automático.
+Parámetros:
+  - Ninguno.
+Retorna:
+  - :ok al completar el registro.
 """
 def registrar_supervision do
   ProyectoFinalPrg3.Services.SupervisionService.registrar_proceso(:metrics_service, __MODULE__)
@@ -220,6 +229,10 @@ end
 @doc """
 Inicializa el servicio de métricas.
 Si el `Agent` interno no está corriendo, lo levanta nuevamente.
+Parámetros:
+  - Ninguno.
+Retorna:
+  - :ok al completar la inicialización.
 """
 def inicializar_supervision do
   unless Process.whereis(__MODULE__) do

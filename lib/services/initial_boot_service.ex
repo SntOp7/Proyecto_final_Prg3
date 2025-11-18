@@ -34,9 +34,10 @@ defmodule ProyectoFinalPrg3.Services.InitialBootService do
   5. Se conecta a nodos cuando aplica
   6. El sistema queda listo para operar
 
-  Autores: Sharif Giraldo, Juan Sebastián Hernández, Santiago Ospina Sánchez
-  Actualizado: 2025-11-16
-  Licencia: GNU GPLv3
+  Autores: [Sharif Giraldo Obando, Juan Sebastián Hernández y Santiago Ospina Sánchez]
+  Fecha de creación: 2025-11-16
+  Fecha de última modificación: 2025-11-16
+  Licencia: GNU GPL v3
   """
 
   use GenServer
@@ -65,6 +66,13 @@ defmodule ProyectoFinalPrg3.Services.InitialBootService do
   # ============================================================
 
   @impl true
+  @doc """
+  Inicializa el estado del GenServer.
+  ## Parámetros:
+    - :ok → indicador de inicio estándar.
+  ## Retorna:
+    - {:ok, %{} } → estado inicial vacío.
+  """
   def init(:ok) do
     :ets.new(:sesiones_activas, [:set, :named_table, :public])
     Process.send_after(self(), :boot, 20)
@@ -76,6 +84,16 @@ defmodule ProyectoFinalPrg3.Services.InitialBootService do
   # ============================================================
 
   @impl true
+  @doc """
+  Maneja el mensaje :boot para iniciar el proceso de arranque.
+
+  ## Parámetros:
+    - :boot → mensaje de inicio diferido.
+    - state → estado actual del GenServer.
+
+  ## Retorna:
+    - {:noreply, state} → continúa con el estado actual.
+  """
   def handle_info(:boot, state) do
 
     tipo = Application.get_env(:proyecto_final_prg3, :tipo_nodo, :central)
@@ -112,6 +130,11 @@ defmodule ProyectoFinalPrg3.Services.InitialBootService do
   - :cli → NO crea nodo distribuido, pero se conecta al CENTRAL obligatoriamente.
   - :persistencia → crea nodo distribuido sin conectarse a otros.
   - :central → crea nodo distribuido y se conecta al nodo persistencia.
+  ## Parámetros:
+    - tipo: Tipo de nodo (:cli, :persistencia, :central).
+  ## Retorna:
+    - :ok si la inicialización es exitosa.
+    - {:error, razón} si ocurre un error.
   """
 
   # ============================================================
@@ -139,6 +162,7 @@ defmodule ProyectoFinalPrg3.Services.InitialBootService do
   # ============================================================
   # PERSISTENCIA NODE
   # ============================================================
+  
   def inicializar_nodos(:persistencia) do
     case NodeManager.iniciar_nodo_local() do
       :ok ->

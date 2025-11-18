@@ -20,10 +20,24 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
   # GEN SERVER
   # -----------------------------------------
 
+  @doc """
+  Inicia el GenServer del ChatService.
+  ## Parámetros:
+    - _opts: Opciones de inicio (no usadas).
+  ## Retorna:
+    - {:ok, pid} del proceso iniciado.
+  """
   def start_link(_opts) do
     GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
   end
 
+  @doc """
+  Inicializa el estado del GenServer.
+  ## Parámetros:
+    - state: Estado inicial (generalmente un mapa vacío).
+  ## Retorna:
+    - {:ok, state} con el estado inicializado.
+  """
   def init(state) do
     # Solo inicializamos ChatStore UNA VEZ al iniciar el sistema
     ChatStore.init_store()
@@ -34,6 +48,11 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
   # INICIALIZACIÓN ETS LOCAL
   # -----------------------------------------
 
+  @doc """
+  Inicializa la tabla ETS para el chat activo si no existe.
+  ## Retorna:
+    - :ok siempre.
+  """
   def init_tabla do
     case :ets.whereis(@tabla_chat_activo) do
       :undefined ->
@@ -50,6 +69,14 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
   # INGRESAR AL CHAT
   # -----------------------------------------
 
+  @doc """
+  Permite a un participante ingresar al chat de un equipo.
+  ## Parámetros:
+    - nombre_equipo: Nombre del equipo al que se desea ingresar.
+  ## Retorna:
+    - {:ok, mensaje} si el ingreso es exitoso.
+    - {:error, razón} si ocurre un error.
+  """
   def ingresar_chat_equipo(nombre_equipo) do
     init_tabla()
 
@@ -86,6 +113,14 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
   # ENVIAR MENSAJE
   # -----------------------------------------
 
+  @doc """
+  Envía un mensaje al chat del equipo activo.
+  ## Parámetros:
+    - contenido: Texto del mensaje a enviar.
+  ## Retorna:
+    - {:ok, "✅"} si el mensaje se envía correctamente.
+    - {:error, razón} si ocurre un error.
+  """
   def enviar_mensaje(contenido) do
     init_tabla()
 
@@ -103,6 +138,7 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
     end
   end
 
+  @doc false
   defp enviar_mensaje_valido(contenido) do
     with {:ok, participante} <- SessionManager.obtener_participante_actual(),
          {:ok, nombre_equipo} <- obtener_chat_activo(participante.id) do
@@ -138,6 +174,15 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
   # MENSAJE DEL SISTEMA
   # -----------------------------------------
 
+  @doc """
+  Envía un mensaje del sistema al chat de un equipo.
+  ## Parámetros:
+    - nombre_equipo: Nombre del equipo al que se enviará el mensaje.
+    - contenido: Texto del mensaje del sistema.
+  ## Retorna:
+    - {:ok, mensaje} si el mensaje se envía correctamente.
+    - {:error, razón} si ocurre un error.
+  """
   def enviar_mensaje_sistema(nombre_equipo, contenido) do
     contenido = String.trim(contenido)
 
@@ -168,6 +213,12 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
   # SALIR DEL CHAT
   # -----------------------------------------
 
+  @doc """
+  Permite a un participante salir del chat activo.
+  ## Retorna:
+    - {:ok, mensaje} si la salida es exitosa.
+    - {:error, razón} si ocurre un error.
+  """
   def salir_chat do
     init_tabla()
 
@@ -191,6 +242,15 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
   # HISTORIAL
   # -----------------------------------------
 
+  @doc """
+  Obtiene el historial de mensajes de un chat de equipo.
+  ## Parámetros:
+    - nombre_equipo: Nombre del equipo cuyo historial se desea obtener.
+    - limite: Número máximo de mensajes a obtener (por defecto 50).
+  ## Retorna:
+    - {:ok, texto} con el historial formateado.
+    - {:error, razón} si ocurre un error.
+  """
   def obtener_historial(nombre_equipo, limite \\ 50) do
     with {:ok, participante} <- SessionManager.obtener_participante_actual(),
          {:ok, equipo} <- TeamManager.obtener_equipo(nombre_equipo),
@@ -216,6 +276,7 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
     end
   end
 
+  @doc false
   defp formatear_historial(mensajes) do
     mensajes
     |> Enum.map(fn msg ->
@@ -226,8 +287,10 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
     |> Enum.join("\n")
   end
 
+  @doc false
   defp obtener_nombre_autor("sistema"), do: "🤖 Sistema"
 
+  @doc false
   defp obtener_nombre_autor(id) do
     case ParticipantStore.obtener_participante(id) do
       {:ok, p} -> p.nombre
@@ -239,6 +302,7 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
   # AUXILIARES
   # -----------------------------------------
 
+  @doc false
   defp obtener_chat_activo(participante_id) do
     init_tabla()
 
@@ -248,8 +312,24 @@ defmodule ProyectoFinalPrg3.Services.ChatService do
     end
   end
 
+  @doc """
+  Obtiene el nombre del chat activo para un usuario dado.
+  ## Parámetros:
+    - id: ID del participante.
+  ## Retorna:
+    - {:ok, nombre_equipo} si hay un chat activo.
+    - {:error, :sin_chat_activo} si no hay chat activo.
+  """
   def obtener_chat_activo_usuario(id), do: obtener_chat_activo(id)
 
+  @doc """
+  Verifica si un participante tiene un chat activo.
+  ## Parámetros:
+    - id: ID del participante.
+  ## Retorna:
+    - true si tiene un chat activo.
+    - false si no tiene un chat activo.
+  """
   def chat_activo?(id) do
     init_tabla()
 

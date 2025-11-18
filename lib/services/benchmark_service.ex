@@ -74,6 +74,11 @@ defmodule ProyectoFinalPrg3.Services.BenchmarkService do
 
   @doc """
   Calcula el *speedup* (factor de mejora) entre dos tiempos de ejecución.
+  ## Parámetros:
+    - `t1`: Tiempo del primer algoritmo (microsegundos).
+    - `t2`: Tiempo del segundo algoritmo (microsegundos).
+  ## Retorna:
+    - Factor de *speedup* (float).
   """
   def calcular_speedup(t1, t2) when t1 > 0 and t2 > 0, do: t2 / t1
   def calcular_speedup(_, _), do: 0
@@ -85,6 +90,10 @@ defmodule ProyectoFinalPrg3.Services.BenchmarkService do
   @doc """
   Ejecuta un benchmark múltiple entre una lista de funciones
   y genera un ranking de rendimiento.
+  ## Parámetros:
+    - `funciones`: Lista de referencias `{modulo, funcion, args}`.
+  ## Retorna:
+    - Lista ordenada de tuplas `{referencia, tiempo}`.
   """
   def ranking(funciones) when is_list(funciones) do
     resultados =

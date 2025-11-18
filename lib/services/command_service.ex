@@ -28,6 +28,15 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
   # ===================================================================
 
   # /register nombre="..." correo=... username=... contrasenia=... rol=...
+
+  @doc """
+  Ejecuta un comando CLI dado su descriptor y argumentos.
+  Parámetros:
+    - comando: Mapa con :service y :action.
+    - args: Mapa con los argumentos del comando.
+  Retorna:
+    - {:ok, resultado} o {:error, razon}
+  """
   def ejecutar_comando(
         %{service: :auth_service, action: :register},
         %{
@@ -71,6 +80,8 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
   end
 
   # /login correo=... contrasenia=...
+
+  
   def ejecutar_comando(%{service: :auth_service, action: :login}, %{
         correo: correo,
         contrasenia: contrasenia
@@ -85,6 +96,7 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
   end
 
   # /help
+
   def ejecutar_comando(%{service: :command_service, action: :show_help}, _args) do
     usuario =
       case SessionManager.obtener_participante_actual() do

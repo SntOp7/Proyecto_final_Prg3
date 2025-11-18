@@ -1,6 +1,10 @@
 defmodule ProyectoFinalPrg3.Services.ProgressManager do
   @moduledoc """
   Servicio de gestión de avances (progress) de proyectos.
+  Autores: [Sharif Giraldo Obando, Juan Sebastián Hernández y Santiago Ospina Sánchez]
+  Fecha de creación: 2025-11-16
+  Fecha de última modificación: 2025-11-16
+  Licencia: GNU GPL v3
   """
 
   alias ProyectoFinalPrg3.Domain.Progress
@@ -14,6 +18,14 @@ defmodule ProyectoFinalPrg3.Services.ProgressManager do
 
   @doc """
   Registra un nuevo avance en un proyecto.
+  Parámetros:
+    - proyecto_nombre: Nombre del proyecto (string).
+    - titulo: Título del avance (string).
+    - descripcion: Descripción del avance (string).
+    - version: Versión del avance (string, opcional, por defecto "1.0").
+  Retorna:
+    - {:ok, avance} si el registro es exitoso.
+    - {:error, razón} si ocurre un error.
   """
   def registrar_avance(proyecto_nombre, titulo, descripcion, version \\ "1.0") do
     with {:ok, participante} <- SessionManager.obtener_participante_actual(),
@@ -60,6 +72,11 @@ defmodule ProyectoFinalPrg3.Services.ProgressManager do
 
   @doc """
   Lista todos los avances de un proyecto.
+  Parámetros:
+    - proyecto_nombre: Nombre del proyecto (string).
+  Retorna:
+    - {:ok, lista_de_avances} si la consulta es exitosa.
+    - {:error, razón} si ocurre un error.
   """
   def listar_avances_proyecto(proyecto_nombre) do
     with {:ok, proyecto} <- ProjectManager.obtener_proyecto(proyecto_nombre) do
@@ -75,6 +92,11 @@ defmodule ProyectoFinalPrg3.Services.ProgressManager do
 
   @doc """
   Obtiene un avance específico por ID.
+  Parámetros:
+    - id: ID del avance (string).
+  Retorna:
+    - {:ok, avance} si se encuentra.
+    - {:error, :no_encontrado} si no existe.
   """
   def obtener_avance(id) do
     ProgressStore.obtener_avance(id)
@@ -86,6 +108,12 @@ defmodule ProyectoFinalPrg3.Services.ProgressManager do
 
   @doc """
   Actualiza el estado de un avance (pendiente -> revisión -> aprobado).
+  Parámetros:
+    - avance_id: ID del avance (string).
+    - nuevo_estado: Nuevo estado (:pendiente, :revision, :aprobado).
+  Retorna:
+    - {:ok, avance_actualizado} si la actualización es exitosa.
+    - {:error, razón} si ocurre un error.
   """
   def actualizar_estado(avance_id, nuevo_estado)
       when nuevo_estado in [:pendiente, :revision, :aprobado] do
@@ -105,6 +133,12 @@ defmodule ProyectoFinalPrg3.Services.ProgressManager do
 
   @doc """
   Agrega retroalimentación a un avance (usualmente por mentores).
+  Parámetros:
+    - avance_id: ID del avance (string).
+    - retroalimentacion: Comentario o feedback (string).
+  Retorna:
+    - {:ok, avance_actualizado} si la retroalimentación se agrega correctamente.
+    - {:error, razón} si ocurre un error.
   """
   def agregar_retroalimentacion(avance_id, retroalimentacion) do
     with {:ok, mentor} <- SessionManager.obtener_participante_actual(),

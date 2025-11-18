@@ -45,10 +45,13 @@ defmodule ProyectoFinalPrg3.Services.CategoryService do
 
   @doc """
   Actualiza una categoría existente.
-
   Solo permite actualizar:
   - nombre
   - descripcion
+  Retorna:
+    - {:ok, categoria_actualizada}
+    - {:error, :no_encontrada}
+    - {:error, :datos_invalidos}
   """
   def actualizar_categoria(id, %{nombre: nombre, descripcion: descripcion}) do
     with {:ok, categoria} <- obtener_categoria(id) do
@@ -73,6 +76,11 @@ defmodule ProyectoFinalPrg3.Services.CategoryService do
 
   @doc """
   Elimina una categoría por id.
+  Parametros:
+    - id: ID de la categoría a eliminar.
+  Retorna:
+    - {:ok, :eliminada}
+    - {:error, :no_encontrada}
   """
   def eliminar_categoria(id) do
     with {:ok, categoria} <- obtener_categoria(id) do
@@ -88,10 +96,23 @@ defmodule ProyectoFinalPrg3.Services.CategoryService do
   # CONSULTAS
   # ============================================================
 
+  @doc """
+  Lista todas las categorías disponibles.
+  Retorna:
+    - Lista de categorías.
+  """
   def listar_categorias do
     CategoryStore.listar_categorias()
   end
 
+  @doc """
+  Obtiene una categoría por su ID.
+  Parámetros:
+    - id: ID de la categoría.
+  Retorna:
+    - {:ok, categoria} si se encuentra.
+    - {:error, :no_encontrada} si no existe.
+  """
   def obtener_categoria(id) do
     case CategoryStore.obtener_categoria(id) do
       nil -> {:error, :no_encontrada}
@@ -99,6 +120,14 @@ defmodule ProyectoFinalPrg3.Services.CategoryService do
     end
   end
 
+  @doc """
+  Busca una categoría por su nombre.
+  Parámetros:
+    - nombre: Nombre de la categoría.
+  Retorna:
+    - {:ok, categoria} si se encuentra.
+    - {:error, :no_encontrada} si no existe.
+  """
   def buscar_por_nombre(nombre) do
     lista = listar_categorias()
 
@@ -110,6 +139,14 @@ defmodule ProyectoFinalPrg3.Services.CategoryService do
     end
   end
 
+  @doc """
+  Verifica si una categoría existe por su nombre.
+  Parámetros:
+    - nombre: Nombre de la categoría.
+  Retorna:
+    - true si existe.
+    - false si no existe.
+  """
   def categoria_existe?(nombre) do
     case buscar_por_nombre(nombre) do
       {:ok, _} -> true
