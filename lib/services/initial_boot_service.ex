@@ -42,7 +42,7 @@ defmodule ProyectoFinalPrg3.Services.InitialBootService do
   use GenServer
   require Logger
 
-  alias ProyectoFinalPrg3.Adapters.Logging.{LoggerService, AuditService}
+  alias ProyectoFinalPrg3.Adapters.Logging.LoggerService
   alias ProyectoFinalPrg3.Adapters.Persistence.PersistenceManager
   alias ProyectoFinalPrg3.Adapters.Network.NodeManager
 
@@ -98,10 +98,6 @@ defmodule ProyectoFinalPrg3.Services.InitialBootService do
     if tipo == :persistencia do
       PersistenceManager.inicializar()
       LoggerService.registrar_evento("Repositorios cargados", %{})
-    end
-
-    if tipo == :central do
-      AuditService.exportar_a_txt()
     end
 
     {:noreply, state}

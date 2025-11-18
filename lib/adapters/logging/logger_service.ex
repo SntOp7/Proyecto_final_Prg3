@@ -28,7 +28,7 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
     - `data`: Mapa con datos adicionales (opcional).
   Retorna: :ok
   """
-  def registrar_evento(mensaje, data \\ %{}) do
+  def registrar_evento(mensaje, data \\ %{}) when is_binary(mensaje) do
     evento = construir_evento(mensaje, data)
     guardar_en_archivo(evento)
     mostrar_en_consola(evento)
@@ -60,9 +60,11 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
   Retorna: :ok
   """
   def limpiar_logs do
-    File.rm(@log_file)
+    # eliminar de forma segura (no falla si no existe)
+    File.rm_rf!(@log_file)
     File.mkdir_p!(@log_dir)
     inicializar_csv()
+    :ok
   end
 
   @doc """
@@ -73,9 +75,8 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
     - `{:ok, ruta_salida}` con la ubicación del archivo exportado.
   """
   def exportar_a_json(ruta_salida) do
-    eventos =
-      obtener_eventos_recientes(99999)
-
+    eventos = obtener_eventos_recientes(99999)
+    File.mkdir_p!(Path.dirname(ruta_salida))
     File.write!(ruta_salida, Jason.encode!(eventos, pretty: true))
     {:ok, ruta_salida}
   end
@@ -95,6 +96,7 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
       end)
       |> Enum.join("\n")
 
+    File.mkdir_p!(Path.dirname(ruta_salida))
     File.write!(ruta_salida, contenido)
     {:ok, ruta_salida}
   end
@@ -109,32 +111,46 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
       id: UUID.uuid4(),
       timestamp: DateTime.utc_now() |> DateTime.to_iso8601(),
       nodo: Atom.to_string(Node.self()),
-      tipo: Map.get(data, :tipo, inferir_tipo(mensaje)),
+      tipo: Map.get(data || %{}, :tipo, inferir_tipo(mensaje)),
       mensaje: mensaje,
       datos: normalizar_datos(data)
     }
   end
 
+  # Normaliza entrada recibida como `data` para guardarla y evitar
+  # errores en JSON. Devuelve siempre una estructura JSON-serializable.
   @doc false
-  defp normalizar_datos(data) when is_struct(data) do
-    data
+  defp normalizar_datos(nil), do: %{}
+  defp normalizar_datos(data) when is_binary(data), do: data
+
+  defp normalizar_datos(%_{} = s) do
+    s
     |> Map.from_struct()
     |> Map.drop([:contrasena])
+    |> normalizar_para_json()
   end
 
-  @doc false
-  defp normalizar_datos(data) when is_map(data) do
-    data
+  defp normalizar_datos(map) when is_map(map) do
+    map
     |> Map.drop([:contrasena])
+    |> normalizar_para_json()
   end
 
+  defp normalizar_datos(other), do: normalizar_para_json(other)
+
+  # -------------------------------------------------------
+  # GUARDA EN ARCHIVO (solo nodo central escribe CSV)
+  # -------------------------------------------------------
   @doc false
   defp guardar_en_archivo(evento) do
+    # Solo CENTRAL guarda logs en CSV (si quieres cambiar ese comportamiento,
+    # modifica la condición). Esto evita duplicados y competencia por archivo.
     if Application.get_env(:proyecto_final_prg3, :tipo_nodo) == :central do
       File.mkdir_p!(@log_dir)
       unless File.exists?(@log_file), do: inicializar_csv()
 
-      json =
+      # normalizamos y convertimos a JSON seguro
+      json_safe =
         evento.datos
         |> normalizar_para_json()
         |> Jason.encode!()
@@ -146,7 +162,7 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
           evento.nodo,
           evento.tipo,
           evento.mensaje,
-          json
+          json_safe
         ]
         |> Enum.map(&to_string/1)
         |> Enum.map(&escape/1)
@@ -156,77 +172,90 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
       File.open!(@log_file, [:append, :binary], fn file ->
         IO.binwrite(file, linea)
       end)
+    else
+      # Si no es central, no escribe en CSV (pero sí muestra en consola)
+      :ok
     end
+  rescue
+    e ->
+      # Guardar fallo no debe romper la app; lo notificamos por consola
+      IO.puts(
+        IO.ANSI.red() <>
+          "[LOGGER-ERR] #{DateTime.utc_now() |> DateTime.to_iso8601()} | Error guardando log: #{inspect(e)}" <>
+          IO.ANSI.reset()
+      )
+
+      :ok
   end
 
   # ----------------------------------------------
   # NORMALIZAR CUALQUIER TIPO DE DATO PARA JSON/CSV
   # ----------------------------------------------
 
-  # Tuplas (como timestamps {megasegundos, segundos, microsegundos})
+  # Tuplas → lista (segura)
   defp normalizar_para_json(tuple) when is_tuple(tuple) do
     tuple
     |> Tuple.to_list()
     |> Enum.map(&normalizar_para_json/1)
-    |> Enum.join(",")
   end
 
-  # Nulo
   defp normalizar_para_json(nil), do: %{}
-
-  # Bitstrings
   defp normalizar_para_json(d) when is_binary(d), do: d
 
-  # Structs
   defp normalizar_para_json(%_{} = struct) do
     struct
     |> Map.from_struct()
     |> normalizar_para_json()
   end
 
-  # Mapas
   defp normalizar_para_json(map) when is_map(map) do
     map
     |> Enum.map(fn {k, v} -> {to_string(k), normalizar_para_json(v)} end)
     |> Map.new()
   end
 
-  # Listas
   defp normalizar_para_json(list) when is_list(list) do
     Enum.map(list, &normalizar_para_json/1)
   end
 
-  # Cualquier otro tipo
   defp normalizar_para_json(other), do: to_string(other)
 
   @doc false
   defp parse_line(linea) do
-    campos =
-      Regex.scan(~r/"([^"]*)"|([^,]+)/, linea)
-      |> Enum.map(fn
-        [_, quoted, _] when quoted != nil -> quoted
-        [_, _, normal] -> normal
-      end)
+    # Manejo robusto: si la línea está vacía o malformada, devolvemos :invalid
+    linea = String.trim(linea)
 
-    case campos do
-      [id, ts, nodo, tipo, msg, json] ->
-        datos =
-          case Jason.decode(json) do
-            {:ok, map} -> map
-            _ -> %{}
-          end
+    if linea == "" do
+      :invalid
+    else
+      campos =
+        Regex.scan(~r/"([^"]*)"|([^,]+)/, linea)
+        |> Enum.map(fn
+          [_, quoted, _] when quoted != nil -> quoted
+          [_, _, normal] -> normal
+          _ -> ""
+        end)
 
-        %{
-          id: id,
-          timestamp: ts,
-          nodo: nodo,
-          tipo: safe_atom(tipo),
-          mensaje: msg,
-          datos: datos
-        }
+      case campos do
+        [id, ts, nodo, tipo, msg, json] ->
+          datos =
+            case Jason.decode(json) do
+              {:ok, map} -> map
+              _ -> %{}
+            end
 
-      _ ->
-        :invalid
+          %{
+            id: id,
+            timestamp: ts,
+            nodo: nodo,
+            tipo: safe_atom(tipo),
+            mensaje: msg,
+            datos: datos
+          }
+
+        _ ->
+          :invalid
+      end
     end
   end
 
@@ -239,17 +268,20 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
   end
 
   @doc false
-  defp safe_atom(v),
-    do:
-      (try do
-         String.to_existing_atom(v)
-       rescue
-         _ ->
-           :info
-       end)
+  defp safe_atom(v) when is_binary(v) do
+    # evitamos crear atoms dinámicamente con String.to_atom/1
+    try do
+      String.to_existing_atom(v)
+    rescue
+      _ -> String.to_atom("unknown")
+    end
+  end
+
+  defp safe_atom(_), do: :info
 
   @doc false
   defp inicializar_csv do
+    File.mkdir_p!(@log_dir)
     encabezado = "id,timestamp,nodo,tipo,mensaje,datos\n"
     File.write!(@log_file, encabezado)
   end
@@ -260,22 +292,27 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
 
   defp mostrar_en_consola(evento) do
     tipo_nodo = Application.get_env(:proyecto_final_prg3, :tipo_nodo)
-    nodo_evento = evento.nodo |> String.to_atom()
+    # Comparamos por string para NO crear atoms dinámicamente
+    nodo_local_str = Atom.to_string(Node.self())
+    nodo_evento_str = to_string(evento.nodo)
 
     cond do
-      # CENTRAL → logs generados por CENTRAL
-      tipo_nodo == :central and nodo_evento == Node.self() ->
+      # CENTRAL → muestra logs generados por CENTRAL (comparación por string segura)
+      tipo_nodo == :central and nodo_evento_str == nodo_local_str ->
         imprimir(evento)
 
       # PERSISTENCIA → solo logs generados por persistencia
-      tipo_nodo == :persistencia and nodo_evento == Node.self() ->
+      tipo_nodo == :persistencia and nodo_evento_str == nodo_local_str ->
         imprimir(evento)
 
       # CLI → solo logs generados por CLI
-      tipo_nodo == :cli and nodo_evento == Node.self() ->
+      tipo_nodo == :cli and nodo_evento_str == nodo_local_str ->
         imprimir(evento)
 
+      # En modo desarrollo local (cuando todos están en el mismo BEAM), permitimos
+      # que CLI muestre sus logs también si tipo_nodo == :cli.
       true ->
+        # no imprimir logs que no nos correspondan
         :ok
     end
   end
