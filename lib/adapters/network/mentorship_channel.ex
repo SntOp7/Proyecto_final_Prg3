@@ -153,10 +153,6 @@ defmodule ProyectoFinalPrg3.Adapters.Network.MentorshipChannel do
   def init(state) do
     PubSubAdapter.suscribir(:mentor_event)
 
-    LoggerService.registrar_evento("MentorshipChannel inicializado", %{
-      nodo: Node.self()
-    })
-
     {:ok, state}
   end
 
