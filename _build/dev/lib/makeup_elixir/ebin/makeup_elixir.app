@@ -7,7 +7,7 @@
                         'Elixir.Makeup.Lexers.ElixirLexer.Variables']},
               {optional_applications,[]},
               {applications,[kernel,stdlib,elixir,makeup,nimble_parsec]},
-              {description,"Elixir lexer for the Makeup syntax highlighter.\r\n"},
+              {description,"Elixir lexer for the Makeup syntax highlighter.\n"},
               {registered,[]},
               {vsn,"1.0.1"},
               {mod,{'Elixir.Makeup.Lexers.ElixirLexer.Application',[]}},

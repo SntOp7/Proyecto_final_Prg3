@@ -69,7 +69,7 @@
               {optional_applications,[]},
               {applications,[kernel,stdlib,elixir,dialyzer,crypto,mix,erts,
                              syntax_tools,logger,erlex]},
-              {description,"Mix tasks to simplify use of Dialyzer in Elixir projects.\r\n"},
+              {description,"Mix tasks to simplify use of Dialyzer in Elixir projects.\n"},
               {registered,[]},
               {vsn,"1.4.6"},
               {mod,{'Elixir.Dialyxir',[]}}]}.

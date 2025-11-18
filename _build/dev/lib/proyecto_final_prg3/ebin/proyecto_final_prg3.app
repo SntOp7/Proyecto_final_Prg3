@@ -65,7 +65,7 @@
           'Elixir.ProyectoFinalPrg3.Services.TeamManager',
           'Elixir.ProyectoFinalPrg3.Utils.DateTimeHelper']},
      {compile_env,
-         [{proyecto_final_prg3,[central_node],{ok,central@JuanHernandez}},
+         [{proyecto_final_prg3,[central_node],{ok,'central@PC-SANTIAGO'}},
           {proyecto_final_prg3,[command_parser],error},
           {proyecto_final_prg3,[command_service],error},
           {proyecto_final_prg3,[logger_service],error}]},
