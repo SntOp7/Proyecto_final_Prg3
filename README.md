@@ -682,11 +682,6 @@ Necesitamos revisar el módulo de autenticación
 /delete_team id_equipo=uuid-equipo-123
 ```
 
-**Eliminar Usuario:**
-```bash
-/delete_user id=uuid-usuario-123
-```
-
 ---
 
 ### 📢 Comandos de Comunicación Global
