@@ -358,7 +358,6 @@ CLI lista (/help para ver comandos)
 
 # 📜 Guía Completa de Comandos del Sistema
 
-Añadiré una sección completa y detallada de todos los comandos disponibles en el sistema, organizados por categorías y con ejemplos prácticos para copiar y pegar.
 
 ---
 
