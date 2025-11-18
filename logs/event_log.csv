@@ -1,4 +1,1 @@
 id,timestamp,nodo,tipo,mensaje,datos
-"3bc9c028-79ef-42b1-b088-3ac9f5b57b18","2025-11-17T04:12:51.302000Z","cli@JuanHernandez","info","Inicio del sistema","{'nodo':'cli'}"
-"209c2df4-0836-4bee-9ca7-5eea27b305c3","2025-11-17T04:12:51.316000Z","cli@JuanHernandez","info","Nodo CLI: sin capacidades distribuidas","{}"
-"af171705-adce-4a9e-8b37-882c330e426f","2025-11-17T04:12:51.359000Z","cli@JuanHernandez","error","Error conectando CLI al CENTRAL","{'nodo':'central@JuanHernandez'}"

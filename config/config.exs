@@ -49,7 +49,7 @@ config :proyecto_final_prg3,
 # ================================================================
 
 config :proyecto_final_prg3,
-  tipo_nodo: :cli
+  tipo_nodo: :persistencia
 
 # válidos: :central | :persistencia | :cli
 

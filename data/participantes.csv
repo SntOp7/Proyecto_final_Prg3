@@ -1,2 +1,4 @@
 id,nombre,correo,username,contrasena,rol,equipo_id,estado,mensajes
 fccbad80-1c03-470f-af5f-a2c81da6cdd0,Admin,admin@proyecto.local,admin,240BE518FABD2724DDB6F04EEB1DA5967448D7E831C08C8FA822809F74C720A9,admin,,activo,
+010f49c6-cce8-4676-a037-f044bfa23741,JuanJose,juan@gail.com,JuanJo123,A665A45920422F9D417E4867EFDC4FB8A04A1F3FFF1FA07E998E86F7F7A27AE3,participante,,activo,
+7436b29c-4bb4-40dd-b9ca-40f9a757f340,JuanJose,juan@gmal.com,JuanJo123,A665A45920422F9D417E4867EFDC4FB8A04A1F3FFF1FA07E998E86F7F7A27AE3,participante,,activo,

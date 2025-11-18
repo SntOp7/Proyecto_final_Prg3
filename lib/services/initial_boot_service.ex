@@ -81,7 +81,6 @@ defmodule ProyectoFinalPrg3.Services.InitialBootService do
 
     tipo = Application.get_env(:proyecto_final_prg3, :tipo_nodo, :central)
 
-    LoggerService.limpiar_logs()
     LoggerService.registrar_evento("Inicio del sistema", %{nodo: tipo})
 
     # Inicializa nodos distribuidos según tipo
@@ -96,6 +95,7 @@ defmodule ProyectoFinalPrg3.Services.InitialBootService do
     end
 
     if tipo == :persistencia do
+      LoggerService.limpiar_logs()
       PersistenceManager.inicializar()
       LoggerService.registrar_evento("Repositorios cargados", %{})
     end
