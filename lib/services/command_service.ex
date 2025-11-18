@@ -237,9 +237,6 @@ defmodule ProyectoFinalPrg3.Services.CommandService do
 
     {:error, razon} ->
       {:error, "No se pudo asignar el mentor: #{inspect(razon)}"}
-
-    otro ->
-      {:error, "Error inesperado: #{inspect(otro)}"}
   end
 end
 
@@ -291,9 +288,6 @@ end
 
       {:error, :no_sesion_activa} ->
         {:error, "Debes iniciar sesión."}
-
-      error ->
-        error
     end
   end
 
