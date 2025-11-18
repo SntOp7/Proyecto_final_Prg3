@@ -77,7 +77,6 @@ defmodule ProyectoFinalPrg3.Services.InitialBootService do
 
   @impl true
   def handle_info(:boot, state) do
-    IO.puts("\n🚀 Iniciando sistema ProyectoFinalPrg3...\n")
 
     tipo = Application.get_env(:proyecto_final_prg3, :tipo_nodo, :central)
 
