@@ -49,22 +49,8 @@ defmodule ProyectoFinalPrg3.Services.BroadcastService do
     mensaje = construir_mensaje(tipo, evento, data)
 
     LoggerService.registrar_evento("Difusión: #{evento}", mensaje)
-    MetricsService.registrar_evento(:error_sistema, %{contexto: evento, detalle: mensaje})
 
-    # Si NO somos el nodo central → reenviar por RPC
-    if not soy_central?() do
-      return = reenviar_al_central(:notificar, [evento, data, tipo])
-      return
-    else
-      # Solo CENTRAL hace broadcast real
-      safe_broadcast(fn ->
-        PubSubAdapter.publicar(evento, mensaje)
-        ChannelManager.broadcast(evento, mensaje)
-        NodeManager.enviar_a_nodos(evento, mensaje)
-      end)
-
-      {:ok, mensaje}
-    end
+    {:ok, mensaje}
   end
 
   @doc """

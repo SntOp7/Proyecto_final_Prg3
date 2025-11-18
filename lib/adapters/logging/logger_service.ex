@@ -17,6 +17,8 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
   @log_dir "logs"
   @log_file "#{@log_dir}/event_log.csv"
 
+  @ultimo_log_key :ultimo_log_mostrado
+
   # ============================================================
   # API PÚBLICA
   # ============================================================
@@ -60,7 +62,6 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
   Retorna: :ok
   """
   def limpiar_logs do
-    # eliminar de forma segura (no falla si no existe)
     File.rm_rf!(@log_file)
     File.mkdir_p!(@log_dir)
     inicializar_csv()
@@ -105,6 +106,35 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
   # PRIVADO
   # ============================================================
 
+  defp log_visible?(evento) do
+    msg = evento.mensaje
+
+    cond do
+      String.contains?(msg, "Evento registrado en métricas") -> false
+      String.contains?(msg, "RPC enviado") -> false
+      String.contains?(msg, "Mensaje recibido desde nodo remoto") -> false
+      String.contains?(msg, "Broadcast realizado") -> false
+      String.contains?(msg, "Verificación de permiso") -> false
+      true -> true
+    end
+  end
+
+  # 🔥 NUEVO: evitar duplicados consecutivos en consola
+  defp mensaje_igual_al_anterior?(evento) do
+    key = {evento.nodo, evento.mensaje}
+
+    last = :persistent_term.get(@ultimo_log_key, nil)
+
+    cond do
+      last == key ->
+        true
+
+      true ->
+        :persistent_term.put(@ultimo_log_key, key)
+        false
+    end
+  end
+
   @doc false
   defp construir_evento(mensaje, data) do
     %{
@@ -117,8 +147,6 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
     }
   end
 
-  # Normaliza entrada recibida como `data` para guardarla y evitar
-  # errores en JSON. Devuelve siempre una estructura JSON-serializable.
   @doc false
   defp normalizar_datos(nil), do: %{}
   defp normalizar_datos(data) when is_binary(data), do: data
@@ -138,18 +166,12 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
 
   defp normalizar_datos(other), do: normalizar_para_json(other)
 
-  # -------------------------------------------------------
-  # GUARDA EN ARCHIVO (solo nodo central escribe CSV)
-  # -------------------------------------------------------
   @doc false
   defp guardar_en_archivo(evento) do
-    # Solo CENTRAL guarda logs en CSV (si quieres cambiar ese comportamiento,
-    # modifica la condición). Esto evita duplicados y competencia por archivo.
     if Application.get_env(:proyecto_final_prg3, :tipo_nodo) == :central do
       File.mkdir_p!(@log_dir)
       unless File.exists?(@log_file), do: inicializar_csv()
 
-      # normalizamos y convertimos a JSON seguro
       json_safe =
         evento.datos
         |> normalizar_para_json()
@@ -172,13 +194,9 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
       File.open!(@log_file, [:append, :binary], fn file ->
         IO.binwrite(file, linea)
       end)
-    else
-      # Si no es central, no escribe en CSV (pero sí muestra en consola)
-      :ok
     end
   rescue
     e ->
-      # Guardar fallo no debe romper la app; lo notificamos por consola
       IO.puts(
         IO.ANSI.red() <>
           "[LOGGER-ERR] #{DateTime.utc_now() |> DateTime.to_iso8601()} | Error guardando log: #{inspect(e)}" <>
@@ -188,11 +206,7 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
       :ok
   end
 
-  # ----------------------------------------------
-  # NORMALIZAR CUALQUIER TIPO DE DATO PARA JSON/CSV
-  # ----------------------------------------------
-
-  # Tuplas → lista (segura)
+  # Normalización segura para CSV/JSON
   defp normalizar_para_json(tuple) when is_tuple(tuple) do
     tuple
     |> Tuple.to_list()
@@ -222,7 +236,6 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
 
   @doc false
   defp parse_line(linea) do
-    # Manejo robusto: si la línea está vacía o malformada, devolvemos :invalid
     linea = String.trim(linea)
 
     if linea == "" do
@@ -269,7 +282,6 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
 
   @doc false
   defp safe_atom(v) when is_binary(v) do
-    # evitamos crear atoms dinámicamente con String.to_atom/1
     try do
       String.to_existing_atom(v)
     rescue
@@ -287,33 +299,20 @@ defmodule ProyectoFinalPrg3.Adapters.Logging.LoggerService do
   end
 
   # ============================================================
-  # NUEVO BLOQUE: MOSTRAR EN CONSOLA POR NODO
+  # MOSTRAR EN CONSOLA POR NODO + FILTRADO FINAL
   # ============================================================
 
   defp mostrar_en_consola(evento) do
     tipo_nodo = Application.get_env(:proyecto_final_prg3, :tipo_nodo)
-    # Comparamos por string para NO crear atoms dinámicamente
-    nodo_local_str = Atom.to_string(Node.self())
-    nodo_evento_str = to_string(evento.nodo)
+    nodo_evento = evento.nodo |> String.to_atom()
 
-    cond do
-      # CENTRAL → muestra logs generados por CENTRAL (comparación por string segura)
-      tipo_nodo == :central and nodo_evento_str == nodo_local_str ->
-        imprimir(evento)
-
-      # PERSISTENCIA → solo logs generados por persistencia
-      tipo_nodo == :persistencia and nodo_evento_str == nodo_local_str ->
-        imprimir(evento)
-
-      # CLI → solo logs generados por CLI
-      tipo_nodo == :cli and nodo_evento_str == nodo_local_str ->
-        imprimir(evento)
-
-      # En modo desarrollo local (cuando todos están en el mismo BEAM), permitimos
-      # que CLI muestre sus logs también si tipo_nodo == :cli.
-      true ->
-        # no imprimir logs que no nos correspondan
-        :ok
+    if log_visible?(evento) and not mensaje_igual_al_anterior?(evento) do
+      cond do
+        tipo_nodo == :central and nodo_evento == Node.self() -> imprimir(evento)
+        tipo_nodo == :persistencia and nodo_evento == Node.self() -> imprimir(evento)
+        tipo_nodo == :cli and nodo_evento == Node.self() -> imprimir(evento)
+        true -> :ok
+      end
     end
   end
 
